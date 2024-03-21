@@ -1,0 +1,11 @@
+## Interface: 11508
+## Title: Prism
+## Author: clebert
+## Notes: A World of Warcraft Classic addon that makes action buttons visually respond to gameplay situations.
+## Version: 1.0
+## RequiredDeps:
+## OptionalDeps:
+## SavedVariables: PrismSavedVariables
+## SavedVariablesPerCharacter: PrismSavedVariablesPerCharacter
+
+lib/main.lua

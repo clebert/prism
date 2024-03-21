@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"],
+
+  "compilerOptions": {
+    "checkJs": false,
+    "noEmit": false,
+    "outDir": "lib/",
+    "rootDir": "src/"
+  },
+
+  "tstl": {
+    "luaBundle": "main.lua",
+    "luaBundleEntry": "src/main.ts",
+    "luaLibImport": "require",
+    "luaTarget": "5.1",
+    "noImplicitGlobalVariables": true,
+    "noImplicitSelf": true
+  }
+}
