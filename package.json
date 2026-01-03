@@ -1,5 +1,6 @@
 {
   "name": "prism",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +11,7 @@
     "compile:emit": "tstl --project tsconfig.emit.json",
     "format": "prettier --check \"**/*.{md,yaml,yml}\"",
     "format:fix": "prettier --write \"**/*.{md,yaml,yml}\"",
+    "release": "npm version",
     "test": "tsx --test --experimental-test-coverage 'src/**/*.test.ts'"
   },
   "devDependencies": {

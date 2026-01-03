@@ -1,0 +1,20 @@
+package-as: Prism
+
+ignore:
+  - .claude
+  - .github
+  - .vscode
+  - example-configs
+  - node_modules
+  - src
+  - .gitignore
+  - .nvmrc
+  - .prettierignore
+  - biome.json
+  - CLAUDE.md
+  - install.sh
+  - package-lock.json
+  - package.json
+  - prism.jpg
+  - tsconfig.emit.json
+  - tsconfig.json
