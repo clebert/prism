@@ -2,7 +2,7 @@
 
 A World of Warcraft Classic addon that makes action buttons visually respond to gameplay situations.
 
-<img src="prism.jpg" alt="Prism" width="600">
+<img src="prism.jpg" alt="Prism" width="400">
 
 Optimal play requires tracking cooldowns, resources, buffs, debuffs, and enemy casts simultaneously - mental overhead that pulls attention away from positioning and split-second decisions. Prism moves that tracking to your peripheral vision: buttons glow when abilities should be used, turn red when blocked, or show a golden border when already active.
 
