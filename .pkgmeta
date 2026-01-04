@@ -4,7 +4,6 @@ ignore:
   - .claude
   - .github
   - .vscode
-  - example-configs
   - node_modules
   - src
   - .gitignore

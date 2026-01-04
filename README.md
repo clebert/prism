@@ -10,11 +10,22 @@ All action buttons benefit from automatic visual feedback (range, resources, coo
 
 ## Installation
 
-1. Download Prism from [CurseForge](https://www.curseforge.com/wow/addons/prism) (link coming soon)
-2. Extract to your `World of Warcraft/_classic_/Interface/AddOns/` folder
-3. Restart WoW or type `/reload` if already in-game
+- Download Prism from [CurseForge](https://www.curseforge.com/wow/addons/prism)
+- Extract to your `World of Warcraft/_classic_/Interface/AddOns/` folder
+- Restart WoW or type `/reload` if already in-game
 
 To configure Prism in-game, type `/prism` to open the configuration window.
+
+## Ready-to-use Configurations
+
+Ready-to-use configurations are available for various classes. For example, here's a complete [Rogue configuration](https://github.com/clebert/prism/blob/main/example-configs/rogue.dsl).
+
+To use an example configuration:
+
+- Type `/prism` in-game to open the configuration window
+- Click "New Document" to create a new document
+- Copy the content from the example file and paste it into the document
+- Save the document
 
 ## Example
 
@@ -39,18 +50,18 @@ glowing: @player{combat & grouped & druidForm(bear)}
 This makes Growl:
 
 - **Red** when lacking mana to shift into bear form or target is dead/friendly/missing
-- **Golden border** when Growl debuff is active or target is already attacking the player
+- **Golden border** when Growl debuff is active or target is already targeting the player
 - **Grayed out** when target is casting
 - **Flashing** when lacking mana to shift back from bear form after using Growl
-- **Glowing** during combat when in a group
+- **Glowing** when in bear form during combat in a group
 
 ## State Hierarchy and Rules
 
 The visual state system follows a strict hierarchy:
 
-1. **Default state** - buttons are enabled by default unless a rule explicitly disables them
-2. **Cascading effect** - if an ability is blocked, depleted, or checked, it becomes disabled and cannot glow or flash
-3. **Precedence** - default rules always win - if the game determines that an ability is blocked, depleted, or checked, custom rules cannot override this
+- **Default state** - buttons are enabled by default unless a rule explicitly disables them
+- **Cascading effect** - if an ability is blocked, depleted, or checked, it becomes disabled and cannot glow or flash
+- **Precedence** - default rules always win - if the game determines that an ability is blocked, depleted, or checked, custom rules cannot override this
 
 ### Default Behavior
 
@@ -71,8 +82,8 @@ Even without custom rules, Prism applies these defaults to all action buttons ba
 
 The cascading system prevents conflicting visual states:
 
-1. **Disabled states** (blocked, depleted, checked) prevent flashing and glowing
-2. **Flashing takes priority** over glowing when both conditions are met
+- **Disabled states** (blocked, depleted, checked) prevent flashing and glowing
+- **Flashing takes priority** over glowing when both conditions are met
 
 For example, with Aspect of the Hawk:
 
