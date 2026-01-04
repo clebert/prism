@@ -33,7 +33,16 @@ glowing: @target:help{is(@player) & health(<50%) & !buff("Food") & !combat}
 # - https://www.wowhead.com/classic/item=184937/chronoboon-displacer
 
 item: 184937
+blocked: @player{!buff("Rallying Cry of the Dragonslayer") & !buff("Spirit of Zandalar")}
 checked: @player{buff("Supercharged Chronoboon Displacer")}
+glowing: @player{resting}
+
+# Supercharged Chronoboon Displacer
+
+# - https://www.wowhead.com/classic/item=184938/supercharged-chronoboon-displacer
+
+item: 184938
+blocked: @player{!buff("Supercharged Chronoboon Displacer")}
 
 # Elixir of Poison Resistance
 
