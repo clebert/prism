@@ -209,23 +209,48 @@ spell: "Cone of Cold"
 ####################################################################
 
 # https://www.wowhead.com/classic/spell=759/conjure-mana-agate
+# https://www.wowhead.com/classic/item=5514/mana-agate
+spell: "Conjure Mana Agate"
+checked: @player{itemCount(5514, 1)}
+glowing: @player{!combat & !resting}
 
 ####################################################################
 # Level 30 abilities
 ####################################################################
 
 # https://www.wowhead.com/classic/spell=11113/blast-wave
+spell: "Blast Wave"
+
 # https://www.wowhead.com/classic/spell=7302/ice-armor
+spell: "Ice Armor"
+checked: @player{ownBuff(infer)}
+glowing: @player{!resting & !ownBuff("Mage Armor")}
+
 # https://www.wowhead.com/classic/spell=11958/ice-block
+spell: "Ice Block"
+checked: @player{ownBuff(infer)}
+glowing: @player{(health(<20%) & combat) | falling(>1s)}
+
 # https://www.wowhead.com/classic/spell=12043/presence-of-mind
+spell: "Presence of Mind"
+checked: @player{ownBuff(infer)}
+
 # https://www.wowhead.com/classic/spell=3565/teleport-darnassus
+spell: "Teleport: Darnassus"
+blocked: @player{combat}
+
 # https://www.wowhead.com/classic/spell=3566/teleport-thunder-bluff
+spell: "Teleport: Thunder Bluff"
+blocked: @player{combat}
 
 ####################################################################
 # Level 34 abilities
 ####################################################################
 
 # https://www.wowhead.com/classic/spell=6117/mage-armor
+spell: "Mage Armor"
+checked: @player{ownBuff(infer)}
+glowing: @player{!resting & !ownBuff("Ice Armor")}
 
 ####################################################################
 # Level 38 abilities

@@ -206,6 +206,7 @@ enabled: @player{!buff("Feign Death")}
 
 item: 5514
 checked: @player{mana(100%)}
+glowing: @player{mana(<20%) & combat}
 
 # Moist Towelette
 
