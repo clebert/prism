@@ -133,7 +133,7 @@ glowing: @target:help{always}
 
 # https://www.wowhead.com/classic/spell=1953/blink
 spell: "Blink"
-glowing: @player{debuff("Net")} | (@player{running(>3s) & outdoors} & @target{missing | dead | help})
+glowing: @player{debuff("Net")} | (@player{running(>3s) & outdoors & falling(<1s)} & @target{missing | dead | help})
 
 # https://www.wowhead.com/classic/spell=10/blizzard
 spell: "Blizzard"
