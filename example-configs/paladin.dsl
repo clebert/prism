@@ -35,7 +35,7 @@ glowing: @target{!ownDebuff("Judgement of the Crusader")} & @player{ownBuff("Sea
 spell: "Blessing of Might"
 blocked: @target:help{dead}
 checked: @target:help{buff(infer)}
-glowing: @target:help{is(@player)} & @player{!combat & !resting & !blessed}
+glowing: @target:help{is(@player)} & @player{!combat & !resting & !blessed & !talent("Blessing of Kings")}
 
 #################################################################
 # Level 6 abilities
@@ -132,6 +132,7 @@ glowing: @target:help{is(@player) & debuff("Net")}
 spell: "Blessing of Kings"
 blocked: @target:help{dead}
 checked: @target:help{buff(infer)}
+glowing: @target:help{is(@player)} & @player{!combat & !resting & !blessed}
 
 # https://www.wowhead.com/classic/spell=26573/consecration
 spell: "Consecration"

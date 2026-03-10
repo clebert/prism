@@ -1,7 +1,16 @@
 export function getTalentRank(
-  talentName: "Improved Mend Pet" | "Improved Overpower" | "Tactical Mastery",
+  talentName: "Blessing of Kings" | "Improved Mend Pet" | "Improved Overpower" | "Tactical Mastery",
 ): number {
   switch (talentName) {
+    case "Blessing of Kings": {
+      const [, iconTexture, , , rank] = GetTalentInfo(2, 10);
+
+      if (iconTexture !== 135995) {
+        throw new Error(`Unable to detect talent: '${talentName}'`);
+      }
+
+      return rank;
+    }
     case "Improved Mend Pet": {
       const [, iconTexture, , , rank] = GetTalentInfo(1, 4);
 

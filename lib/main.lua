@@ -4489,7 +4489,20 @@ local ____exports = {}
 function ____exports.getTalentRank(talentName)
     repeat
         local ____switch3 = talentName
-        local ____cond3 = ____switch3 == "Improved Mend Pet"
+        local ____cond3 = ____switch3 == "Blessing of Kings"
+        if ____cond3 then
+            do
+                local ____, iconTexture, ____, ____, rank = GetTalentInfo(2, 10)
+                if iconTexture ~= 135995 then
+                    error(
+                        __TS__New(Error, ("Unable to detect talent: '" .. talentName) .. "'"),
+                        0
+                    )
+                end
+                return rank
+            end
+        end
+        ____cond3 = ____cond3 or ____switch3 == "Improved Mend Pet"
         if ____cond3 then
             do
                 local ____, iconTexture, ____, ____, rank = GetTalentInfo(1, 4)
@@ -4821,7 +4834,7 @@ ____exports.playerPredicates = {
         return IsSwimming()
     end,
     talent = function(self, talentName, rank)
-        if talentName ~= "Improved Mend Pet" and talentName ~= "Improved Overpower" and talentName ~= "Tactical Mastery" then
+        if talentName ~= "Blessing of Kings" and talentName ~= "Improved Mend Pet" and talentName ~= "Improved Overpower" and talentName ~= "Tactical Mastery" then
             return false
         end
         local currentRank = getTalentRank(talentName)

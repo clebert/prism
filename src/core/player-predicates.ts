@@ -201,6 +201,7 @@ export const playerPredicates: PlayerPredicates = {
 
   talent(talentName, rank): boolean {
     if (
+      talentName !== "Blessing of Kings" &&
       talentName !== "Improved Mend Pet" &&
       talentName !== "Improved Overpower" &&
       talentName !== "Tactical Mastery"
@@ -209,7 +210,11 @@ export const playerPredicates: PlayerPredicates = {
     }
 
     const currentRank = getTalentRank(
-      talentName as "Improved Mend Pet" | "Improved Overpower" | "Tactical Mastery",
+      talentName as
+        | "Blessing of Kings"
+        | "Improved Mend Pet"
+        | "Improved Overpower"
+        | "Tactical Mastery",
     );
 
     return rank?.(currentRank) ?? currentRank > 0;

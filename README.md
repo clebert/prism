@@ -367,8 +367,10 @@ Predicates are the individual checks that evaluate to true or false. They're use
 #### Talents
 
 - `talent(name, rank?)` - player has talent with optional rank check
+  - Supported talents: `"Blessing of Kings"`, `"Improved Mend Pet"`, `"Improved Overpower"`, `"Tactical Mastery"`
 
 ```dsl
+@player{talent("Blessing of Kings")}
 @player{talent("Tactical Mastery", >=2)}
 ```
 
