@@ -38,6 +38,7 @@ export const universalPredicates: UniversalPredicates = {
     return true;
   },
 
+  // TODO: auraName is localized, English clients only
   blessed(unit): boolean {
     return getAuraState(resolveUnitId(unit)).hasBlessing;
   },

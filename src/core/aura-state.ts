@@ -97,12 +97,12 @@ export function getAuraState(unitId: string): AuraState {
         }
 
         // TODO: auraName is localized, English clients only
-        if (auraName.includes("Blessing of ")) {
+        if (source === "player" && auraName.includes("Blessing of ")) {
           hasBlessing = true;
         }
 
         // TODO: auraName is localized, English clients only
-        if (auraName.startsWith("Seal of ")) {
+        if (source === "player" && auraName.startsWith("Seal of ")) {
           hasSeal = true;
         }
 

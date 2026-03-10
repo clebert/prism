@@ -263,7 +263,6 @@ Predicates are the individual checks that evaluate to true or false. They're use
 
 #### Dispellable Auras
 
-- `blessed` - unit has a Blessing or Greater Blessing buff
 - `cursed` - unit has curse debuff
 - `diseased` - unit has disease debuff
 - `magicBuff` - unit has magic buff
@@ -402,28 +401,42 @@ Predicates are the individual checks that evaluate to true or false. They're use
 @player{itemCount(8544, >0)}    # Has any Mageweave Bandages
 ```
 
-#### Class-Specific
+#### Druid
 
-- `canShiftInto(target)` - player has enough mana to shift into target form and use ability (Druid)
+- `canShiftInto(target)` - player has enough mana to shift into target form and use ability
   - `target`: druid form keyword (`aquatic`, `bear`, `cat`, `humanoid`, `moonkin`, `travel`)
   - if current form equals target form: only checks ability mana cost
   - if forms differ: checks target form cost + ability cost
 
-- `canShiftBackFrom(target)` - player has enough mana for round-trip: shift to target form, use ability, and return to current form (Druid)
+- `canShiftBackFrom(target)` - player has enough mana for round-trip: shift to target form, use ability, and return to current form
   - `target`: druid form keyword (`aquatic`, `bear`, `cat`, `humanoid`, `moonkin`, `travel`)
   - if current form equals target form: only checks ability mana cost
   - if forms differ: checks target form cost + ability cost + current form re-entry cost
 
-- `druidForm(target)`
-- `rageSafe` - player can switch stances without losing rage (Warrior)
-- `sealed` - player has a Seal buff (Paladin)
+- `druidForm(target)` - player is in specific druid form
 
 ```dsl
 @player{canShiftInto(bear)}
 @player{canShiftBackFrom(bear)}
 @player{druidForm(bear)}
-@player{rageSafe}
+```
+
+#### Paladin
+
+- `blessed` - unit has a Blessing or Greater Blessing cast by the player (any unit scope)
+- `sealed` - player has a Seal buff
+
+```dsl
+@target:help{blessed}
 @player{!sealed}
+```
+
+#### Warrior
+
+- `rageSafe` - player can switch stances without losing rage
+
+```dsl
+@player{rageSafe}
 ```
 
 #### Ability State

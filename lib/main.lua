@@ -4625,10 +4625,10 @@ function ____exports.getAuraState(unitId)
                     ownBuffs:set(auraName, aura)
                     ownBuffs:set(spellId, aura)
                 end
-                if __TS__StringIncludes(auraName, "Blessing of ") then
+                if source == "player" and __TS__StringIncludes(auraName, "Blessing of ") then
                     hasBlessing = true
                 end
-                if __TS__StringStartsWith(auraName, "Seal of ") then
+                if source == "player" and __TS__StringStartsWith(auraName, "Seal of ") then
                     hasSeal = true
                 end
                 if dispelType == "Magic" then

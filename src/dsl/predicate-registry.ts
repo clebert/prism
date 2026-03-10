@@ -99,8 +99,10 @@ export interface UniversalPredicates {
     duration: ComparisonFunction<Duration> | undefined,
   ): boolean;
 
-  // Dispellable Auras
+  // Paladin (universal scope — blessings are cast on any friendly unit)
   blessed(unit: Unit): boolean;
+
+  // Dispellable Auras
   cursed(unit: Unit): boolean;
   diseased(unit: Unit): boolean;
   magicBuff(unit: Unit): boolean;
