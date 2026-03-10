@@ -142,6 +142,7 @@ function createPlayerPredicateFunction(
     case "outdoors":
     case "rageSafe":
     case "resting":
+    case "sealed":
     case "stealthed":
     case "submerged":
     case "swimming": {
@@ -221,6 +222,7 @@ function createUniversalPredicateFunction(
 ): RuleFunction {
   switch (predicateName) {
     case "alive":
+    case "blessed":
     case "bleedable":
     case "blocked":
     case "casting":

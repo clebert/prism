@@ -16,7 +16,7 @@ glowing: @target:help{is(@player) & health(<50%) & !buff("Food") & !combat} | @p
 spell: "Seal of Righteousness"
 checked: @player{ownBuff(infer)}
 enabled: @target{ownDebuff("Judgement of the Crusader")} | @player{!ownBuff("Seal of the Crusader")}
-glowing: @target{harm & !dead & ((!elite & level(<44)) | ownDebuff("Judgement of the Crusader"))}
+glowing: @target{harm & !dead & ((!elite & level(<44)) | ownDebuff("Judgement of the Crusader"))} & @player{!sealed}
 
 # https://www.wowhead.com/classic/spell=465/devotion-aura
 spell: "Devotion Aura"
@@ -28,14 +28,14 @@ checked: @player{ownBuff(infer)}
 
 # https://www.wowhead.com/classic/spell=20271/judgement
 spell: "Judgement"
-blocked: @target{dead | !harm} | @player{!ownBuff("Seal of Righteousness") & !ownBuff("Seal of the Crusader")}
+blocked: @target{dead | !harm} | @player{!sealed}
 glowing: @target{!ownDebuff("Judgement of the Crusader")} & @player{ownBuff("Seal of the Crusader")}
 
 # https://www.wowhead.com/classic/spell=19740/blessing-of-might
 spell: "Blessing of Might"
 blocked: @target:help{dead}
 checked: @target:help{buff(infer)}
-glowing: @target:help{is(@player)} & @player{!combat & !resting}
+glowing: @target:help{is(@player)} & @player{!combat & !resting & !blessed}
 
 #################################################################
 # Level 6 abilities
@@ -139,6 +139,7 @@ spell: "Consecration"
 # https://www.wowhead.com/classic/spell=879/exorcism
 spell: "Exorcism"
 blocked: @target{dead | !harm | (!creature(demon) & !creature(undead))}
+glowing: @player{!combat}
 
 # https://www.wowhead.com/classic/spell=19750/flash-of-light
 spell: "Flash of Light"

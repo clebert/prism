@@ -263,6 +263,7 @@ Predicates are the individual checks that evaluate to true or false. They're use
 
 #### Dispellable Auras
 
+- `blessed` - unit has a Blessing or Greater Blessing buff
 - `cursed` - unit has curse debuff
 - `diseased` - unit has disease debuff
 - `magicBuff` - unit has magic buff
@@ -413,12 +414,14 @@ Predicates are the individual checks that evaluate to true or false. They're use
 
 - `druidForm(target)`
 - `rageSafe` - player can switch stances without losing rage (Warrior)
+- `sealed` - player has a Seal buff (Paladin)
 
 ```dsl
 @player{canShiftInto(bear)}
 @player{canShiftBackFrom(bear)}
 @player{druidForm(bear)}
 @player{rageSafe}
+@player{!sealed}
 ```
 
 #### Ability State

@@ -48,10 +48,15 @@ export interface PlayerPredicates {
   // Inventory
   itemCount(itemId: number, amount: ComparisonFunction<number>): boolean;
 
-  // Class-Specific
+  // Druid
   canShiftBackFrom(actionSlotId: number, target: DruidForm): boolean;
   canShiftInto(actionSlotId: number, target: DruidForm): boolean;
   druidForm(target: DruidForm): boolean;
+
+  // Paladin
+  sealed(): boolean;
+
+  // Warrior
   rageSafe(): boolean;
 
   // Ability State
@@ -95,6 +100,7 @@ export interface UniversalPredicates {
   ): boolean;
 
   // Dispellable Auras
+  blessed(unit: Unit): boolean;
   cursed(unit: Unit): boolean;
   diseased(unit: Unit): boolean;
   magicBuff(unit: Unit): boolean;
@@ -159,6 +165,7 @@ export function createMockRegistry(overrides?: {
       rageSafe: () => false,
       resting: () => false,
       running: () => false,
+      sealed: () => false,
       stance: () => false,
       stealthed: () => false,
       submerged: () => false,
@@ -170,6 +177,7 @@ export function createMockRegistry(overrides?: {
       alive: () => false,
       attacking: () => false,
       bleedable: () => false,
+      blessed: () => false,
       blocked: () => false,
       buff: () => false,
       casting: () => false,

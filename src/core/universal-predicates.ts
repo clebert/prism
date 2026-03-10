@@ -18,6 +18,7 @@ export const universalPredicates: UniversalPredicates = {
     return UnitExists(`${unitId}target`) && UnitIsUnit(`${unitId}target`, targetUnitId);
   },
 
+  // TODO: UnitCreatureType() returns localized strings, English clients only
   bleedable(unit): boolean {
     const unitId = resolveUnitId(unit);
     const creatureType = UnitCreatureType(unitId);
@@ -35,6 +36,10 @@ export const universalPredicates: UniversalPredicates = {
     }
 
     return true;
+  },
+
+  blessed(unit): boolean {
+    return getAuraState(resolveUnitId(unit)).hasBlessing;
   },
 
   blocked(unit): boolean {
@@ -63,6 +68,7 @@ export const universalPredicates: UniversalPredicates = {
     return points(GetComboPoints("player", resolveUnitId(unit)));
   },
 
+  // TODO: UnitCreatureType() returns localized strings, English clients only
   creature(unit, type): boolean {
     const creatureType = UnitCreatureType(resolveUnitId(unit));
 

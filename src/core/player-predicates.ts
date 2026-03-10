@@ -174,6 +174,11 @@ export const playerPredicates: PlayerPredicates = {
     return IsResting();
   },
 
+  // TODO: auraName is localized, English clients only
+  sealed(): boolean {
+    return getAuraState("player").hasSeal;
+  },
+
   running(duration): boolean {
     return duration ? duration({ type: "duration", value: getRunningDuration() }) : isRunning();
   },

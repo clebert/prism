@@ -465,6 +465,7 @@ describe("RuleFunction", () => {
           "outdoors",
           "rageSafe",
           "resting",
+          "sealed",
           "stealthed",
           "submerged",
           "swimming",
@@ -853,6 +854,7 @@ describe("RuleFunction", () => {
       describe("no-argument predicates", () => {
         const noArgPredicates = [
           "alive",
+          "blessed",
           "bleedable",
           "blocked",
           "casting",

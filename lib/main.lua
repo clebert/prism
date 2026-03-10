@@ -3484,6 +3484,7 @@ function ____exports.createMockRegistry(overrides)
             rageSafe = function() return false end,
             resting = function() return false end,
             running = function() return false end,
+            sealed = function() return false end,
             stance = function() return false end,
             stealthed = function() return false end,
             submerged = function() return false end,
@@ -3495,6 +3496,7 @@ function ____exports.createMockRegistry(overrides)
             alive = function() return false end,
             attacking = function() return false end,
             bleedable = function() return false end,
+            blessed = function() return false end,
             blocked = function() return false end,
             buff = function() return false end,
             casting = function() return false end,
@@ -3681,7 +3683,7 @@ function createPlayerPredicateFunction(registry, predicateName, args)
                 end
             end
         end
-        ____cond39 = ____cond39 or (____switch39 == "autoShooting" or ____switch39 == "grouped" or ____switch39 == "indoors" or ____switch39 == "meleeAttacking" or ____switch39 == "mounted" or ____switch39 == "outdoors" or ____switch39 == "rageSafe" or ____switch39 == "resting" or ____switch39 == "stealthed" or ____switch39 == "submerged" or ____switch39 == "swimming")
+        ____cond39 = ____cond39 or (____switch39 == "autoShooting" or ____switch39 == "grouped" or ____switch39 == "indoors" or ____switch39 == "meleeAttacking" or ____switch39 == "mounted" or ____switch39 == "outdoors" or ____switch39 == "rageSafe" or ____switch39 == "resting" or ____switch39 == "sealed" or ____switch39 == "stealthed" or ____switch39 == "submerged" or ____switch39 == "swimming")
         if ____cond39 then
             do
                 assertNoArgs(args, predicateName)
@@ -3806,7 +3808,7 @@ end
 function createUniversalPredicateFunction(registry, predicateName, unit, args)
     repeat
         local ____switch65 = predicateName
-        local ____cond65 = ____switch65 == "alive" or ____switch65 == "bleedable" or ____switch65 == "blocked" or ____switch65 == "casting" or ____switch65 == "combat" or ____switch65 == "cursed" or ____switch65 == "dead" or ____switch65 == "diseased" or ____switch65 == "dodged" or ____switch65 == "elite" or ____switch65 == "existing" or ____switch65 == "harm" or ____switch65 == "help" or ____switch65 == "magicBuff" or ____switch65 == "magicDebuff" or ____switch65 == "missing" or ____switch65 == "npc" or ____switch65 == "parried" or ____switch65 == "partyMember" or ____switch65 == "poisoned" or ____switch65 == "trivial"
+        local ____cond65 = ____switch65 == "alive" or ____switch65 == "blessed" or ____switch65 == "bleedable" or ____switch65 == "blocked" or ____switch65 == "casting" or ____switch65 == "combat" or ____switch65 == "cursed" or ____switch65 == "dead" or ____switch65 == "diseased" or ____switch65 == "dodged" or ____switch65 == "elite" or ____switch65 == "existing" or ____switch65 == "harm" or ____switch65 == "help" or ____switch65 == "magicBuff" or ____switch65 == "magicDebuff" or ____switch65 == "missing" or ____switch65 == "npc" or ____switch65 == "parried" or ____switch65 == "partyMember" or ____switch65 == "poisoned" or ____switch65 == "trivial"
         if ____cond65 then
             do
                 assertNoArgs(args, predicateName)
@@ -4534,6 +4536,8 @@ return ____exports
 local ____lualib = require("lualib_bundle")
 local Map = ____lualib.Map
 local __TS__New = ____lualib.__TS__New
+local __TS__StringIncludes = ____lualib.__TS__StringIncludes
+local __TS__StringStartsWith = ____lualib.__TS__StringStartsWith
 local ____exports = {}
 local cache = __TS__New(Map)
 function ____exports.getAuraState(unitId)
@@ -4545,8 +4549,10 @@ function ____exports.getAuraState(unitId)
     local debuffs = __TS__New(Map)
     local ownBuffs = __TS__New(Map)
     local ownDebuffs = __TS__New(Map)
+    local hasBlessing = false
     local hasMagicBuff = false
     local hasMagicDebuff = false
+    local hasSeal = false
     local isCursed = false
     local isDiseased = false
     local isPoisoned = false
@@ -4606,6 +4612,12 @@ function ____exports.getAuraState(unitId)
                     ownBuffs:set(auraName, aura)
                     ownBuffs:set(spellId, aura)
                 end
+                if __TS__StringIncludes(auraName, "Blessing of ") then
+                    hasBlessing = true
+                end
+                if __TS__StringStartsWith(auraName, "Seal of ") then
+                    hasSeal = true
+                end
                 if dispelType == "Magic" then
                     hasMagicBuff = true
                 end
@@ -4616,8 +4628,10 @@ function ____exports.getAuraState(unitId)
     local auraState = {
         buffs = buffs,
         debuffs = debuffs,
+        hasBlessing = hasBlessing,
         hasMagicBuff = hasMagicBuff,
         hasMagicDebuff = hasMagicDebuff,
+        hasSeal = hasSeal,
         isCursed = isCursed,
         isDiseased = isDiseased,
         isPoisoned = isPoisoned,
@@ -4778,6 +4792,9 @@ ____exports.playerPredicates = {
     end,
     resting = function(self)
         return IsResting()
+    end,
+    sealed = function(self)
+        return getAuraState("player").hasSeal
     end,
     running = function(self, duration)
         local ____duration_4
@@ -4987,6 +5004,9 @@ ____exports.universalPredicates = {
         until true
         return true
     end,
+    blessed = function(self, unit)
+        return getAuraState(resolveUnitId(unit)).hasBlessing
+    end,
     blocked = function(self, unit)
         return hasMissed(
             resolveUnitId(unit),
@@ -5040,9 +5060,9 @@ ____exports.universalPredicates = {
     end,
     elite = function(self, unit)
         repeat
-            local ____switch20 = UnitClassification(resolveUnitId(unit))
-            local ____cond20 = ____switch20 == "elite" or ____switch20 == "rareelite" or ____switch20 == "worldboss"
-            if ____cond20 then
+            local ____switch21 = UnitClassification(resolveUnitId(unit))
+            local ____cond21 = ____switch21 == "elite" or ____switch21 == "rareelite" or ____switch21 == "worldboss"
+            if ____cond21 then
                 return true
             end
         until true

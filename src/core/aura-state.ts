@@ -3,8 +3,10 @@ export interface AuraState {
   readonly debuffs: ReadonlyMap<number | string, Aura>;
   readonly ownBuffs: ReadonlyMap<number | string, Aura>;
   readonly ownDebuffs: ReadonlyMap<number | string, Aura>;
+  readonly hasBlessing: boolean;
   readonly hasMagicBuff: boolean;
   readonly hasMagicDebuff: boolean;
+  readonly hasSeal: boolean;
   readonly isCursed: boolean;
   readonly isDiseased: boolean;
   readonly isPoisoned: boolean;
@@ -29,8 +31,10 @@ export function getAuraState(unitId: string): AuraState {
   const ownBuffs = new Map<number | string, Aura>();
   const ownDebuffs = new Map<number | string, Aura>();
 
+  let hasBlessing = false;
   let hasMagicBuff = false;
   let hasMagicDebuff = false;
+  let hasSeal = false;
   let isCursed = false;
   let isDiseased = false;
   let isPoisoned = false;
@@ -92,6 +96,16 @@ export function getAuraState(unitId: string): AuraState {
           ownBuffs.set(spellId, aura);
         }
 
+        // TODO: auraName is localized, English clients only
+        if (auraName.includes("Blessing of ")) {
+          hasBlessing = true;
+        }
+
+        // TODO: auraName is localized, English clients only
+        if (auraName.startsWith("Seal of ")) {
+          hasSeal = true;
+        }
+
         if (dispelType === "Magic") {
           hasMagicBuff = true;
         }
@@ -104,8 +118,10 @@ export function getAuraState(unitId: string): AuraState {
   const auraState: AuraState = {
     buffs,
     debuffs,
+    hasBlessing,
     hasMagicBuff,
     hasMagicDebuff,
+    hasSeal,
     isCursed,
     isDiseased,
     isPoisoned,
