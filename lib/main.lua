@@ -3515,6 +3515,7 @@ function ____exports.createMockRegistry(overrides)
             health = function() return false end,
             help = function() return false end,
             is = function() return false end,
+            judged = function() return false end,
             level = function() return false end,
             magicBuff = function() return false end,
             magicDebuff = function() return false end,
@@ -3808,7 +3809,7 @@ end
 function createUniversalPredicateFunction(registry, predicateName, unit, args)
     repeat
         local ____switch65 = predicateName
-        local ____cond65 = ____switch65 == "alive" or ____switch65 == "blessed" or ____switch65 == "bleedable" or ____switch65 == "blocked" or ____switch65 == "casting" or ____switch65 == "combat" or ____switch65 == "cursed" or ____switch65 == "dead" or ____switch65 == "diseased" or ____switch65 == "dodged" or ____switch65 == "elite" or ____switch65 == "existing" or ____switch65 == "harm" or ____switch65 == "help" or ____switch65 == "magicBuff" or ____switch65 == "magicDebuff" or ____switch65 == "missing" or ____switch65 == "npc" or ____switch65 == "parried" or ____switch65 == "partyMember" or ____switch65 == "poisoned" or ____switch65 == "trivial"
+        local ____cond65 = ____switch65 == "alive" or ____switch65 == "blessed" or ____switch65 == "bleedable" or ____switch65 == "blocked" or ____switch65 == "casting" or ____switch65 == "combat" or ____switch65 == "cursed" or ____switch65 == "dead" or ____switch65 == "diseased" or ____switch65 == "dodged" or ____switch65 == "elite" or ____switch65 == "existing" or ____switch65 == "harm" or ____switch65 == "help" or ____switch65 == "judged" or ____switch65 == "magicBuff" or ____switch65 == "magicDebuff" or ____switch65 == "missing" or ____switch65 == "npc" or ____switch65 == "parried" or ____switch65 == "partyMember" or ____switch65 == "poisoned" or ____switch65 == "trivial"
         if ____cond65 then
             do
                 assertNoArgs(args, predicateName)
@@ -4566,6 +4567,7 @@ function ____exports.getAuraState(unitId)
     local hasMagicBuff = false
     local hasMagicDebuff = false
     local hasSeal = false
+    local sealName
     local isCursed = false
     local isDiseased = false
     local isPoisoned = false
@@ -4630,6 +4632,7 @@ function ____exports.getAuraState(unitId)
                 end
                 if source == "player" and __TS__StringStartsWith(auraName, "Seal of ") then
                     hasSeal = true
+                    sealName = auraName
                 end
                 if dispelType == "Magic" then
                     hasMagicBuff = true
@@ -4645,6 +4648,7 @@ function ____exports.getAuraState(unitId)
         hasMagicBuff = hasMagicBuff,
         hasMagicDebuff = hasMagicDebuff,
         hasSeal = hasSeal,
+        sealName = sealName,
         isCursed = isCursed,
         isDiseased = isDiseased,
         isPoisoned = isPoisoned,
@@ -4977,7 +4981,8 @@ end
 return ____exports
  end,
 ["core.universal-predicates"] = function(...) 
---[[ Generated with https://github.com/TypeScriptToLua/TypeScriptToLua ]]
+local ____lualib = require("lualib_bundle")
+local __TS__StringReplace = ____lualib.__TS__StringReplace
 local ____exports = {}
 local ____predicate_2Dregistry = require("dsl.predicate-registry")
 local UniversalPredicates = ____predicate_2Dregistry.UniversalPredicates
@@ -5020,6 +5025,15 @@ ____exports.universalPredicates = {
     blessed = function(self, unit)
         return getAuraState(resolveUnitId(unit)).hasBlessing
     end,
+    judged = function(self, unit)
+        local ____getAuraState_result_0 = getAuraState("player")
+        local sealName = ____getAuraState_result_0.sealName
+        if sealName == nil then
+            return false
+        end
+        local judgementName = __TS__StringReplace(sealName, "Seal of ", "Judgement of ")
+        return getAuraState(resolveUnitId(unit)).ownDebuffs:has(judgementName)
+    end,
     blocked = function(self, unit)
         return hasMissed(
             resolveUnitId(unit),
@@ -5044,13 +5058,13 @@ ____exports.universalPredicates = {
     end,
     creature = function(self, unit, ____type)
         local creatureType = UnitCreatureType(resolveUnitId(unit))
-        local ____creatureType_0
+        local ____creatureType_1
         if creatureType then
-            ____creatureType_0 = string.lower(creatureType) == ____type
+            ____creatureType_1 = string.lower(creatureType) == ____type
         else
-            ____creatureType_0 = false
+            ____creatureType_1 = false
         end
-        return ____creatureType_0
+        return ____creatureType_1
     end,
     cursed = function(self, unit)
         return getAuraState(resolveUnitId(unit)).isCursed
@@ -5073,9 +5087,9 @@ ____exports.universalPredicates = {
     end,
     elite = function(self, unit)
         repeat
-            local ____switch21 = UnitClassification(resolveUnitId(unit))
-            local ____cond21 = ____switch21 == "elite" or ____switch21 == "rareelite" or ____switch21 == "worldboss"
-            if ____cond21 then
+            local ____switch23 = UnitClassification(resolveUnitId(unit))
+            local ____cond23 = ____switch23 == "elite" or ____switch23 == "rareelite" or ____switch23 == "worldboss"
+            if ____cond23 then
                 return true
             end
         until true

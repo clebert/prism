@@ -43,6 +43,19 @@ export const universalPredicates: UniversalPredicates = {
     return getAuraState(resolveUnitId(unit)).hasBlessing;
   },
 
+  // TODO: auraName is localized, English clients only
+  judged(unit): boolean {
+    const { sealName } = getAuraState("player");
+
+    if (sealName === undefined) {
+      return false;
+    }
+
+    const judgementName = sealName.replace("Seal of ", "Judgement of ");
+
+    return getAuraState(resolveUnitId(unit)).ownDebuffs.has(judgementName);
+  },
+
   blocked(unit): boolean {
     return hasMissed(resolveUnitId(unit), "block");
   },

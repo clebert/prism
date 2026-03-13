@@ -7,6 +7,7 @@ export interface AuraState {
   readonly hasMagicBuff: boolean;
   readonly hasMagicDebuff: boolean;
   readonly hasSeal: boolean;
+  readonly sealName: string | undefined;
   readonly isCursed: boolean;
   readonly isDiseased: boolean;
   readonly isPoisoned: boolean;
@@ -35,6 +36,7 @@ export function getAuraState(unitId: string): AuraState {
   let hasMagicBuff = false;
   let hasMagicDebuff = false;
   let hasSeal = false;
+  let sealName: string | undefined;
   let isCursed = false;
   let isDiseased = false;
   let isPoisoned = false;
@@ -104,6 +106,7 @@ export function getAuraState(unitId: string): AuraState {
         // TODO: auraName is localized, English clients only
         if (source === "player" && auraName.startsWith("Seal of ")) {
           hasSeal = true;
+          sealName = auraName;
         }
 
         if (dispelType === "Magic") {
@@ -122,6 +125,7 @@ export function getAuraState(unitId: string): AuraState {
     hasMagicBuff,
     hasMagicDebuff,
     hasSeal,
+    sealName,
     isCursed,
     isDiseased,
     isPoisoned,

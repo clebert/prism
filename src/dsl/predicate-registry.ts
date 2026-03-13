@@ -101,6 +101,7 @@ export interface UniversalPredicates {
 
   // Paladin (universal scope — blessings are cast on any friendly unit)
   blessed(unit: Unit): boolean;
+  judged(unit: Unit): boolean;
 
   // Dispellable Auras
   cursed(unit: Unit): boolean;
@@ -198,6 +199,7 @@ export function createMockRegistry(overrides?: {
       health: () => false,
       help: () => false,
       is: () => false,
+      judged: () => false,
       level: () => false,
       magicBuff: () => false,
       magicDebuff: () => false,

@@ -235,6 +235,7 @@ function createUniversalPredicateFunction(
     case "existing":
     case "harm":
     case "help":
+    case "judged":
     case "magicBuff":
     case "magicDebuff":
     case "missing":

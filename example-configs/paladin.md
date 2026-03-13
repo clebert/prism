@@ -1,8 +1,8 @@
 # Paladin
 
 ```macro
-#showtooltip
-/cast Judgement
+#showtooltip Judgement
+/cast [nomod:shift] Judgement
 /startattack
 ```
 
