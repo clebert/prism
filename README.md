@@ -424,10 +424,14 @@ Predicates are the individual checks that evaluate to true or false. They're use
 #### Paladin
 
 - `blessed` - unit has a Blessing or Greater Blessing cast by the player (any unit scope)
+- `judged` - unit has any Judgement debuff cast by the player (any unit scope)
+- `sealJudged` - unit has the Judgement debuff matching the player's current Seal (any unit scope)
 - `sealed` - player has a Seal buff
 
 ```dsl
 @target:help{blessed}
+@target{judged}
+@target{sealJudged}
 @player{!sealed}
 ```
 

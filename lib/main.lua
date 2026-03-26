@@ -3517,6 +3517,7 @@ function ____exports.createMockRegistry(overrides)
             is = function() return false end,
             judged = function() return false end,
             level = function() return false end,
+            sealJudged = function() return false end,
             magicBuff = function() return false end,
             magicDebuff = function() return false end,
             mana = function() return false end,
@@ -3809,7 +3810,7 @@ end
 function createUniversalPredicateFunction(registry, predicateName, unit, args)
     repeat
         local ____switch65 = predicateName
-        local ____cond65 = ____switch65 == "alive" or ____switch65 == "blessed" or ____switch65 == "bleedable" or ____switch65 == "blocked" or ____switch65 == "casting" or ____switch65 == "combat" or ____switch65 == "cursed" or ____switch65 == "dead" or ____switch65 == "diseased" or ____switch65 == "dodged" or ____switch65 == "elite" or ____switch65 == "existing" or ____switch65 == "harm" or ____switch65 == "help" or ____switch65 == "judged" or ____switch65 == "magicBuff" or ____switch65 == "magicDebuff" or ____switch65 == "missing" or ____switch65 == "npc" or ____switch65 == "parried" or ____switch65 == "partyMember" or ____switch65 == "poisoned" or ____switch65 == "trivial"
+        local ____cond65 = ____switch65 == "alive" or ____switch65 == "blessed" or ____switch65 == "bleedable" or ____switch65 == "blocked" or ____switch65 == "casting" or ____switch65 == "combat" or ____switch65 == "cursed" or ____switch65 == "dead" or ____switch65 == "diseased" or ____switch65 == "dodged" or ____switch65 == "elite" or ____switch65 == "existing" or ____switch65 == "harm" or ____switch65 == "help" or ____switch65 == "judged" or ____switch65 == "sealJudged" or ____switch65 == "magicBuff" or ____switch65 == "magicDebuff" or ____switch65 == "missing" or ____switch65 == "npc" or ____switch65 == "parried" or ____switch65 == "partyMember" or ____switch65 == "poisoned" or ____switch65 == "trivial"
         if ____cond65 then
             do
                 assertNoArgs(args, predicateName)
@@ -4550,8 +4551,8 @@ return ____exports
 local ____lualib = require("lualib_bundle")
 local Map = ____lualib.Map
 local __TS__New = ____lualib.__TS__New
-local __TS__StringIncludes = ____lualib.__TS__StringIncludes
 local __TS__StringStartsWith = ____lualib.__TS__StringStartsWith
+local __TS__StringIncludes = ____lualib.__TS__StringIncludes
 local ____exports = {}
 local cache = __TS__New(Map)
 function ____exports.getAuraState(unitId)
@@ -4564,6 +4565,7 @@ function ____exports.getAuraState(unitId)
     local ownBuffs = __TS__New(Map)
     local ownDebuffs = __TS__New(Map)
     local hasBlessing = false
+    local hasJudgement = false
     local hasMagicBuff = false
     local hasMagicDebuff = false
     local hasSeal = false
@@ -4588,32 +4590,35 @@ function ____exports.getAuraState(unitId)
                 if source == "player" then
                     ownDebuffs:set(auraName, aura)
                     ownDebuffs:set(spellId, aura)
+                    if __TS__StringStartsWith(auraName, "Judgement of ") then
+                        hasJudgement = true
+                    end
                 end
                 repeat
-                    local ____switch9 = dispelType
-                    local ____cond9 = ____switch9 == "Curse"
-                    if ____cond9 then
+                    local ____switch10 = dispelType
+                    local ____cond10 = ____switch10 == "Curse"
+                    if ____cond10 then
                         do
                             isCursed = true
                             break
                         end
                     end
-                    ____cond9 = ____cond9 or ____switch9 == "Disease"
-                    if ____cond9 then
+                    ____cond10 = ____cond10 or ____switch10 == "Disease"
+                    if ____cond10 then
                         do
                             isDiseased = true
                             break
                         end
                     end
-                    ____cond9 = ____cond9 or ____switch9 == "Magic"
-                    if ____cond9 then
+                    ____cond10 = ____cond10 or ____switch10 == "Magic"
+                    if ____cond10 then
                         do
                             hasMagicDebuff = true
                             break
                         end
                     end
-                    ____cond9 = ____cond9 or ____switch9 == "Poison"
-                    if ____cond9 then
+                    ____cond10 = ____cond10 or ____switch10 == "Poison"
+                    if ____cond10 then
                         do
                             isPoisoned = true
                             break
@@ -4645,6 +4650,7 @@ function ____exports.getAuraState(unitId)
         buffs = buffs,
         debuffs = debuffs,
         hasBlessing = hasBlessing,
+        hasJudgement = hasJudgement,
         hasMagicBuff = hasMagicBuff,
         hasMagicDebuff = hasMagicDebuff,
         hasSeal = hasSeal,
@@ -5026,6 +5032,9 @@ ____exports.universalPredicates = {
         return getAuraState(resolveUnitId(unit)).hasBlessing
     end,
     judged = function(self, unit)
+        return getAuraState(resolveUnitId(unit)).hasJudgement
+    end,
+    sealJudged = function(self, unit)
         local ____getAuraState_result_0 = getAuraState("player")
         local sealName = ____getAuraState_result_0.sealName
         if sealName == nil then
@@ -5087,9 +5096,9 @@ ____exports.universalPredicates = {
     end,
     elite = function(self, unit)
         repeat
-            local ____switch23 = UnitClassification(resolveUnitId(unit))
-            local ____cond23 = ____switch23 == "elite" or ____switch23 == "rareelite" or ____switch23 == "worldboss"
-            if ____cond23 then
+            local ____switch24 = UnitClassification(resolveUnitId(unit))
+            local ____cond24 = ____switch24 == "elite" or ____switch24 == "rareelite" or ____switch24 == "worldboss"
+            if ____cond24 then
                 return true
             end
         until true

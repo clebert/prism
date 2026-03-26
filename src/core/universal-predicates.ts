@@ -45,6 +45,11 @@ export const universalPredicates: UniversalPredicates = {
 
   // TODO: auraName is localized, English clients only
   judged(unit): boolean {
+    return getAuraState(resolveUnitId(unit)).hasJudgement;
+  },
+
+  // TODO: auraName is localized, English clients only
+  sealJudged(unit): boolean {
     const { sealName } = getAuraState("player");
 
     if (sealName === undefined) {

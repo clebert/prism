@@ -4,6 +4,7 @@ export interface AuraState {
   readonly ownBuffs: ReadonlyMap<number | string, Aura>;
   readonly ownDebuffs: ReadonlyMap<number | string, Aura>;
   readonly hasBlessing: boolean;
+  readonly hasJudgement: boolean;
   readonly hasMagicBuff: boolean;
   readonly hasMagicDebuff: boolean;
   readonly hasSeal: boolean;
@@ -33,6 +34,7 @@ export function getAuraState(unitId: string): AuraState {
   const ownDebuffs = new Map<number | string, Aura>();
 
   let hasBlessing = false;
+  let hasJudgement = false;
   let hasMagicBuff = false;
   let hasMagicDebuff = false;
   let hasSeal = false;
@@ -69,6 +71,11 @@ export function getAuraState(unitId: string): AuraState {
         if (source === "player") {
           ownDebuffs.set(auraName, aura);
           ownDebuffs.set(spellId, aura);
+
+          // TODO: auraName is localized, English clients only
+          if (auraName.startsWith("Judgement of ")) {
+            hasJudgement = true;
+          }
         }
 
         switch (dispelType) {
@@ -122,6 +129,7 @@ export function getAuraState(unitId: string): AuraState {
     buffs,
     debuffs,
     hasBlessing,
+    hasJudgement,
     hasMagicBuff,
     hasMagicDebuff,
     hasSeal,

@@ -16,7 +16,7 @@ glowing: @target:help{is(@player) & health(<50%) & !buff("Food") & !combat} | @p
 spell: "Seal of Righteousness"
 checked: @player{ownBuff(infer)}
 enabled: @player{!sealed}
-glowing: @target{harm & !dead & ((!elite & level(<44)) | ownDebuff("Judgement of the Crusader"))}
+glowing: @target{harm & !dead & ((!elite & level(<44)) | judged) & !ownDebuff("Judgement of Wisdom")}
 
 # https://www.wowhead.com/classic/spell=465/devotion-aura
 spell: "Devotion Aura"
@@ -29,6 +29,7 @@ checked: @player{ownBuff(infer)}
 # https://www.wowhead.com/classic/spell=20271/judgement
 spell: "Judgement"
 blocked: @target{dead | !harm} | @player{!sealed}
+checked: @target{sealJudged}
 flashing: @target{judged}
 glowing: @player{!ownBuff("Seal of Righteousness")} & (@player{!ownBuff("Seal of Command")} | @target{debuff("Hammer of Justice")})
 
@@ -52,7 +53,7 @@ glowing: @player{health(<20%)}
 # https://www.wowhead.com/classic/spell=21082/seal-of-the-crusader
 spell: "Seal of the Crusader"
 checked: @player{ownBuff(infer)}
-enabled: @player{!sealed | ownBuff("Seal of Righteousness")} & @target{!debuff("Judgement of the Crusader")}
+enabled: @player{!sealed | ownBuff("Seal of Righteousness")} & @target{!judged}
 glowing: @target{harm & !dead & health(>50%) & (elite | level(>=44))}
 
 ################################################################
@@ -169,7 +170,7 @@ checked: @player{ownBuff(infer)}
 # https://www.wowhead.com/classic/spell=20164/seal-of-justice
 spell: "Seal of Justice"
 checked: @player{ownBuff(infer)}
-enabled: @player{!sealed | ownBuff("Seal of Righteousness")} & @target{!debuff("Judgement of Justice")}
+enabled: @target{!debuff("Judgement of Justice")}
 
 ################################################################
 # Level 24 abilities
@@ -258,6 +259,7 @@ checked: @player{ownBuff(infer)}
 spell: "Seal of Wisdom"
 checked: @player{ownBuff(infer)}
 enabled: @player{!sealed | ownBuff("Seal of Righteousness")}
+glowing: @target{harm & !dead & ownDebuff("Judgement of Wisdom")}
 
 ################################################################
 # Level 40 abilities
