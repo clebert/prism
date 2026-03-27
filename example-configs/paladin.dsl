@@ -16,7 +16,7 @@ glowing: @target:help{is(@player) & health(<50%) & !buff("Food") & !combat} | @p
 spell: "Seal of Righteousness"
 checked: @player{ownBuff(infer)}
 enabled: @player{!sealed}
-glowing: @target{harm & !dead & ((!elite & level(<44)) | judged) & !ownDebuff("Judgement of Wisdom")}
+glowing: @target{harm & !dead & ((!elite & level(<44)) | judged) & !ownDebuff("Judgement of Light") & !ownDebuff("Judgement of Wisdom")}
 
 # https://www.wowhead.com/classic/spell=465/devotion-aura
 spell: "Devotion Aura"
@@ -30,7 +30,7 @@ checked: @player{ownBuff(infer)}
 spell: "Judgement"
 blocked: @target{dead | !harm} | @player{!sealed}
 checked: @target{sealJudged}
-flashing: @target{judged}
+flashing: @target{judged} & @player{!ownBuff("Seal of Righteousness")}
 glowing: @player{!ownBuff("Seal of Righteousness")} & (@player{!ownBuff("Seal of Command")} | @target{debuff("Hammer of Justice")})
 
 # https://www.wowhead.com/classic/spell=19740/blessing-of-might
@@ -224,6 +224,7 @@ checked: @player{ownBuff(infer)}
 spell: "Seal of Light"
 checked: @player{ownBuff(infer)}
 enabled: @player{!sealed | ownBuff("Seal of Righteousness")}
+glowing: @target{harm & !dead & ownDebuff("Judgement of Light")}
 
 ################################################################
 # Level 32 abilities
