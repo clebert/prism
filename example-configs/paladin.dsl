@@ -16,7 +16,7 @@ glowing: @target:help{is(@player) & health(<50%) & !buff("Food") & !combat} | @p
 spell: "Seal of Righteousness"
 checked: @player{ownBuff(infer)}
 enabled: @player{!sealed}
-glowing: @target{harm & !dead & ((!elite & level(<44)) | judged) & !ownDebuff("Judgement of Light") & !ownDebuff("Judgement of Wisdom")}
+glowing: @target{harm & !dead & !ownDebuff("Judgement of Light") & !ownDebuff("Judgement of Wisdom")}
 
 # https://www.wowhead.com/classic/spell=465/devotion-aura
 spell: "Devotion Aura"
@@ -54,7 +54,6 @@ glowing: @player{health(<20%)}
 spell: "Seal of the Crusader"
 checked: @player{ownBuff(infer)}
 enabled: @player{!sealed | ownBuff("Seal of Righteousness")} & @target{!judged}
-glowing: @target{harm & !dead & health(>50%) & (elite | level(>=44))}
 
 ################################################################
 # Level 8 abilities
