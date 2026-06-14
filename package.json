@@ -19,7 +19,7 @@
     "@types/node": "^25.0.3",
     "lua-types": "^2.13.1",
     "prettier": "^3.7.4",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.4",
     "typescript": "5.9.3",
     "typescript-to-lua": "^1.33.2"
   }
