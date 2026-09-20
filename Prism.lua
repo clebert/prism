@@ -1,5 +1,5 @@
-local auraSlotKey = "self-buff"
-local buttonNamePrefixes = {
+local selfBuffAuraSlotKey = "self-buff"
+local actionButtonNamePrefixes = {
     "ActionButton",
     "MultiBarBottomLeftButton",
     "MultiBarBottomRightButton",
@@ -9,33 +9,29 @@ local buttonNamePrefixes = {
     "MultiBar6Button",
     "MultiBar7Button",
 }
-local buttonsPerBar = 12
-local overlays = {}
-local rects = {}
-local seenNames = {}
+local actionButtonsPerBar = 12
+local overlayRefreshIntervalSeconds = 0.1
+local dimAlpha = 0.55
+local actionButtonOverlays = {}
+local refreshGeneration = 0
 
-local function initializeAuraButton(button)
-    button:EnableMouse(false)
-    button:SetAllPoints()
+local function initializeAuraButton(auraButton)
+    auraButton:EnableMouse(false)
+    auraButton:SetAllPoints()
 
-    local dim = button:CreateTexture(nil, "ARTWORK", nil, 0)
-    local checked = button:CreateTexture(nil, "OVERLAY", nil, 1)
+    local dimTexture = auraButton:CreateTexture(nil, "ARTWORK", nil, 0)
+    dimTexture:SetAllPoints()
+    dimTexture:SetColorTexture(0, 0, 0, dimAlpha)
+    dimTexture:Show()
 
-    if dim then
-        dim:SetAllPoints()
-        dim:SetColorTexture(0, 0, 0, 0.55)
-        dim:Show()
-    end
-
-    if checked then
-        checked:SetAllPoints()
-        checked:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-        checked:SetBlendMode("ADD")
-        checked:Show()
-    end
+    local highlightTexture = auraButton:CreateTexture(nil, "OVERLAY", nil, 1)
+    highlightTexture:SetAllPoints()
+    highlightTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+    highlightTexture:SetBlendMode("ADD")
+    highlightTexture:Show()
 end
 
-local function createCandidateFilters(spellID)
+local function createSpellCandidateFilters(spellID)
     local includeSpellIDs = {}
 
     if spellID then
@@ -45,48 +41,67 @@ local function createCandidateFilters(spellID)
     return { includeSpellIDs = includeSpellIDs }
 end
 
-local function createButtonOverlay()
-    local frame = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
-    frame:SetFrameStrata("TOOLTIP")
-    frame:SetFrameLevel(10000)
-    frame:EnableMouse(false)
-    frame:SetUnit("player")
-    frame:AddAuraSlot(auraSlotKey, "HELPFUL", {
-        candidateFilters = createCandidateFilters(nil),
+local function createActionButtonOverlay()
+    local auraContainer = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
+    auraContainer:SetFrameStrata("HIGH")
+    auraContainer:EnableMouse(false)
+    auraContainer:SetUnit("player")
+    auraContainer:AddAuraSlot(selfBuffAuraSlotKey, "HELPFUL", {
+        candidateFilters = createSpellCandidateFilters(nil),
         initializeFrame = initializeAuraButton,
     })
-    frame:Show()
+    auraContainer:Show()
+    auraContainer:SetEnabled(true)
 
-    return { frame = frame }
+    return {
+        auraContainer = auraContainer,
+        isVisible = true,
+    }
 end
 
-local function placeOverlay(frame, button, name)
-    local left = button:GetLeft()
-    local bottom = button:GetBottom()
-
-    if left and bottom then
-        local scale = button:GetEffectiveScale() / UIParent:GetEffectiveScale()
-        rects[name] = {
-            bottom = bottom * scale,
-            height = button:GetHeight() * scale,
-            left = left * scale,
-            width = button:GetWidth() * scale,
-        }
+local function refreshAuraStates()
+    for _, overlay in pairs(actionButtonOverlays) do
+        overlay.auraContainer:UpdateAllAuras()
     end
+end
 
-    local rect = rects[name]
+local function placeActionButtonOverlay(overlay, actionButton)
+    local left = actionButton:GetLeft()
+    local bottom = actionButton:GetBottom()
 
-    if not rect then
+    if not left or not bottom then
         return
     end
 
-    frame:ClearAllPoints()
-    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", rect.left, rect.bottom)
-    frame:SetSize(rect.width, rect.height)
+    local scale = actionButton:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local scaledLeft = left * scale
+    local scaledBottom = bottom * scale
+    local scaledWidth = actionButton:GetWidth() * scale
+    local scaledHeight = actionButton:GetHeight() * scale
+    local auraContainer = overlay.auraContainer
+
+    if overlay.left ~= scaledLeft or overlay.bottom ~= scaledBottom then
+        overlay.left = scaledLeft
+        overlay.bottom = scaledBottom
+        auraContainer:ClearAllPoints()
+        auraContainer:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", scaledLeft, scaledBottom)
+    end
+
+    if overlay.width ~= scaledWidth or overlay.height ~= scaledHeight then
+        overlay.width = scaledWidth
+        overlay.height = scaledHeight
+        -- The container runs its flow layout after each aura update. That
+        -- layout is empty, because Prism adds no aura group. The padding
+        -- makes the layout size equal to the action button size.
+        auraContainer:SetFlowLayoutPadding(scaledWidth, 0, scaledHeight, 0)
+    end
+
+    -- The container sizes itself on each layout pass, so assert the size here.
+    auraContainer:SetSize(scaledWidth, scaledHeight)
 end
 
-local function getActionSpellID(button)
-    local actionSlotID = button.action
+local function getActionSpellID(actionButton)
+    local actionSlotID = actionButton.action
 
     if not actionSlotID or actionSlotID <= 0 or not C_ActionBar.HasAction(actionSlotID) then
         return nil
@@ -101,49 +116,74 @@ local function getActionSpellID(button)
     return nil
 end
 
-local function updateButtonOverlay(button)
-    local name = button:GetName()
-    local spellID = getActionSpellID(button)
-    local overlay = overlays[name]
+local function updateActionButtonOverlay(actionButton)
+    local actionButtonName = actionButton:GetName()
+    local spellID = getActionSpellID(actionButton)
+    local overlay = actionButtonOverlays[actionButtonName]
 
     if not overlay and not spellID then
         return
     end
 
     if not overlay then
-        overlay = createButtonOverlay()
-        overlays[name] = overlay
+        overlay = createActionButtonOverlay()
+        actionButtonOverlays[actionButtonName] = overlay
     end
 
-    seenNames[name] = true
-    overlay.frame:SetAlpha(1)
-    placeOverlay(overlay.frame, button, name)
+    overlay.lastRefreshGeneration = refreshGeneration
+
+    if not overlay.isVisible then
+        overlay.auraContainer:SetAlpha(1)
+        overlay.isVisible = true
+    end
+
+    placeActionButtonOverlay(overlay, actionButton)
 
     if overlay.spellID ~= spellID then
-        overlay.frame:SetAuraSlotCandidateFilters(auraSlotKey, createCandidateFilters(spellID))
+        overlay.auraContainer:SetAuraSlotCandidateFilters(selfBuffAuraSlotKey, createSpellCandidateFilters(spellID))
         overlay.spellID = spellID
     end
 end
 
-local controller = CreateFrame("Frame")
-controller:SetScript("OnUpdate", function()
-    for name in pairs(overlays) do
-        seenNames[name] = nil
-    end
+local function refreshActionButtonOverlays()
+    refreshGeneration = refreshGeneration + 1
 
-    for _, prefix in ipairs(buttonNamePrefixes) do
-        for buttonIndex = 1, buttonsPerBar do
-            local button = rawget(_G, prefix .. buttonIndex)
+    for _, namePrefix in ipairs(actionButtonNamePrefixes) do
+        for buttonIndex = 1, actionButtonsPerBar do
+            local actionButton = rawget(_G, namePrefix .. buttonIndex)
 
-            if button and button:IsVisible() then
-                updateButtonOverlay(button)
+            if actionButton and actionButton:IsVisible() then
+                updateActionButtonOverlay(actionButton)
             end
         end
     end
 
-    for name, overlay in pairs(overlays) do
-        if not seenNames[name] then
-            overlay.frame:SetAlpha(0)
+    for _, overlay in pairs(actionButtonOverlays) do
+        if overlay.lastRefreshGeneration ~= refreshGeneration and overlay.isVisible then
+            overlay.auraContainer:SetAlpha(0)
+            overlay.isVisible = false
         end
     end
+end
+
+local actionBarController = CreateFrame("Frame")
+local elapsedSinceRefresh = overlayRefreshIntervalSeconds
+
+actionBarController:RegisterEvent("PLAYER_ENTERING_WORLD")
+actionBarController:RegisterEvent("PLAYER_REGEN_DISABLED")
+actionBarController:RegisterEvent("PLAYER_REGEN_ENABLED")
+
+actionBarController:SetScript("OnEvent", function()
+    refreshAuraStates()
+end)
+
+actionBarController:SetScript("OnUpdate", function(_, elapsed)
+    elapsedSinceRefresh = elapsedSinceRefresh + elapsed
+
+    if elapsedSinceRefresh < overlayRefreshIntervalSeconds then
+        return
+    end
+
+    elapsedSinceRefresh = elapsedSinceRefresh % overlayRefreshIntervalSeconds
+    refreshActionButtonOverlays()
 end)

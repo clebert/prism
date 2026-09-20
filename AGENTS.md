@@ -2,22 +2,34 @@
 
 ## Design
 
-Prism is a World of Warcraft Forever addon. Keep all addon code in `Prism.lua`.
+Prism is a World of Warcraft Forever addon that adds visual feedback to action buttons.
 
-Keep the addon direct and small. Do not add a build step, dependency, generated file, or configuration UI.
+Keep the runtime direct and small. Use Lua source directly.
 
-Use the secure aura container for aura state. Do not read restricted aura data or change action-button state directly.
+Do not add a build step, generated code, or an external runtime dependency.
 
-Do not write comments in source code.
+Split source files only when the separation makes distinct features easier to maintain.
+
+Use secure aura containers for aura-driven features.
+
+Do not read restricted aura data or change action-button state directly.
 
 ## WoW API
 
-Read `.agents/skills/wow-forever-api/SKILL.md` before an API change. Verify every undocumented API against version-matched interface source.
+Read `.agents/skills/wow-forever-api/SKILL.md` before an API change.
 
-Do not infer an API from memory or from a TypeScript declaration.
+Verify every undocumented API against version-matched interface source.
+
+Do not infer an API from memory or from source for another game version.
 
 ## Validation
 
-Run `luac -p Prism.lua` when a compatible Lua parser is available.
+Run `luac -p Prism.lua` with a compatible Lua parser.
 
-Install `Prism.toc` and `Prism.lua` in the client. Use `/reload`, then test the changed behavior.
+Use `luac5.1 -p Prism.lua` when the Lua 5.1 parser has that name.
+
+Run `./install.sh` to install Prism in the default macOS Forever client.
+
+Set `PRISM_ADDON_DIRECTORY` to use another directory.
+
+Use `/reload`, then test the changed behavior in the client.

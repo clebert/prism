@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Prism
 ## Author: clebert
-## Notes: Marks self-buff action buttons when the buff is active.
+## Notes: Makes action buttons respond visually to gameplay situations.
 ## Version: @project-version@
 ## RequiredDeps: Blizzard_AuraContainer
 ## X-Curse-Project-ID: 1419830

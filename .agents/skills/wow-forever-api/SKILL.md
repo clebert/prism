@@ -73,6 +73,12 @@ Run this syntax check when a compatible parser exists:
 luac -p Prism.lua
 ```
 
-Install `Prism.toc` and `Prism.lua` in `Interface/AddOns/Prism`. Reload the client after each change.
+Use `luac5.1 -p Prism.lua` when the Lua 5.1 parser has that name.
+
+Run `./install.sh` to install Prism in the default macOS Forever client.
+
+Set `PRISM_ADDON_DIRECTORY` to use another directory.
+
+Reload the client after each change.
 
 Test the affected behavior in and out of combat. Test action paging, bar visibility, UI scaling, and spell movement when relevant.

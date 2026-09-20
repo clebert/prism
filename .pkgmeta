@@ -5,6 +5,5 @@ ignore:
   - .github
   - AGENTS.md
   - install.sh
-  - LICENSE
   - README.md
   - prism.jpg
