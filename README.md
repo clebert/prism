@@ -6,7 +6,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ## Features
 
-- Prism highlights and dims an action button while a buff with the same client spell ID is active.
+- Prism highlights an action button while the player has a buff with the same client spell ID.
 
 ## Installation
 

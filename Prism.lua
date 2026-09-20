@@ -11,18 +11,12 @@ local actionButtonNamePrefixes = {
 }
 local actionButtonsPerBar = 12
 local overlayRefreshIntervalSeconds = 0.1
-local dimAlpha = 0.55
 local actionButtonOverlays = {}
 local refreshGeneration = 0
 
 local function initializeAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
-
-    local dimTexture = auraButton:CreateTexture(nil, "ARTWORK", nil, 0)
-    dimTexture:SetAllPoints()
-    dimTexture:SetColorTexture(0, 0, 0, dimAlpha)
-    dimTexture:Show()
 
     local highlightTexture = auraButton:CreateTexture(nil, "OVERLAY", nil, 1)
     highlightTexture:SetAllPoints()
