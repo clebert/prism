@@ -14,6 +14,14 @@ local overlayRefreshIntervalSeconds = 0.1
 local actionButtonOverlays = {}
 local refreshGeneration = 0
 
+-- The client reports unit health as a secret value, and addon code cannot
+-- compare such a value. A step curve moves the comparison into the client.
+-- The curve result is 1 at full health and 0 below it.
+local fullHealthCurve = C_CurveUtil.CreateCurve()
+fullHealthCurve:SetType(Enum.LuaCurveType.Step)
+fullHealthCurve:AddPoint(0, 0)
+fullHealthCurve:AddPoint(1, 1)
+
 local function initializeAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
@@ -47,8 +55,15 @@ local function createActionButtonOverlay()
     auraContainer:Show()
     auraContainer:SetEnabled(true)
 
+    local fullHealthTexture = auraContainer:CreateTexture(nil, "OVERLAY", nil, 1)
+    fullHealthTexture:SetAllPoints()
+    fullHealthTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+    fullHealthTexture:SetBlendMode("ADD")
+    fullHealthTexture:SetAlpha(0)
+
     return {
         auraContainer = auraContainer,
+        fullHealthTexture = fullHealthTexture,
         isVisible = true,
     }
 end
@@ -110,6 +125,46 @@ local function getActionSpellID(actionButton)
     return nil
 end
 
+-- Returns nil while the client holds no data for the item.
+local function isBandageAction(actionButton)
+    local actionSlotID = actionButton.action
+
+    if not actionSlotID or actionSlotID <= 0 or not C_ActionBar.HasAction(actionSlotID) then
+        return false
+    end
+
+    local actionType, itemID = GetActionInfo(actionSlotID)
+
+    if actionType ~= "item" or not itemID then
+        return false
+    end
+
+    local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(itemID)
+
+    if not classID then
+        return nil
+    end
+
+    return classID == Enum.ItemClass.Consumable and subClassID == Enum.ItemConsumableSubclass.Bandage
+end
+
+local function getHealTargetUnit()
+    if UnitExists("target") and UnitCanAssist("player", "target") then
+        return "target"
+    end
+
+    return "player"
+end
+
+local function updateFullHealthAlpha(texture, unit)
+    if UnitIsDeadOrGhost(unit) then
+        texture:SetAlpha(0)
+        return
+    end
+
+    texture:SetAlpha(UnitHealthPercent(unit, false, fullHealthCurve))
+end
+
 local function updateActionButtonOverlay(actionButton)
     local actionButtonName = actionButton:GetName()
     local spellID = getActionSpellID(actionButton)
@@ -136,6 +191,17 @@ local function updateActionButtonOverlay(actionButton)
     if overlay.spellID ~= spellID then
         overlay.auraContainer:SetAuraSlotCandidateFilters(selfBuffAuraSlotKey, createSpellCandidateFilters(spellID))
         overlay.spellID = spellID
+        overlay.isBandage = nil
+    end
+
+    if overlay.isBandage == nil then
+        overlay.isBandage = isBandageAction(actionButton)
+    end
+
+    if overlay.isBandage then
+        updateFullHealthAlpha(overlay.fullHealthTexture, getHealTargetUnit())
+    else
+        overlay.fullHealthTexture:SetAlpha(0)
     end
 end
 
