@@ -2,24 +2,9 @@ package-as: Prism
 
 ignore:
   - .agents
-  - .claude
   - .github
-  - .vscode
-  - docs
-  - node_modules
-  - scripts
-  - src
-  - types
-  - .gitignore
-  - .nvmrc
-  - .prettierignore
   - AGENTS.md
-  - biome.json
   - install.sh
-  - package-lock.json
-  - package.json
+  - LICENSE
+  - README.md
   - prism.jpg
-  - tsconfig.emit.json
-  - tsconfig.json
-  - tsconfig.scripts.json
-  - tsconfig.wow-api.json

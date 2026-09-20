@@ -2,38 +2,22 @@
 
 ## Design
 
-Prism is a World of Warcraft Forever addon. The core changes action buttons from code.
+Prism is a World of Warcraft Forever addon. Keep all addon code in `Prism.lua`.
 
-The addon has no window and no saved settings. Each rule is TypeScript.
+Keep the addon direct and small. Do not add a build step, dependency, generated file, or configuration UI.
 
-The addon has no grammar and no document language. Client spell data keeps every locale working.
+Use the secure aura container for aura state. Do not read restricted aura data or change action-button state directly.
 
-The first rule is this. When a self-buff spell is on an action button and the player has that buff,
-the button is checked and dimmed.
+Do not write comments in source code.
 
-Add a later rule in code.
+## WoW API
 
-Use the native checked state of the action button. Do not add a configuration UI.
+Read `.agents/skills/wow-forever-api/SKILL.md` before an API change. Verify every undocumented API against version-matched interface source.
 
-Do not write comments in source files.
+Do not infer an API from memory or from a TypeScript declaration.
 
-## Commands
+## Validation
 
-After a code change, run this command:
+Run `luac -p Prism.lua` when a compatible Lua parser is available.
 
-```bash
-npm run ci
-```
-
-Refresh Blizzard API declarations with this command:
-
-```bash
-npm run sync:wow-api
-```
-
-## TypeScript
-
-The project uses `exactOptionalPropertyTypes`. Optional properties use `?: T | undefined`.
-
-Production types come from `types/wow-api/generated`. FrameXML declarations that the documentation
-omits live in `types/wow-api/supplements.d.ts`.
+Install `Prism.toc` and `Prism.lua` in the client. Use `/reload`, then test the changed behavior.

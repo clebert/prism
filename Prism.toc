@@ -3,8 +3,7 @@
 ## Author: clebert
 ## Notes: Marks self-buff action buttons when the buff is active.
 ## Version: @project-version@
-## RequiredDeps:
-## OptionalDeps:
+## RequiredDeps: Blizzard_AuraContainer
 ## X-Curse-Project-ID: 1419830
 
-lib/main.lua
+Prism.lua
