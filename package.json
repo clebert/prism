@@ -6,13 +6,16 @@
   "scripts": {
     "check": "biome check",
     "check:fix": "biome check --fix",
-    "ci": "npm run check && npm run compile && npm run compile:emit && npm run format && npm run test",
+    "ci": "npm run check && npm run compile && npm run compile:scripts && npm run compile:wow-api && npm run compile:emit && npm run format && npm run test",
     "compile": "tsc",
     "compile:emit": "tstl --project tsconfig.emit.json",
+    "compile:scripts": "tsc --project tsconfig.scripts.json",
+    "compile:wow-api": "tsc --project tsconfig.wow-api.json",
     "format": "prettier --check \"**/*.{md,yaml,yml}\"",
     "format:fix": "prettier --write \"**/*.{md,yaml,yml}\"",
     "release": "npm version",
-    "test": "tsx --test --experimental-test-coverage 'src/**/*.test.ts'"
+    "sync:wow-api": "tsx scripts/wow-api/main.ts --branch forever",
+    "test": "tsx --test --experimental-test-coverage 'src/**/*.test.ts' 'scripts/**/*.test.ts'"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",

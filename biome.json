@@ -7,6 +7,9 @@
       }
     }
   },
+  "files": {
+    "includes": ["**", "!!types/wow-api/generated"]
+  },
   "formatter": {
     "indentStyle": "space",
     "lineWidth": 100
@@ -18,7 +21,6 @@
       }
     }
   },
-  "overrides": [{ "formatter": { "lineWidth": 200 }, "includes": ["src/wow/**"] }],
   "vcs": {
     "clientKind": "git",
     "enabled": true,

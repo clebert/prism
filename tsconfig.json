@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*.ts", "*.js"],
+  "include": ["src/**/*.ts", "types/wow-api/generated/**/*.d.ts", "types/wow-api/supplements.d.ts"],
 
   "compilerOptions": {
     "allowImportingTsExtensions": false,

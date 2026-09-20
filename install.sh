@@ -1,14 +1,10 @@
 #!/bin/bash
 
-set -e # Terminates script at the first error
+set -e
 
 npm run compile:emit
 
-if [ "${1:-}" == "--ptr" ]; then
-    addon_directory="/Applications/World of Warcraft/_ptr2_/Interface/AddOns/Prism"
-else
-    addon_directory="/Applications/World of Warcraft/_classic_era_/Interface/AddOns/Prism"
-fi
+addon_directory="/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/Prism"
 
 echo "Update: $addon_directory"
 
