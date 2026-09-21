@@ -1,10 +1,18 @@
 local selfBuffAuraSlotKey = "self-buff"
--- These IDs are the Overpower ranks. The action button stores one rank.
-local overpowerSpellIDs = {
+-- These IDs glow while the spell is usable. The action button stores one rank.
+local usableGlowSpellIDs = {
+    -- Overpower
     [7384] = true,
     [7887] = true,
     [11584] = true,
     [11585] = true,
+    -- Revenge
+    [6572] = true,
+    [6574] = true,
+    [7379] = true,
+    [11600] = true,
+    [11601] = true,
+    [25288] = true,
 }
 local actionButtonNamePrefixes = {
     "ActionButton",
@@ -18,7 +26,7 @@ local actionButtonNamePrefixes = {
 }
 local actionButtonsPerBar = 12
 -- The retail spell alert frame uses this multiple of the button size.
-local overpowerGlowScale = 1.4
+local usableGlowScale = 1.4
 local overlayRefreshIntervalSeconds = 0.1
 local actionButtonOverlays = {}
 local refreshGeneration = 0
@@ -33,13 +41,13 @@ fullHealthCurve:AddPoint(1, 1)
 
 -- The documented full alpha for SetAlphaFromBoolean is 255. Measure a plain
 -- true once, because SetAlpha on this client uses the range 0 to 1.
-local usableHighlightAlpha = 1
+local usableGlowAlpha = 1
 local alphaProbeTexture = UIParent:CreateTexture()
 alphaProbeTexture:SetAlpha(0)
 alphaProbeTexture:SetAlphaFromBoolean(true, 1, 0)
 
 if alphaProbeTexture:GetAlpha() < 0.5 then
-    usableHighlightAlpha = 255
+    usableGlowAlpha = 255
 end
 
 alphaProbeTexture:Hide()
@@ -55,14 +63,14 @@ local function initializeAuraButton(auraButton)
     highlightTexture:Show()
 end
 
-local function isOverpowerSpell(spellID)
-    if overpowerSpellIDs[spellID] then
+local function isUsableGlowSpell(spellID)
+    if usableGlowSpellIDs[spellID] then
         return true
     end
 
     local baseSpellID = C_Spell.GetBaseSpell(spellID)
 
-    return baseSpellID ~= nil and overpowerSpellIDs[baseSpellID] == true
+    return baseSpellID ~= nil and usableGlowSpellIDs[baseSpellID] == true
 end
 
 local function createSpellCandidateFilters(spellID)
@@ -188,8 +196,8 @@ local function getHealTargetUnit()
     return "player"
 end
 
-local function ensureOverpowerGlowFrame(overlay)
-    local glowFrame = overlay.overpowerGlowFrame
+local function ensureUsableGlowFrame(overlay)
+    local glowFrame = overlay.usableGlowFrame
 
     if glowFrame then
         return glowFrame
@@ -198,12 +206,12 @@ local function ensureOverpowerGlowFrame(overlay)
     glowFrame = CreateFrame("Frame", nil, overlay.auraContainer, "ActionButtonSpellAlertTemplate")
     glowFrame:SetPoint("CENTER")
     glowFrame:EnableMouse(false)
-    overlay.overpowerGlowFrame = glowFrame
+    overlay.usableGlowFrame = glowFrame
     return glowFrame
 end
 
-local function hideOverpowerGlow(overlay)
-    local glowFrame = overlay.overpowerGlowFrame
+local function hideUsableGlow(overlay)
+    local glowFrame = overlay.usableGlowFrame
 
     if not glowFrame then
         return
@@ -213,17 +221,17 @@ local function hideOverpowerGlow(overlay)
     glowFrame:Hide()
 end
 
-local function updateOverpowerGlow(overlay, actionButton)
-    if not overlay.isOverpower or not actionButton.action or actionButton.action <= 0 then
-        hideOverpowerGlow(overlay)
+local function updateUsableGlow(overlay, actionButton)
+    if not overlay.isUsableGlowSpell or not actionButton.action or actionButton.action <= 0 then
+        hideUsableGlow(overlay)
         return
     end
 
-    local glowFrame = ensureOverpowerGlowFrame(overlay)
+    local glowFrame = ensureUsableGlowFrame(overlay)
 
     if overlay.width and overlay.height then
-        local glowWidth = overlay.width * overpowerGlowScale
-        local glowHeight = overlay.height * overpowerGlowScale
+        local glowWidth = overlay.width * usableGlowScale
+        local glowHeight = overlay.height * usableGlowScale
 
         if overlay.glowWidth ~= glowWidth or overlay.glowHeight ~= glowHeight then
             overlay.glowWidth = glowWidth
@@ -242,7 +250,7 @@ local function updateOverpowerGlow(overlay, actionButton)
 
     -- Apply the usable flag in the client. Do not compare that flag in Lua.
     local isUsable = C_ActionBar.IsUsableAction(actionButton.action)
-    glowFrame:SetAlphaFromBoolean(isUsable, usableHighlightAlpha, 0)
+    glowFrame:SetAlphaFromBoolean(isUsable, usableGlowAlpha, 0)
 end
 
 local function updateFullHealthAlpha(texture, unit)
@@ -281,7 +289,7 @@ local function updateActionButtonOverlay(actionButton)
         overlay.auraContainer:SetAuraSlotCandidateFilters(selfBuffAuraSlotKey, createSpellCandidateFilters(spellID))
         overlay.spellID = spellID
         overlay.isBandage = nil
-        overlay.isOverpower = spellID ~= nil and isOverpowerSpell(spellID)
+        overlay.isUsableGlowSpell = spellID ~= nil and isUsableGlowSpell(spellID)
     end
 
     if overlay.isBandage == nil then
@@ -294,7 +302,7 @@ local function updateActionButtonOverlay(actionButton)
         overlay.fullHealthTexture:SetAlpha(0)
     end
 
-    updateOverpowerGlow(overlay, actionButton)
+    updateUsableGlow(overlay, actionButton)
 end
 
 local function refreshActionButtonOverlays()
@@ -314,7 +322,7 @@ local function refreshActionButtonOverlays()
         if overlay.lastRefreshGeneration ~= refreshGeneration and overlay.isVisible then
             overlay.auraContainer:SetAlpha(0)
             overlay.isVisible = false
-            hideOverpowerGlow(overlay)
+            hideUsableGlow(overlay)
         end
     end
 end

@@ -8,7 +8,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 - Prism highlights an action button while the player has a buff with the same client spell ID.
 - Prism highlights a bandage action button while the heal target has full health.
-- Prism glows an Overpower action button while that spell is usable.
+- Prism glows an Overpower or Revenge action button while that spell is usable.
 
 ## Installation
 
