@@ -3,7 +3,7 @@
 ## Author: clebert
 ## Notes: Makes action buttons respond visually to gameplay situations.
 ## Version: @project-version@
-## RequiredDeps: Blizzard_AuraContainer
+## RequiredDeps: Blizzard_AuraContainer, Blizzard_ActionBar
 ## X-Curse-Project-ID: 1419830
 
 Prism.lua

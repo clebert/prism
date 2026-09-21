@@ -1,4 +1,11 @@
 local selfBuffAuraSlotKey = "self-buff"
+-- These IDs are the Overpower ranks. The action button stores one rank.
+local overpowerSpellIDs = {
+    [7384] = true,
+    [7887] = true,
+    [11584] = true,
+    [11585] = true,
+}
 local actionButtonNamePrefixes = {
     "ActionButton",
     "MultiBarBottomLeftButton",
@@ -10,6 +17,8 @@ local actionButtonNamePrefixes = {
     "MultiBar7Button",
 }
 local actionButtonsPerBar = 12
+-- The retail spell alert frame uses this multiple of the button size.
+local overpowerGlowScale = 1.4
 local overlayRefreshIntervalSeconds = 0.1
 local actionButtonOverlays = {}
 local refreshGeneration = 0
@@ -22,6 +31,19 @@ fullHealthCurve:SetType(Enum.LuaCurveType.Step)
 fullHealthCurve:AddPoint(0, 0)
 fullHealthCurve:AddPoint(1, 1)
 
+-- The documented full alpha for SetAlphaFromBoolean is 255. Measure a plain
+-- true once, because SetAlpha on this client uses the range 0 to 1.
+local usableHighlightAlpha = 1
+local alphaProbeTexture = UIParent:CreateTexture()
+alphaProbeTexture:SetAlpha(0)
+alphaProbeTexture:SetAlphaFromBoolean(true, 1, 0)
+
+if alphaProbeTexture:GetAlpha() < 0.5 then
+    usableHighlightAlpha = 255
+end
+
+alphaProbeTexture:Hide()
+
 local function initializeAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
@@ -31,6 +53,16 @@ local function initializeAuraButton(auraButton)
     highlightTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
     highlightTexture:SetBlendMode("ADD")
     highlightTexture:Show()
+end
+
+local function isOverpowerSpell(spellID)
+    if overpowerSpellIDs[spellID] then
+        return true
+    end
+
+    local baseSpellID = C_Spell.GetBaseSpell(spellID)
+
+    return baseSpellID ~= nil and overpowerSpellIDs[baseSpellID] == true
 end
 
 local function createSpellCandidateFilters(spellID)
@@ -156,6 +188,63 @@ local function getHealTargetUnit()
     return "player"
 end
 
+local function ensureOverpowerGlowFrame(overlay)
+    local glowFrame = overlay.overpowerGlowFrame
+
+    if glowFrame then
+        return glowFrame
+    end
+
+    glowFrame = CreateFrame("Frame", nil, overlay.auraContainer, "ActionButtonSpellAlertTemplate")
+    glowFrame:SetPoint("CENTER")
+    glowFrame:EnableMouse(false)
+    overlay.overpowerGlowFrame = glowFrame
+    return glowFrame
+end
+
+local function hideOverpowerGlow(overlay)
+    local glowFrame = overlay.overpowerGlowFrame
+
+    if not glowFrame then
+        return
+    end
+
+    glowFrame.ProcLoop:Stop()
+    glowFrame:Hide()
+end
+
+local function updateOverpowerGlow(overlay, actionButton)
+    if not overlay.isOverpower or not actionButton.action or actionButton.action <= 0 then
+        hideOverpowerGlow(overlay)
+        return
+    end
+
+    local glowFrame = ensureOverpowerGlowFrame(overlay)
+
+    if overlay.width and overlay.height then
+        local glowWidth = overlay.width * overpowerGlowScale
+        local glowHeight = overlay.height * overpowerGlowScale
+
+        if overlay.glowWidth ~= glowWidth or overlay.glowHeight ~= glowHeight then
+            overlay.glowWidth = glowWidth
+            overlay.glowHeight = glowHeight
+            glowFrame:SetSize(glowWidth, glowHeight)
+        end
+    end
+
+    if not glowFrame:IsShown() then
+        glowFrame:Show()
+    end
+
+    if not glowFrame.ProcLoop:IsPlaying() then
+        glowFrame.ProcLoop:Play()
+    end
+
+    -- Apply the usable flag in the client. Do not compare that flag in Lua.
+    local isUsable = C_ActionBar.IsUsableAction(actionButton.action)
+    glowFrame:SetAlphaFromBoolean(isUsable, usableHighlightAlpha, 0)
+end
+
 local function updateFullHealthAlpha(texture, unit)
     if UnitIsDeadOrGhost(unit) then
         texture:SetAlpha(0)
@@ -192,6 +281,7 @@ local function updateActionButtonOverlay(actionButton)
         overlay.auraContainer:SetAuraSlotCandidateFilters(selfBuffAuraSlotKey, createSpellCandidateFilters(spellID))
         overlay.spellID = spellID
         overlay.isBandage = nil
+        overlay.isOverpower = spellID ~= nil and isOverpowerSpell(spellID)
     end
 
     if overlay.isBandage == nil then
@@ -203,6 +293,8 @@ local function updateActionButtonOverlay(actionButton)
     else
         overlay.fullHealthTexture:SetAlpha(0)
     end
+
+    updateOverpowerGlow(overlay, actionButton)
 end
 
 local function refreshActionButtonOverlays()
@@ -222,6 +314,7 @@ local function refreshActionButtonOverlays()
         if overlay.lastRefreshGeneration ~= refreshGeneration and overlay.isVisible then
             overlay.auraContainer:SetAlpha(0)
             overlay.isVisible = false
+            hideOverpowerGlow(overlay)
         end
     end
 end
@@ -232,8 +325,14 @@ local elapsedSinceRefresh = overlayRefreshIntervalSeconds
 actionBarController:RegisterEvent("PLAYER_ENTERING_WORLD")
 actionBarController:RegisterEvent("PLAYER_REGEN_DISABLED")
 actionBarController:RegisterEvent("PLAYER_REGEN_ENABLED")
+actionBarController:RegisterEvent("ACTION_USABLE_CHANGED")
 
-actionBarController:SetScript("OnEvent", function()
+actionBarController:SetScript("OnEvent", function(_, event)
+    if event == "ACTION_USABLE_CHANGED" then
+        refreshActionButtonOverlays()
+        return
+    end
+
     refreshAuraStates()
 end)
 
