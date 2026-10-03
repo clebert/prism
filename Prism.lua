@@ -76,6 +76,9 @@ local thunderClapSpellIDs = {
     [11580] = true,
     [11581] = true,
 }
+local victoryRushSpellIDs = {
+    [402927] = true,
+}
 local actionButtonNamePrefixes = {
     "ActionButton",
     "MultiBarBottomLeftButton",
@@ -163,7 +166,9 @@ local function isSpell(spellID, spellIDs)
 end
 
 local function isUsableGlowSpell(spellID)
-    return isSpell(spellID, overpowerSpellIDs) or isSpell(spellID, revengeSpellIDs)
+    return isSpell(spellID, overpowerSpellIDs)
+        or isSpell(spellID, revengeSpellIDs)
+        or isSpell(spellID, victoryRushSpellIDs)
 end
 
 local function isAggroHighlightSpell(spellID)

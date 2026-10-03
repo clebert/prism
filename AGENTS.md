@@ -22,6 +22,14 @@ Verify every undocumented API against version-matched interface source.
 
 Do not infer an API from memory or from source for another game version.
 
+## Game data
+
+Verify every hard-coded spell ID in version-matched `SpellName` and `SpellEffect` data from the exact Forever client build.
+
+Do not use interface comments, tutorial lists, or another game mode as spell-ID evidence.
+
+Distinguish the action spell from its activation aura, teaching spell, and related effects.
+
 ## Validation
 
 Run `luac -p Prism.lua` with a compatible Lua parser.
