@@ -5,27 +5,37 @@ local ownHamstringAuraSlotKey = "own-hamstring"
 local ownDebuffAuraFilter = "HARMFUL|PLAYER"
 local demoralizingShoutAuraSlotKey = "demoralizing-shout"
 local thunderClapAuraSlotKey = "thunder-clap"
-local sunderAuraSlotKey = "sunder-armor"
+local sunderArmorAuraSlotKey = "sunder-armor"
 -- HARMFUL matches any harmful aura. These spells have one shared debuff.
 local sharedDebuffAuraFilter = "HARMFUL"
 -- The bar appears when the aura has this many applications.
-local sunderFullStackCount = 5
--- These IDs glow while the spell is usable. The action button stores one rank.
-local usableGlowSpellIDs = {
-    -- Overpower
+local sunderArmorFullStackCount = 5
+-- Each table includes every spell rank that an action button can store.
+local demoralizingShoutSpellIDs = {
+    [1160] = true,
+    [6190] = true,
+    [11554] = true,
+    [11555] = true,
+    [11556] = true,
+}
+local hamstringSpellIDs = {
+    [1715] = true,
+    [7372] = true,
+    [7373] = true,
+}
+local mockingBlowSpellIDs = {
+    [694] = true,
+    [7400] = true,
+    [7402] = true,
+    [20559] = true,
+    [20560] = true,
+}
+local overpowerSpellIDs = {
     [7384] = true,
     [7887] = true,
     [11584] = true,
     [11585] = true,
-    -- Revenge
-    [6572] = true,
-    [6574] = true,
-    [7379] = true,
-    [11600] = true,
-    [11601] = true,
-    [25288] = true,
 }
--- The action button stores one rank. The target aura can use another rank.
 local rendSpellIDs = {
     [772] = true,
     [6546] = true,
@@ -35,15 +45,29 @@ local rendSpellIDs = {
     [11573] = true,
     [11574] = true,
 }
--- The action button stores one rank. The target aura can use another rank.
-local demoralizingShoutSpellIDs = {
-    [1160] = true,
-    [6190] = true,
-    [11554] = true,
-    [11555] = true,
-    [11556] = true,
+local revengeSpellIDs = {
+    [6572] = true,
+    [6574] = true,
+    [7379] = true,
+    [11600] = true,
+    [11601] = true,
+    [25288] = true,
 }
--- The action button stores one rank. The target aura can use another rank.
+local shieldBashSpellIDs = {
+    [72] = true,
+    [1671] = true,
+    [1672] = true,
+}
+local sunderArmorSpellIDs = {
+    [7386] = true,
+    [7405] = true,
+    [8380] = true,
+    [11596] = true,
+    [11597] = true,
+}
+local tauntSpellIDs = {
+    [355] = true,
+}
 local thunderClapSpellIDs = {
     [6343] = true,
     [8198] = true,
@@ -51,20 +75,6 @@ local thunderClapSpellIDs = {
     [8205] = true,
     [11580] = true,
     [11581] = true,
-}
--- The action button stores one rank. The target aura can use another rank.
-local sunderSpellIDs = {
-    [7386] = true,
-    [7405] = true,
-    [8380] = true,
-    [11596] = true,
-    [11597] = true,
-}
--- The action button stores one rank. The target aura can use another rank.
-local hamstringSpellIDs = {
-    [1715] = true,
-    [7372] = true,
-    [7373] = true,
 }
 local actionButtonNamePrefixes = {
     "ActionButton",
@@ -78,7 +88,7 @@ local actionButtonNamePrefixes = {
 }
 local actionButtonsPerBar = 12
 -- The retail spell alert frame uses this multiple of the button size.
-local usableGlowScale = 1.4
+local spellGlowScale = 1.4
 local overlayRefreshIntervalSeconds = 0.1
 local actionButtonOverlays = {}
 local refreshGeneration = 0
@@ -93,31 +103,35 @@ fullHealthCurve:AddPoint(1, 1)
 
 -- The documented full alpha for SetAlphaFromBoolean is 255. Measure a plain
 -- true once, because SetAlpha on this client uses the range 0 to 1.
-local usableGlowAlpha = 1
+local booleanTrueAlpha = 1
 local alphaProbeTexture = UIParent:CreateTexture()
 alphaProbeTexture:SetAlpha(0)
 alphaProbeTexture:SetAlphaFromBoolean(true, 1, 0)
 
 if alphaProbeTexture:GetAlpha() < 0.5 then
-    usableGlowAlpha = 255
+    booleanTrueAlpha = 255
 end
 
 alphaProbeTexture:Hide()
 
+local function createHighlightTexture(parent)
+    local texture = parent:CreateTexture(nil, "OVERLAY", nil, 1)
+    texture:SetAllPoints()
+    texture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+    texture:SetBlendMode("ADD")
+    texture:Show()
+    return texture
+end
+
 local function initializeAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
-
-    local highlightTexture = auraButton:CreateTexture(nil, "OVERLAY", nil, 1)
-    highlightTexture:SetAllPoints()
-    highlightTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-    highlightTexture:SetBlendMode("ADD")
-    highlightTexture:Show()
+    createHighlightTexture(auraButton)
 end
 
 -- The slot frame appears at the first stack. The bar appears at the full stack count.
 -- Addon code does not read that count.
-local function initializeSunderAuraButton(auraButton)
+local function initializeSunderArmorAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
 
@@ -126,79 +140,41 @@ local function initializeSunderAuraButton(auraButton)
     applicationBar:EnableMouse(false)
     applicationBar:Hide()
 
-    local highlightTexture = applicationBar:CreateTexture(nil, "OVERLAY", nil, 1)
-    highlightTexture:SetAllPoints()
-    highlightTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-    highlightTexture:SetBlendMode("ADD")
-    highlightTexture:Show()
+    createHighlightTexture(applicationBar)
 
     auraButton:SetApplicationBar(applicationBar, {
-        minApplications = sunderFullStackCount,
-        maxApplications = sunderFullStackCount,
+        minApplications = sunderArmorFullStackCount,
+        maxApplications = sunderArmorFullStackCount,
     })
 end
 
+local function isSpell(spellID, spellIDs)
+    if not spellID then
+        return false
+    end
+
+    if spellIDs[spellID] then
+        return true
+    end
+
+    local baseSpellID = C_Spell.GetBaseSpell(spellID)
+
+    return baseSpellID ~= nil and spellIDs[baseSpellID] == true
+end
+
 local function isUsableGlowSpell(spellID)
-    if usableGlowSpellIDs[spellID] then
-        return true
-    end
-
-    local baseSpellID = C_Spell.GetBaseSpell(spellID)
-
-    return baseSpellID ~= nil and usableGlowSpellIDs[baseSpellID] == true
+    return isSpell(spellID, overpowerSpellIDs) or isSpell(spellID, revengeSpellIDs)
 end
 
-local function isRendSpell(spellID)
-    if rendSpellIDs[spellID] then
-        return true
-    end
-
-    local baseSpellID = C_Spell.GetBaseSpell(spellID)
-
-    return baseSpellID ~= nil and rendSpellIDs[baseSpellID] == true
+local function isAggroHighlightSpell(spellID)
+    return isSpell(spellID, tauntSpellIDs) or isSpell(spellID, mockingBlowSpellIDs)
 end
 
-local function isDemoralizingShoutSpell(spellID)
-    if demoralizingShoutSpellIDs[spellID] then
-        return true
-    end
-
-    local baseSpellID = C_Spell.GetBaseSpell(spellID)
-
-    return baseSpellID ~= nil and demoralizingShoutSpellIDs[baseSpellID] == true
+local function isCastGlowSpell(spellID)
+    return isSpell(spellID, shieldBashSpellIDs)
 end
 
-local function isThunderClapSpell(spellID)
-    if thunderClapSpellIDs[spellID] then
-        return true
-    end
-
-    local baseSpellID = C_Spell.GetBaseSpell(spellID)
-
-    return baseSpellID ~= nil and thunderClapSpellIDs[baseSpellID] == true
-end
-
-local function isSunderSpell(spellID)
-    if sunderSpellIDs[spellID] then
-        return true
-    end
-
-    local baseSpellID = C_Spell.GetBaseSpell(spellID)
-
-    return baseSpellID ~= nil and sunderSpellIDs[baseSpellID] == true
-end
-
-local function isHamstringSpell(spellID)
-    if hamstringSpellIDs[spellID] then
-        return true
-    end
-
-    local baseSpellID = C_Spell.GetBaseSpell(spellID)
-
-    return baseSpellID ~= nil and hamstringSpellIDs[baseSpellID] == true
-end
-
-local function createSpellCandidateFilters(spellID)
+local function createExactSpellCandidateFilters(spellID)
     local includeSpellIDs = {}
 
     if spellID then
@@ -208,81 +184,20 @@ local function createSpellCandidateFilters(spellID)
     return { includeSpellIDs = includeSpellIDs }
 end
 
-local function createOwnRendCandidateFilters(spellID)
+local function createRankedSpellCandidateFilters(spellIDs, actionSpellID, isFromPlayerOrPlayerPet)
     local includeSpellIDs = {}
 
-    for rendSpellID in pairs(rendSpellIDs) do
-        includeSpellIDs[rendSpellID] = true
-    end
-
-    if spellID then
+    for spellID in pairs(spellIDs) do
         includeSpellIDs[spellID] = true
     end
 
-    -- isFromPlayerOrPlayerPet rejects a Rend aura from another unit.
+    if actionSpellID then
+        includeSpellIDs[actionSpellID] = true
+    end
+
     return {
         includeSpellIDs = includeSpellIDs,
-        isFromPlayerOrPlayerPet = true,
-    }
-end
-
-local function createDemoralizingShoutCandidateFilters(spellID)
-    local includeSpellIDs = {}
-
-    for demoralizingShoutSpellID in pairs(demoralizingShoutSpellIDs) do
-        includeSpellIDs[demoralizingShoutSpellID] = true
-    end
-
-    if spellID then
-        includeSpellIDs[spellID] = true
-    end
-
-    return { includeSpellIDs = includeSpellIDs }
-end
-
-local function createThunderClapCandidateFilters(spellID)
-    local includeSpellIDs = {}
-
-    for thunderClapSpellID in pairs(thunderClapSpellIDs) do
-        includeSpellIDs[thunderClapSpellID] = true
-    end
-
-    if spellID then
-        includeSpellIDs[spellID] = true
-    end
-
-    return { includeSpellIDs = includeSpellIDs }
-end
-
-local function createSunderCandidateFilters(spellID)
-    local includeSpellIDs = {}
-
-    for sunderSpellID in pairs(sunderSpellIDs) do
-        includeSpellIDs[sunderSpellID] = true
-    end
-
-    if spellID then
-        includeSpellIDs[spellID] = true
-    end
-
-    return { includeSpellIDs = includeSpellIDs }
-end
-
-local function createOwnHamstringCandidateFilters(spellID)
-    local includeSpellIDs = {}
-
-    for hamstringSpellID in pairs(hamstringSpellIDs) do
-        includeSpellIDs[hamstringSpellID] = true
-    end
-
-    if spellID then
-        includeSpellIDs[spellID] = true
-    end
-
-    -- isFromPlayerOrPlayerPet rejects a Hamstring aura from another unit.
-    return {
-        includeSpellIDs = includeSpellIDs,
-        isFromPlayerOrPlayerPet = true,
+        isFromPlayerOrPlayerPet = isFromPlayerOrPlayerPet,
     }
 end
 
@@ -292,21 +207,22 @@ local function createActionButtonOverlay()
     auraContainer:EnableMouse(false)
     auraContainer:SetUnit("player")
     auraContainer:AddAuraSlot(selfBuffAuraSlotKey, "HELPFUL", {
-        candidateFilters = createSpellCandidateFilters(nil),
+        candidateFilters = createExactSpellCandidateFilters(nil),
         initializeFrame = initializeAuraButton,
     })
     auraContainer:Show()
     auraContainer:SetEnabled(true)
 
-    local fullHealthTexture = auraContainer:CreateTexture(nil, "OVERLAY", nil, 1)
-    fullHealthTexture:SetAllPoints()
-    fullHealthTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-    fullHealthTexture:SetBlendMode("ADD")
+    local fullHealthTexture = createHighlightTexture(auraContainer)
     fullHealthTexture:SetAlpha(0)
+
+    local aggroHighlightTexture = createHighlightTexture(auraContainer)
+    aggroHighlightTexture:SetAlpha(0)
 
     return {
         auraContainer = auraContainer,
         fullHealthTexture = fullHealthTexture,
+        aggroHighlightTexture = aggroHighlightTexture,
         isVisible = true,
     }
 end
@@ -348,7 +264,7 @@ local function ensureOwnRendSlot(overlay, spellID)
     end
 
     targetAuraContainer:AddAuraSlot(ownRendAuraSlotKey, ownDebuffAuraFilter, {
-        candidateFilters = createOwnRendCandidateFilters(spellID),
+        candidateFilters = createRankedSpellCandidateFilters(rendSpellIDs, spellID, true),
         initializeFrame = initializeAuraButton,
     })
     overlay.hasOwnRendSlot = true
@@ -365,7 +281,7 @@ local function ensureDemoralizingShoutSlot(overlay, spellID)
     end
 
     targetAuraContainer:AddAuraSlot(demoralizingShoutAuraSlotKey, sharedDebuffAuraFilter, {
-        candidateFilters = createDemoralizingShoutCandidateFilters(spellID),
+        candidateFilters = createRankedSpellCandidateFilters(demoralizingShoutSpellIDs, spellID),
         initializeFrame = initializeAuraButton,
     })
     overlay.hasDemoralizingShoutSlot = true
@@ -382,7 +298,7 @@ local function ensureThunderClapSlot(overlay, spellID)
     end
 
     targetAuraContainer:AddAuraSlot(thunderClapAuraSlotKey, sharedDebuffAuraFilter, {
-        candidateFilters = createThunderClapCandidateFilters(spellID),
+        candidateFilters = createRankedSpellCandidateFilters(thunderClapSpellIDs, spellID),
         initializeFrame = initializeAuraButton,
     })
     overlay.hasThunderClapSlot = true
@@ -391,20 +307,20 @@ local function ensureThunderClapSlot(overlay, spellID)
     return targetAuraContainer
 end
 
-local function ensureSunderSlot(overlay, spellID)
+local function ensureSunderArmorSlot(overlay, spellID)
     local targetAuraContainer = ensureTargetAuraContainer(overlay)
 
-    if overlay.hasSunderSlot then
+    if overlay.hasSunderArmorSlot then
         return targetAuraContainer
     end
 
-    targetAuraContainer:AddAuraSlot(sunderAuraSlotKey, sharedDebuffAuraFilter, {
-        candidateFilters = createSunderCandidateFilters(spellID),
-        initializeFrame = initializeSunderAuraButton,
+    targetAuraContainer:AddAuraSlot(sunderArmorAuraSlotKey, sharedDebuffAuraFilter, {
+        candidateFilters = createRankedSpellCandidateFilters(sunderArmorSpellIDs, spellID),
+        initializeFrame = initializeSunderArmorAuraButton,
     })
-    overlay.hasSunderSlot = true
-    overlay.sunderSlotEnabled = true
-    overlay.sunderSpellID = spellID
+    overlay.hasSunderArmorSlot = true
+    overlay.sunderArmorSlotEnabled = true
+    overlay.sunderArmorSpellID = spellID
     return targetAuraContainer
 end
 
@@ -416,7 +332,7 @@ local function ensureOwnHamstringSlot(overlay, spellID)
     end
 
     targetAuraContainer:AddAuraSlot(ownHamstringAuraSlotKey, ownDebuffAuraFilter, {
-        candidateFilters = createOwnHamstringCandidateFilters(spellID),
+        candidateFilters = createRankedSpellCandidateFilters(hamstringSpellIDs, spellID, true),
         initializeFrame = initializeAuraButton,
     })
     overlay.hasOwnHamstringSlot = true
@@ -473,24 +389,33 @@ local function disableInactiveTargetSlots(overlay, targetAuraContainer, activeSt
         setTargetAuraSlotEnabled(targetAuraContainer, thunderClapAuraSlotKey, false, "thunderClapSlotEnabled", overlay)
     end
 
-    if activeStateKey ~= "sunderSlotEnabled" and overlay.sunderSlotEnabled then
-        setTargetAuraSlotEnabled(targetAuraContainer, sunderAuraSlotKey, false, "sunderSlotEnabled", overlay)
+    if activeStateKey ~= "sunderArmorSlotEnabled" and overlay.sunderArmorSlotEnabled then
+        setTargetAuraSlotEnabled(
+            targetAuraContainer,
+            sunderArmorAuraSlotKey,
+            false,
+            "sunderArmorSlotEnabled",
+            overlay
+        )
     end
 end
 
 local function updateTargetAuraHighlight(overlay, spellID)
-    local isRend = spellID ~= nil and isRendSpell(spellID)
-    local isHamstring = spellID ~= nil and isHamstringSpell(spellID)
-    local isDemoralizingShout = spellID ~= nil and isDemoralizingShoutSpell(spellID)
-    local isThunderClap = spellID ~= nil and isThunderClapSpell(spellID)
-    local isSunder = spellID ~= nil and isSunderSpell(spellID)
+    local isRend = isSpell(spellID, rendSpellIDs)
+    local isHamstring = isSpell(spellID, hamstringSpellIDs)
+    local isDemoralizingShout = isSpell(spellID, demoralizingShoutSpellIDs)
+    local isThunderClap = isSpell(spellID, thunderClapSpellIDs)
+    local isSunderArmor = isSpell(spellID, sunderArmorSpellIDs)
     local targetAuraContainer = overlay.targetAuraContainer
 
     if isRend then
         targetAuraContainer = ensureOwnRendSlot(overlay, spellID)
 
         if overlay.ownRendSpellID ~= spellID then
-            targetAuraContainer:SetAuraSlotCandidateFilters(ownRendAuraSlotKey, createOwnRendCandidateFilters(spellID))
+            targetAuraContainer:SetAuraSlotCandidateFilters(
+                ownRendAuraSlotKey,
+                createRankedSpellCandidateFilters(rendSpellIDs, spellID, true)
+            )
             overlay.ownRendSpellID = spellID
         end
 
@@ -504,7 +429,10 @@ local function updateTargetAuraHighlight(overlay, spellID)
         targetAuraContainer = ensureOwnHamstringSlot(overlay, spellID)
 
         if overlay.ownHamstringSpellID ~= spellID then
-            targetAuraContainer:SetAuraSlotCandidateFilters(ownHamstringAuraSlotKey, createOwnHamstringCandidateFilters(spellID))
+            targetAuraContainer:SetAuraSlotCandidateFilters(
+                ownHamstringAuraSlotKey,
+                createRankedSpellCandidateFilters(hamstringSpellIDs, spellID, true)
+            )
             overlay.ownHamstringSpellID = spellID
         end
 
@@ -520,7 +448,7 @@ local function updateTargetAuraHighlight(overlay, spellID)
         if overlay.demoralizingShoutSpellID ~= spellID then
             targetAuraContainer:SetAuraSlotCandidateFilters(
                 demoralizingShoutAuraSlotKey,
-                createDemoralizingShoutCandidateFilters(spellID)
+                createRankedSpellCandidateFilters(demoralizingShoutSpellIDs, spellID)
             )
             overlay.demoralizingShoutSpellID = spellID
         end
@@ -543,7 +471,7 @@ local function updateTargetAuraHighlight(overlay, spellID)
         if overlay.thunderClapSpellID ~= spellID then
             targetAuraContainer:SetAuraSlotCandidateFilters(
                 thunderClapAuraSlotKey,
-                createThunderClapCandidateFilters(spellID)
+                createRankedSpellCandidateFilters(thunderClapSpellIDs, spellID)
             )
             overlay.thunderClapSpellID = spellID
         end
@@ -560,16 +488,25 @@ local function updateTargetAuraHighlight(overlay, spellID)
         return
     end
 
-    if isSunder then
-        targetAuraContainer = ensureSunderSlot(overlay, spellID)
+    if isSunderArmor then
+        targetAuraContainer = ensureSunderArmorSlot(overlay, spellID)
 
-        if overlay.sunderSpellID ~= spellID then
-            targetAuraContainer:SetAuraSlotCandidateFilters(sunderAuraSlotKey, createSunderCandidateFilters(spellID))
-            overlay.sunderSpellID = spellID
+        if overlay.sunderArmorSpellID ~= spellID then
+            targetAuraContainer:SetAuraSlotCandidateFilters(
+                sunderArmorAuraSlotKey,
+                createRankedSpellCandidateFilters(sunderArmorSpellIDs, spellID)
+            )
+            overlay.sunderArmorSpellID = spellID
         end
 
-        setTargetAuraSlotEnabled(targetAuraContainer, sunderAuraSlotKey, true, "sunderSlotEnabled", overlay)
-        disableInactiveTargetSlots(overlay, targetAuraContainer, "sunderSlotEnabled")
+        setTargetAuraSlotEnabled(
+            targetAuraContainer,
+            sunderArmorAuraSlotKey,
+            true,
+            "sunderArmorSlotEnabled",
+            overlay
+        )
+        disableInactiveTargetSlots(overlay, targetAuraContainer, "sunderArmorSlotEnabled")
         setTargetHighlightShown(overlay, true)
         return
     end
@@ -681,8 +618,20 @@ local function getHealTargetUnit()
     return "player"
 end
 
-local function ensureUsableGlowFrame(overlay)
-    local glowFrame = overlay.usableGlowFrame
+local function isTargetCastingOrChanneling()
+    local _, _, _, _, _, isTradeSkill = UnitCastingInfo("target")
+
+    if isTradeSkill ~= nil then
+        return true
+    end
+
+    local _, _, _, _, _, isChannelTradeSkill = UnitChannelInfo("target")
+
+    return isChannelTradeSkill ~= nil
+end
+
+local function ensureSpellGlowFrame(overlay)
+    local glowFrame = overlay.spellGlowFrame
 
     if glowFrame then
         return glowFrame
@@ -691,12 +640,12 @@ local function ensureUsableGlowFrame(overlay)
     glowFrame = CreateFrame("Frame", nil, overlay.auraContainer, "ActionButtonSpellAlertTemplate")
     glowFrame:SetPoint("CENTER")
     glowFrame:EnableMouse(false)
-    overlay.usableGlowFrame = glowFrame
+    overlay.spellGlowFrame = glowFrame
     return glowFrame
 end
 
-local function hideUsableGlow(overlay)
-    local glowFrame = overlay.usableGlowFrame
+local function hideSpellGlow(overlay)
+    local glowFrame = overlay.spellGlowFrame
 
     if not glowFrame then
         return
@@ -706,21 +655,37 @@ local function hideUsableGlow(overlay)
     glowFrame:Hide()
 end
 
-local function updateUsableGlow(overlay, actionButton)
-    if not overlay.isUsableGlowSpell or not actionButton.action or actionButton.action <= 0 then
-        hideUsableGlow(overlay)
+local function updateSpellGlow(overlay, actionButton)
+    if
+        (not overlay.isUsableGlowSpell and not overlay.isCastGlowSpell)
+        or not actionButton.action
+        or actionButton.action <= 0
+    then
+        hideSpellGlow(overlay)
         return
     end
 
-    local glowFrame = ensureUsableGlowFrame(overlay)
+    if overlay.isCastGlowSpell then
+        if
+            not UnitExists("target")
+            or not UnitCanAttack("player", "target")
+            or UnitIsDeadOrGhost("target")
+            or not isTargetCastingOrChanneling()
+        then
+            hideSpellGlow(overlay)
+            return
+        end
+    end
+
+    local glowFrame = ensureSpellGlowFrame(overlay)
 
     if overlay.width and overlay.height then
-        local glowWidth = overlay.width * usableGlowScale
-        local glowHeight = overlay.height * usableGlowScale
+        local glowWidth = overlay.width * spellGlowScale
+        local glowHeight = overlay.height * spellGlowScale
 
-        if overlay.glowWidth ~= glowWidth or overlay.glowHeight ~= glowHeight then
-            overlay.glowWidth = glowWidth
-            overlay.glowHeight = glowHeight
+        if overlay.spellGlowWidth ~= glowWidth or overlay.spellGlowHeight ~= glowHeight then
+            overlay.spellGlowWidth = glowWidth
+            overlay.spellGlowHeight = glowHeight
             glowFrame:SetSize(glowWidth, glowHeight)
         end
     end
@@ -735,7 +700,7 @@ local function updateUsableGlow(overlay, actionButton)
 
     -- Apply the usable flag in the client. Do not compare that flag in Lua.
     local isUsable = C_ActionBar.IsUsableAction(actionButton.action)
-    glowFrame:SetAlphaFromBoolean(isUsable, usableGlowAlpha, 0)
+    glowFrame:SetAlphaFromBoolean(isUsable, booleanTrueAlpha, 0)
 end
 
 local function updateFullHealthAlpha(texture, unit)
@@ -745,6 +710,30 @@ local function updateFullHealthAlpha(texture, unit)
     end
 
     texture:SetAlpha(UnitHealthPercent(unit, false, fullHealthCurve))
+end
+
+local function updateAggroHighlight(overlay)
+    local texture = overlay.aggroHighlightTexture
+
+    if
+        not overlay.isAggroHighlightSpell
+        or not UnitExists("target")
+        or not UnitCanAttack("player", "target")
+        or UnitIsDeadOrGhost("target")
+    then
+        texture:SetAlpha(0)
+        return
+    end
+
+    local threatStatus = UnitThreatSituation("player", "target")
+
+    if threatStatus == nil then
+        texture:SetAlpha(0)
+        return
+    end
+
+    local isTanking = UnitDetailedThreatSituation("player", "target")
+    texture:SetAlphaFromBoolean(isTanking, booleanTrueAlpha, 0)
 end
 
 local function updateActionButtonOverlay(actionButton)
@@ -769,13 +758,19 @@ local function updateActionButtonOverlay(actionButton)
     end
 
     if overlay.spellID ~= spellID then
-        overlay.auraContainer:SetAuraSlotCandidateFilters(selfBuffAuraSlotKey, createSpellCandidateFilters(spellID))
+        overlay.auraContainer:SetAuraSlotCandidateFilters(
+            selfBuffAuraSlotKey,
+            createExactSpellCandidateFilters(spellID)
+        )
         overlay.spellID = spellID
         overlay.isBandage = nil
-        overlay.isUsableGlowSpell = spellID ~= nil and isUsableGlowSpell(spellID)
+        overlay.isUsableGlowSpell = isUsableGlowSpell(spellID)
+        overlay.isAggroHighlightSpell = isAggroHighlightSpell(spellID)
+        overlay.isCastGlowSpell = isCastGlowSpell(spellID)
     end
 
     updateTargetAuraHighlight(overlay, spellID)
+    updateAggroHighlight(overlay)
     placeActionButtonOverlay(overlay, actionButton)
 
     if overlay.isBandage == nil then
@@ -788,7 +783,7 @@ local function updateActionButtonOverlay(actionButton)
         overlay.fullHealthTexture:SetAlpha(0)
     end
 
-    updateUsableGlow(overlay, actionButton)
+    updateSpellGlow(overlay, actionButton)
 end
 
 local function refreshActionButtonOverlays()
@@ -808,7 +803,7 @@ local function refreshActionButtonOverlays()
         if overlay.lastRefreshGeneration ~= refreshGeneration and overlay.isVisible then
             overlay.auraContainer:SetAlpha(0)
             overlay.isVisible = false
-            hideUsableGlow(overlay)
+            hideSpellGlow(overlay)
             setTargetHighlightShown(overlay, false)
         end
     end

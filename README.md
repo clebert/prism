@@ -12,8 +12,10 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - Prism highlights a Demoralizing Shout action button while the target has any player's Demoralizing Shout debuff.
 - Prism highlights a Thunder Clap action button while the target has any player's Thunder Clap debuff.
 - Prism highlights a Sunder Armor action button while the target has 5 Sunder Armor applications.
+- Prism highlights a Taunt or Mocking Blow action button while the player tanks the target.
 - Prism highlights a bandage action button while the heal target has full health.
 - Prism glows an Overpower or Revenge action button while that spell is usable.
+- Prism glows a Shield Bash action button during a hostile target cast or channel while Shield Bash is usable.
 
 ## Installation
 
