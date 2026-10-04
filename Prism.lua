@@ -1,5 +1,6 @@
 local selfBuffAuraSlotKey = "self-buff"
 local bandagePoisonAuraSlotKey = "bandage-poison"
+local antiVenomPoisonAuraSlotKey = "anti-venom-poison"
 local ownRendAuraSlotKey = "own-rend"
 -- HARMFUL|PLAYER keeps harmful auras cast by the player, the pet, or the vehicle.
 local ownDebuffAuraFilter = "HARMFUL|PLAYER"
@@ -11,6 +12,13 @@ local sunderArmorAuraSlotKey = "sunder-armor"
 local sharedDebuffAuraFilter = "HARMFUL"
 -- The bar appears when the aura has this many applications.
 local sunderArmorFullStackCount = 5
+-- Includes every usable Anti-Venom item.
+local antiVenomItemIDs = {
+    [6452] = true,
+    [6453] = true,
+    [19440] = true,
+    [255715] = true,
+}
 -- Each table includes every spell rank that an action button can store.
 local demoralizingShoutSpellIDs = {
     [1160] = true,
@@ -153,6 +161,20 @@ local function initializeBandagePoisonAuraButton(auraButton)
     auraButton:AddAuraShownAnimation(blink)
 end
 
+local createdAntiVenomGlowFrame
+
+local function initializeAntiVenomPoisonAuraButton(auraButton)
+    auraButton:EnableMouse(false)
+    auraButton:SetAllPoints()
+
+    local glowFrame = CreateFrame("Frame", nil, auraButton, "ActionButtonSpellAlertTemplate")
+    glowFrame:SetPoint("CENTER")
+    glowFrame:EnableMouse(false)
+    glowFrame:Show()
+    auraButton:AddAuraShownAnimation(glowFrame.ProcLoop)
+    createdAntiVenomGlowFrame = glowFrame
+end
+
 -- The slot frame appears at the first stack. The bar appears at the full stack count.
 -- Addon code does not read that count.
 local function initializeSunderArmorAuraButton(auraButton)
@@ -261,8 +283,8 @@ local function refreshAuraStates()
             overlay.targetAuraContainer:UpdateAllAuras()
         end
 
-        if overlay.bandagePoisonAuraContainerEnabled then
-            overlay.bandagePoisonAuraContainer:UpdateAllAuras()
+        if overlay.poisonAuraContainerEnabled then
+            overlay.poisonAuraContainer:UpdateAllAuras()
         end
     end
 end
@@ -286,8 +308,8 @@ local function ensureTargetAuraContainer(overlay)
     return targetAuraContainer
 end
 
-local function ensureBandagePoisonAuraContainer(overlay)
-    local auraContainer = overlay.bandagePoisonAuraContainer
+local function ensurePoisonAuraContainer(overlay)
+    local auraContainer = overlay.poisonAuraContainer
 
     if auraContainer then
         return auraContainer
@@ -299,24 +321,43 @@ local function ensureBandagePoisonAuraContainer(overlay)
     auraContainer:EnableMouse(false)
     auraContainer:SetUnit("player")
     auraContainer:SetAlpha(0)
+    auraContainer:SetEnabled(false)
     auraContainer:AddAuraSlot(bandagePoisonAuraSlotKey, "HARMFUL", {
         candidateFilters = { includeDispelTypes = { Poison = true } },
         initializeFrame = initializeBandagePoisonAuraButton,
     })
-    auraContainer:SetEnabled(false)
+    auraContainer:AddAuraSlot(antiVenomPoisonAuraSlotKey, "HARMFUL", {
+        candidateFilters = { includeDispelTypes = { Poison = true } },
+        initializeFrame = initializeAntiVenomPoisonAuraButton,
+    })
+    overlay.antiVenomGlowFrame = createdAntiVenomGlowFrame
+    createdAntiVenomGlowFrame = nil
+    auraContainer:SetAuraSlotEnabled(bandagePoisonAuraSlotKey, false)
+    auraContainer:SetAuraSlotEnabled(antiVenomPoisonAuraSlotKey, false)
     auraContainer:Show()
-    overlay.bandagePoisonAuraContainer = auraContainer
-    overlay.bandagePoisonAuraContainerEnabled = false
+    overlay.poisonAuraContainer = auraContainer
+    overlay.poisonAuraContainerEnabled = false
+    overlay.bandagePoisonAuraSlotEnabled = false
+    overlay.antiVenomPoisonAuraSlotEnabled = false
     return auraContainer
 end
 
-local function setBandagePoisonAuraContainerEnabled(overlay, enabled)
-    if not overlay.bandagePoisonAuraContainer or overlay.bandagePoisonAuraContainerEnabled == enabled then
+local function setPoisonAuraContainerEnabled(overlay, enabled)
+    if not overlay.poisonAuraContainer or overlay.poisonAuraContainerEnabled == enabled then
         return
     end
 
-    overlay.bandagePoisonAuraContainer:SetEnabled(enabled)
-    overlay.bandagePoisonAuraContainerEnabled = enabled
+    overlay.poisonAuraContainer:SetEnabled(enabled)
+    overlay.poisonAuraContainerEnabled = enabled
+end
+
+local function setPoisonAuraSlotEnabled(overlay, slotKey, stateKey, enabled)
+    if overlay[stateKey] == enabled then
+        return
+    end
+
+    overlay.poisonAuraContainer:SetAuraSlotEnabled(slotKey, enabled)
+    overlay[stateKey] = enabled
 end
 
 local function ensureOwnRendSlot(overlay, spellID)
@@ -602,6 +643,26 @@ local function placeAuraContainer(auraContainer, placement, scaledLeft, scaledBo
     auraContainer:SetSize(scaledWidth, scaledHeight)
 end
 
+-- Size the stored glow from the button. Do not read the slot frame.
+local function placeAntiVenomGlow(overlay)
+    local glowFrame = overlay.antiVenomGlowFrame
+
+    if not glowFrame or not overlay.width or not overlay.height then
+        return
+    end
+
+    local glowWidth = overlay.width * spellGlowScale
+    local glowHeight = overlay.height * spellGlowScale
+
+    if overlay.antiVenomGlowWidth == glowWidth and overlay.antiVenomGlowHeight == glowHeight then
+        return
+    end
+
+    overlay.antiVenomGlowWidth = glowWidth
+    overlay.antiVenomGlowHeight = glowHeight
+    glowFrame:SetSize(glowWidth, glowHeight)
+end
+
 local function placeActionButtonOverlay(overlay, actionButton)
     local left = actionButton:GetLeft()
     local bottom = actionButton:GetBottom()
@@ -617,6 +678,7 @@ local function placeActionButtonOverlay(overlay, actionButton)
     local scaledHeight = actionButton:GetHeight() * scale
 
     placeAuraContainer(overlay.auraContainer, overlay, scaledLeft, scaledBottom, scaledWidth, scaledHeight)
+    placeAntiVenomGlow(overlay)
 
     if overlay.targetAuraContainer then
         if not overlay.targetPlacement then
@@ -633,14 +695,14 @@ local function placeActionButtonOverlay(overlay, actionButton)
         )
     end
 
-    if overlay.bandagePoisonAuraContainer then
-        if not overlay.bandagePoisonPlacement then
-            overlay.bandagePoisonPlacement = {}
+    if overlay.poisonAuraContainer then
+        if not overlay.poisonPlacement then
+            overlay.poisonPlacement = {}
         end
 
         placeAuraContainer(
-            overlay.bandagePoisonAuraContainer,
-            overlay.bandagePoisonPlacement,
+            overlay.poisonAuraContainer,
+            overlay.poisonPlacement,
             scaledLeft,
             scaledBottom,
             scaledWidth,
@@ -698,21 +760,33 @@ local function getHealTargetUnit()
     return "player"
 end
 
-local function updateBandagePoisonHighlight(overlay, actionButton)
-    local auraContainer = overlay.bandagePoisonAuraContainer
+local function updatePoisonActionHighlight(overlay, actionButton)
+    local auraContainer = overlay.poisonAuraContainer
 
-    if not overlay.isBandage then
+    if not overlay.isBandage and not overlay.isAntiVenom then
         if auraContainer then
             auraContainer:SetAlphaFromBoolean(false, booleanTrueAlpha, 0)
-            setBandagePoisonAuraContainerEnabled(overlay, false)
+            setPoisonAuraContainerEnabled(overlay, false)
         end
 
         return
     end
 
-    auraContainer = ensureBandagePoisonAuraContainer(overlay)
+    auraContainer = ensurePoisonAuraContainer(overlay)
     auraContainer:SetUnit(getHealTargetUnit())
-    setBandagePoisonAuraContainerEnabled(overlay, true)
+    setPoisonAuraSlotEnabled(
+        overlay,
+        bandagePoisonAuraSlotKey,
+        "bandagePoisonAuraSlotEnabled",
+        overlay.isBandage
+    )
+    setPoisonAuraSlotEnabled(
+        overlay,
+        antiVenomPoisonAuraSlotKey,
+        "antiVenomPoisonAuraSlotEnabled",
+        overlay.isAntiVenom
+    )
+    setPoisonAuraContainerEnabled(overlay, true)
 
     local isUsable = C_ActionBar.IsUsableAction(actionButton.action)
     auraContainer:SetAlphaFromBoolean(isUsable, booleanTrueAlpha, 0)
@@ -841,12 +915,13 @@ local function updateActionButtonOverlay(actionButton)
     local spellID = getActionSpellID(actionButton)
     local overlay = actionButtonOverlays[actionButtonName]
     local isBandage, actionItemID = isBandageAction(actionButton)
+    local isAntiVenom = antiVenomItemIDs[actionItemID] == true
 
     if overlay and isBandage == nil and overlay.actionItemID == actionItemID then
         isBandage = overlay.isBandage
     end
 
-    if not overlay and not spellID and not isBandage then
+    if not overlay and not spellID and not isBandage and not isAntiVenom then
         return
     end
 
@@ -858,6 +933,7 @@ local function updateActionButtonOverlay(actionButton)
     overlay.lastRefreshGeneration = refreshGeneration
     overlay.actionItemID = actionItemID
     overlay.isBandage = isBandage == true
+    overlay.isAntiVenom = isAntiVenom
 
     if not overlay.isVisible then
         overlay.auraContainer:SetAlpha(1)
@@ -877,7 +953,7 @@ local function updateActionButtonOverlay(actionButton)
 
     updateTargetAuraHighlight(overlay, spellID)
     updateAggroHighlight(overlay)
-    updateBandagePoisonHighlight(overlay, actionButton)
+    updatePoisonActionHighlight(overlay, actionButton)
     placeActionButtonOverlay(overlay, actionButton)
 
     if overlay.isBandage then
@@ -909,9 +985,9 @@ local function refreshActionButtonOverlays()
             hideSpellGlow(overlay)
             setTargetHighlightShown(overlay, false)
 
-            if overlay.bandagePoisonAuraContainer then
-                overlay.bandagePoisonAuraContainer:SetAlphaFromBoolean(false, booleanTrueAlpha, 0)
-                setBandagePoisonAuraContainerEnabled(overlay, false)
+            if overlay.poisonAuraContainer then
+                overlay.poisonAuraContainer:SetAlphaFromBoolean(false, booleanTrueAlpha, 0)
+                setPoisonAuraContainerEnabled(overlay, false)
             end
         end
     end
