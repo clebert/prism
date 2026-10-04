@@ -1,8 +1,8 @@
 local selfBuffAuraSlotKey = "self-buff"
 local ownRendAuraSlotKey = "own-rend"
-local ownHamstringAuraSlotKey = "own-hamstring"
 -- HARMFUL|PLAYER keeps harmful auras cast by the player, the pet, or the vehicle.
 local ownDebuffAuraFilter = "HARMFUL|PLAYER"
+local hamstringAuraSlotKey = "hamstring"
 local demoralizingShoutAuraSlotKey = "demoralizing-shout"
 local thunderClapAuraSlotKey = "thunder-clap"
 local sunderArmorAuraSlotKey = "sunder-armor"
@@ -329,20 +329,20 @@ local function ensureSunderArmorSlot(overlay, spellID)
     return targetAuraContainer
 end
 
-local function ensureOwnHamstringSlot(overlay, spellID)
+local function ensureHamstringSlot(overlay, spellID)
     local targetAuraContainer = ensureTargetAuraContainer(overlay)
 
-    if overlay.hasOwnHamstringSlot then
+    if overlay.hasHamstringSlot then
         return targetAuraContainer
     end
 
-    targetAuraContainer:AddAuraSlot(ownHamstringAuraSlotKey, ownDebuffAuraFilter, {
-        candidateFilters = createRankedSpellCandidateFilters(hamstringSpellIDs, spellID, true),
+    targetAuraContainer:AddAuraSlot(hamstringAuraSlotKey, sharedDebuffAuraFilter, {
+        candidateFilters = createRankedSpellCandidateFilters(hamstringSpellIDs, spellID),
         initializeFrame = initializeAuraButton,
     })
-    overlay.hasOwnHamstringSlot = true
-    overlay.ownHamstringSlotEnabled = true
-    overlay.ownHamstringSpellID = spellID
+    overlay.hasHamstringSlot = true
+    overlay.hamstringSlotEnabled = true
+    overlay.hamstringSpellID = spellID
     return targetAuraContainer
 end
 
@@ -376,8 +376,8 @@ local function disableInactiveTargetSlots(overlay, targetAuraContainer, activeSt
         setTargetAuraSlotEnabled(targetAuraContainer, ownRendAuraSlotKey, false, "ownRendSlotEnabled", overlay)
     end
 
-    if activeStateKey ~= "ownHamstringSlotEnabled" and overlay.ownHamstringSlotEnabled then
-        setTargetAuraSlotEnabled(targetAuraContainer, ownHamstringAuraSlotKey, false, "ownHamstringSlotEnabled", overlay)
+    if activeStateKey ~= "hamstringSlotEnabled" and overlay.hamstringSlotEnabled then
+        setTargetAuraSlotEnabled(targetAuraContainer, hamstringAuraSlotKey, false, "hamstringSlotEnabled", overlay)
     end
 
     if activeStateKey ~= "demoralizingShoutSlotEnabled" and overlay.demoralizingShoutSlotEnabled then
@@ -431,18 +431,18 @@ local function updateTargetAuraHighlight(overlay, spellID)
     end
 
     if isHamstring then
-        targetAuraContainer = ensureOwnHamstringSlot(overlay, spellID)
+        targetAuraContainer = ensureHamstringSlot(overlay, spellID)
 
-        if overlay.ownHamstringSpellID ~= spellID then
+        if overlay.hamstringSpellID ~= spellID then
             targetAuraContainer:SetAuraSlotCandidateFilters(
-                ownHamstringAuraSlotKey,
-                createRankedSpellCandidateFilters(hamstringSpellIDs, spellID, true)
+                hamstringAuraSlotKey,
+                createRankedSpellCandidateFilters(hamstringSpellIDs, spellID)
             )
-            overlay.ownHamstringSpellID = spellID
+            overlay.hamstringSpellID = spellID
         end
 
-        setTargetAuraSlotEnabled(targetAuraContainer, ownHamstringAuraSlotKey, true, "ownHamstringSlotEnabled", overlay)
-        disableInactiveTargetSlots(overlay, targetAuraContainer, "ownHamstringSlotEnabled")
+        setTargetAuraSlotEnabled(targetAuraContainer, hamstringAuraSlotKey, true, "hamstringSlotEnabled", overlay)
+        disableInactiveTargetSlots(overlay, targetAuraContainer, "hamstringSlotEnabled")
         setTargetHighlightShown(overlay, true)
         return
     end

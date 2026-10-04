@@ -6,16 +6,19 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ## Features
 
-- Prism highlights an action button while the player has a buff with the same client spell ID.
-- Prism highlights a Rend action button while the target has a Rend debuff from the player.
-- Prism highlights a Hamstring action button while the target has a Hamstring debuff from the player.
-- Prism highlights a Demoralizing Shout action button while the target has any player's Demoralizing Shout debuff.
-- Prism highlights a Thunder Clap action button while the target has any player's Thunder Clap debuff.
-- Prism highlights a Sunder Armor action button while the target has 5 Sunder Armor applications.
-- Prism highlights a Taunt or Mocking Blow action button while the player tanks the target.
-- Prism highlights a bandage action button while the heal target has full health.
-- Prism glows an Overpower, Revenge, or Victory Rush action button while that spell is usable.
-- Prism glows a Shield Bash action button during a hostile target cast or channel while Shield Bash is usable.
+### General
+
+- _Player buffs:_ Highlights an action button while the player has a buff with the same client spell ID.
+- _Healing:_ Highlights **bandages** while the heal target has full health.
+
+### Warrior
+
+- _Own target debuffs:_ **Rend** — Highlights while the target has the player's debuff.
+- _Shared target debuffs:_ **Hamstring**, **Demoralizing Shout**, **Thunder Clap** — Highlights while the target has the matching debuff.
+- _Shared target debuff stacks:_ **Sunder Armor** — Highlights when fully stacked.
+- _Tanking:_ **Taunt**, **Mocking Blow** — Highlights while the player tanks the target.
+- _Usable attacks:_ **Overpower**, **Revenge**, **Victory Rush** — Glows while the spell is usable.
+- _Interrupts:_ **Shield Bash** — Glows during a hostile target cast or channel while the spell is usable.
 
 ## Installation
 
