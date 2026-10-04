@@ -9,7 +9,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 ### General
 
 - _Player buffs:_ Highlights an action button while the player has a buff with the same client spell ID.
-- _Healing:_ Highlights **bandages** while the heal target has full health.
+- _Healing:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
 
 ### Warrior
 

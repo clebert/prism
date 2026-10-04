@@ -1,4 +1,5 @@
 local selfBuffAuraSlotKey = "self-buff"
+local bandagePoisonAuraSlotKey = "bandage-poison"
 local ownRendAuraSlotKey = "own-rend"
 -- HARMFUL|PLAYER keeps harmful auras cast by the player, the pet, or the vehicle.
 local ownDebuffAuraFilter = "HARMFUL|PLAYER"
@@ -92,6 +93,8 @@ local actionButtonNamePrefixes = {
 local actionButtonsPerBar = 12
 -- The retail spell alert frame uses this multiple of the button size.
 local spellGlowScale = 1.4
+local bandagePoisonMinimumAlpha = 0.2
+local bandagePoisonBlinkDurationSeconds = 0.4
 local overlayRefreshIntervalSeconds = 0.1
 local actionButtonOverlays = {}
 local refreshGeneration = 0
@@ -130,6 +133,24 @@ local function initializeAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
     createHighlightTexture(auraButton)
+end
+
+local function initializeBandagePoisonAuraButton(auraButton)
+    auraButton:EnableMouse(false)
+    auraButton:SetAllPoints()
+
+    local texture = createHighlightTexture(auraButton)
+    texture:SetVertexColor(1, 0, 0)
+
+    local blink = texture:CreateAnimationGroup()
+    blink:SetLooping("BOUNCE")
+
+    local fade = blink:CreateAnimation("Alpha")
+    fade:SetFromAlpha(bandagePoisonMinimumAlpha)
+    fade:SetToAlpha(1)
+    fade:SetDuration(bandagePoisonBlinkDurationSeconds)
+
+    auraButton:AddAuraShownAnimation(blink)
 end
 
 -- The slot frame appears at the first stack. The bar appears at the full stack count.
@@ -239,6 +260,10 @@ local function refreshAuraStates()
         if overlay.targetAuraContainer then
             overlay.targetAuraContainer:UpdateAllAuras()
         end
+
+        if overlay.bandagePoisonAuraContainerEnabled then
+            overlay.bandagePoisonAuraContainer:UpdateAllAuras()
+        end
     end
 end
 
@@ -259,6 +284,39 @@ local function ensureTargetAuraContainer(overlay)
     targetAuraContainer:SetEnabled(true)
     overlay.targetAuraContainer = targetAuraContainer
     return targetAuraContainer
+end
+
+local function ensureBandagePoisonAuraContainer(overlay)
+    local auraContainer = overlay.bandagePoisonAuraContainer
+
+    if auraContainer then
+        return auraContainer
+    end
+
+    auraContainer = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
+    auraContainer:SetFrameStrata("HIGH")
+    auraContainer:SetFrameLevel(overlay.auraContainer:GetFrameLevel() + 1)
+    auraContainer:EnableMouse(false)
+    auraContainer:SetUnit("player")
+    auraContainer:SetAlpha(0)
+    auraContainer:AddAuraSlot(bandagePoisonAuraSlotKey, "HARMFUL", {
+        candidateFilters = { includeDispelTypes = { Poison = true } },
+        initializeFrame = initializeBandagePoisonAuraButton,
+    })
+    auraContainer:SetEnabled(false)
+    auraContainer:Show()
+    overlay.bandagePoisonAuraContainer = auraContainer
+    overlay.bandagePoisonAuraContainerEnabled = false
+    return auraContainer
+end
+
+local function setBandagePoisonAuraContainerEnabled(overlay, enabled)
+    if not overlay.bandagePoisonAuraContainer or overlay.bandagePoisonAuraContainerEnabled == enabled then
+        return
+    end
+
+    overlay.bandagePoisonAuraContainer:SetEnabled(enabled)
+    overlay.bandagePoisonAuraContainerEnabled = enabled
 end
 
 local function ensureOwnRendSlot(overlay, spellID)
@@ -574,6 +632,21 @@ local function placeActionButtonOverlay(overlay, actionButton)
             scaledHeight
         )
     end
+
+    if overlay.bandagePoisonAuraContainer then
+        if not overlay.bandagePoisonPlacement then
+            overlay.bandagePoisonPlacement = {}
+        end
+
+        placeAuraContainer(
+            overlay.bandagePoisonAuraContainer,
+            overlay.bandagePoisonPlacement,
+            scaledLeft,
+            scaledBottom,
+            scaledWidth,
+            scaledHeight
+        )
+    end
 end
 
 local function getActionSpellID(actionButton)
@@ -592,27 +665,29 @@ local function getActionSpellID(actionButton)
     return nil
 end
 
--- Returns nil while the client holds no data for the item.
+-- The first result is nil while the client holds no data for the item.
 local function isBandageAction(actionButton)
     local actionSlotID = actionButton.action
 
     if not actionSlotID or actionSlotID <= 0 or not C_ActionBar.HasAction(actionSlotID) then
-        return false
+        return false, nil
     end
 
     local actionType, itemID = GetActionInfo(actionSlotID)
 
     if actionType ~= "item" or not itemID then
-        return false
+        return false, nil
     end
 
     local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(itemID)
 
     if not classID then
-        return nil
+        return nil, itemID
     end
 
-    return classID == Enum.ItemClass.Consumable and subClassID == Enum.ItemConsumableSubclass.Bandage
+    local isBandage = classID == Enum.ItemClass.Consumable
+        and subClassID == Enum.ItemConsumableSubclass.Bandage
+    return isBandage, itemID
 end
 
 local function getHealTargetUnit()
@@ -621,6 +696,26 @@ local function getHealTargetUnit()
     end
 
     return "player"
+end
+
+local function updateBandagePoisonHighlight(overlay, actionButton)
+    local auraContainer = overlay.bandagePoisonAuraContainer
+
+    if not overlay.isBandage then
+        if auraContainer then
+            auraContainer:SetAlphaFromBoolean(false, booleanTrueAlpha, 0)
+            setBandagePoisonAuraContainerEnabled(overlay, false)
+        end
+
+        return
+    end
+
+    auraContainer = ensureBandagePoisonAuraContainer(overlay)
+    auraContainer:SetUnit(getHealTargetUnit())
+    setBandagePoisonAuraContainerEnabled(overlay, true)
+
+    local isUsable = C_ActionBar.IsUsableAction(actionButton.action)
+    auraContainer:SetAlphaFromBoolean(isUsable, booleanTrueAlpha, 0)
 end
 
 local function isTargetCastingOrChanneling()
@@ -745,8 +840,13 @@ local function updateActionButtonOverlay(actionButton)
     local actionButtonName = actionButton:GetName()
     local spellID = getActionSpellID(actionButton)
     local overlay = actionButtonOverlays[actionButtonName]
+    local isBandage, actionItemID = isBandageAction(actionButton)
 
-    if not overlay and not spellID then
+    if overlay and isBandage == nil and overlay.actionItemID == actionItemID then
+        isBandage = overlay.isBandage
+    end
+
+    if not overlay and not spellID and not isBandage then
         return
     end
 
@@ -756,6 +856,8 @@ local function updateActionButtonOverlay(actionButton)
     end
 
     overlay.lastRefreshGeneration = refreshGeneration
+    overlay.actionItemID = actionItemID
+    overlay.isBandage = isBandage == true
 
     if not overlay.isVisible then
         overlay.auraContainer:SetAlpha(1)
@@ -768,7 +870,6 @@ local function updateActionButtonOverlay(actionButton)
             createExactSpellCandidateFilters(spellID)
         )
         overlay.spellID = spellID
-        overlay.isBandage = nil
         overlay.isUsableGlowSpell = isUsableGlowSpell(spellID)
         overlay.isAggroHighlightSpell = isAggroHighlightSpell(spellID)
         overlay.isCastGlowSpell = isCastGlowSpell(spellID)
@@ -776,11 +877,8 @@ local function updateActionButtonOverlay(actionButton)
 
     updateTargetAuraHighlight(overlay, spellID)
     updateAggroHighlight(overlay)
+    updateBandagePoisonHighlight(overlay, actionButton)
     placeActionButtonOverlay(overlay, actionButton)
-
-    if overlay.isBandage == nil then
-        overlay.isBandage = isBandageAction(actionButton)
-    end
 
     if overlay.isBandage then
         updateFullHealthAlpha(overlay.fullHealthTexture, getHealTargetUnit())
@@ -810,6 +908,11 @@ local function refreshActionButtonOverlays()
             overlay.isVisible = false
             hideSpellGlow(overlay)
             setTargetHighlightShown(overlay, false)
+
+            if overlay.bandagePoisonAuraContainer then
+                overlay.bandagePoisonAuraContainer:SetAlphaFromBoolean(false, booleanTrueAlpha, 0)
+                setBandagePoisonAuraContainerEnabled(overlay, false)
+            end
         end
     end
 end
@@ -827,6 +930,10 @@ actionBarController:SetScript("OnEvent", function(_, event)
     if event == "ACTION_USABLE_CHANGED" then
         refreshActionButtonOverlays()
         return
+    end
+
+    if event == "PLAYER_TARGET_CHANGED" then
+        refreshActionButtonOverlays()
     end
 
     refreshAuraStates()
