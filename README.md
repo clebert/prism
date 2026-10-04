@@ -11,6 +11,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - _Player buffs:_ Highlights an action button while the player has a buff with the same client spell ID.
 - _Healing:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
 - _Poison cleansing:_ Glows **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom** while the item is usable and the heal target has a poison debuff.
+- _Disease cleansing:_ Glows **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice** while the item is usable and the heal target has a disease debuff.
 
 ### Warrior
 
