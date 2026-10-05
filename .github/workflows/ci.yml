@@ -19,4 +19,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes lua5.1
           luac5.1 -p Prism.lua
+          lua5.1 tests/fear-warning.lua
           bash -n install.sh

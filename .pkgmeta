@@ -7,3 +7,4 @@ ignore:
   - install.sh
   - README.md
   - prism.jpg
+  - tests

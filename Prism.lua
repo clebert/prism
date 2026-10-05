@@ -9,8 +9,12 @@ local hamstringAuraSlotKey = "hamstring"
 local demoralizingShoutAuraSlotKey = "demoralizing-shout"
 local thunderClapAuraSlotKey = "thunder-clap"
 local sunderArmorAuraSlotKey = "sunder-armor"
--- HARMFUL matches any harmful aura. These spells have one shared debuff.
+local fearBreakAuraSlotKey = "fear-break"
 local sharedDebuffAuraFilter = "HARMFUL"
+-- Deep Wound is the target aura, not the talent or the damage effect.
+local deepWoundAuraSpellIDs = {
+    [412609] = true,
+}
 -- The bar appears when the aura has this many applications.
 local sunderArmorFullStackCount = 5
 -- Includes every usable Anti-Venom item.
@@ -46,6 +50,9 @@ local hamstringSpellIDs = {
     [1715] = true,
     [7372] = true,
     [7373] = true,
+}
+local intimidatingShoutSpellIDs = {
+    [5246] = true,
 }
 local mockingBlowSpellIDs = {
     [694] = true,
@@ -116,8 +123,8 @@ local actionButtonNamePrefixes = {
 local actionButtonsPerBar = 12
 -- The retail spell alert frame uses this multiple of the button size.
 local spellGlowScale = 1.4
-local bandagePoisonMinimumAlpha = 0.2
-local bandagePoisonBlinkDurationSeconds = 0.4
+local redBlinkMinimumAlpha = 0.2
+local redBlinkDurationSeconds = 0.4
 local overlayRefreshIntervalSeconds = 0.1
 local actionButtonOverlays = {}
 local refreshGeneration = 0
@@ -158,7 +165,7 @@ local function initializeAuraButton(auraButton)
     createHighlightTexture(auraButton)
 end
 
-local function initializeBandagePoisonAuraButton(auraButton)
+local function initializeRedBlinkAuraButton(auraButton)
     auraButton:EnableMouse(false)
     auraButton:SetAllPoints()
 
@@ -169,9 +176,9 @@ local function initializeBandagePoisonAuraButton(auraButton)
     blink:SetLooping("BOUNCE")
 
     local fade = blink:CreateAnimation("Alpha")
-    fade:SetFromAlpha(bandagePoisonMinimumAlpha)
+    fade:SetFromAlpha(redBlinkMinimumAlpha)
     fade:SetToAlpha(1)
-    fade:SetDuration(bandagePoisonBlinkDurationSeconds)
+    fade:SetDuration(redBlinkDurationSeconds)
 
     auraButton:AddAuraShownAnimation(blink)
 end
@@ -347,7 +354,7 @@ local function ensureCleanseAuraContainer(overlay)
     auraContainer:SetEnabled(false)
     auraContainer:AddAuraSlot(bandagePoisonAuraSlotKey, "HARMFUL", {
         candidateFilters = { includeDispelTypes = { Poison = true } },
-        initializeFrame = initializeBandagePoisonAuraButton,
+        initializeFrame = initializeRedBlinkAuraButton,
     })
     auraContainer:AddAuraSlot(antiVenomPoisonAuraSlotKey, "HARMFUL", {
         candidateFilters = { includeDispelTypes = { Poison = true } },
@@ -387,6 +394,28 @@ local function setCleanseAuraSlotEnabled(overlay, slotKey, stateKey, enabled)
 
     overlay.cleanseAuraContainer:SetAuraSlotEnabled(slotKey, enabled)
     overlay[stateKey] = enabled
+end
+
+local function ensureFearBreakSlot(overlay)
+    local targetAuraContainer = ensureTargetAuraContainer(overlay)
+
+    if overlay.hasFearBreakSlot then
+        return targetAuraContainer
+    end
+
+    local candidateFilters = createRankedSpellCandidateFilters(rendSpellIDs)
+
+    for spellID in pairs(deepWoundAuraSpellIDs) do
+        candidateFilters.includeSpellIDs[spellID] = true
+    end
+
+    targetAuraContainer:AddAuraSlot(fearBreakAuraSlotKey, sharedDebuffAuraFilter, {
+        candidateFilters = candidateFilters,
+        initializeFrame = initializeRedBlinkAuraButton,
+    })
+    overlay.hasFearBreakSlot = true
+    overlay.fearBreakSlotEnabled = true
+    return targetAuraContainer
 end
 
 local function ensureOwnRendSlot(overlay, spellID)
@@ -500,6 +529,10 @@ local function setTargetHighlightShown(overlay, isShown)
 end
 
 local function disableInactiveTargetSlots(overlay, targetAuraContainer, activeStateKey)
+    if activeStateKey ~= "fearBreakSlotEnabled" and overlay.fearBreakSlotEnabled then
+        setTargetAuraSlotEnabled(targetAuraContainer, fearBreakAuraSlotKey, false, "fearBreakSlotEnabled", overlay)
+    end
+
     if activeStateKey ~= "ownRendSlotEnabled" and overlay.ownRendSlotEnabled then
         setTargetAuraSlotEnabled(targetAuraContainer, ownRendAuraSlotKey, false, "ownRendSlotEnabled", overlay)
     end
@@ -533,13 +566,26 @@ local function disableInactiveTargetSlots(overlay, targetAuraContainer, activeSt
     end
 end
 
-local function updateTargetAuraHighlight(overlay, spellID)
+local function updateTargetAuraHighlight(overlay, spellID, actionSlotID)
     local isRend = isSpell(spellID, rendSpellIDs)
     local isHamstring = isSpell(spellID, hamstringSpellIDs)
     local isDemoralizingShout = isSpell(spellID, demoralizingShoutSpellIDs)
     local isThunderClap = isSpell(spellID, thunderClapSpellIDs)
     local isSunderArmor = isSpell(spellID, sunderArmorSpellIDs)
+    local isIntimidatingShout = isSpell(spellID, intimidatingShoutSpellIDs)
     local targetAuraContainer = overlay.targetAuraContainer
+
+    if isIntimidatingShout then
+        targetAuraContainer = ensureFearBreakSlot(overlay)
+        setTargetAuraSlotEnabled(targetAuraContainer, fearBreakAuraSlotKey, true, "fearBreakSlotEnabled", overlay)
+        disableInactiveTargetSlots(overlay, targetAuraContainer, "fearBreakSlotEnabled")
+
+        local isUsable = C_ActionBar.IsUsableAction(actionSlotID)
+        targetAuraContainer:SetAlphaFromBoolean(isUsable, booleanTrueAlpha, 0)
+        -- The next fixed highlight must restore the alpha without a usability check.
+        overlay.isTargetHighlightShown = nil
+        return
+    end
 
     if isRend then
         targetAuraContainer = ensureOwnRendSlot(overlay, spellID)
@@ -987,7 +1033,7 @@ local function updateActionButtonOverlay(actionButton)
         overlay.isCastGlowSpell = isCastGlowSpell(spellID)
     end
 
-    updateTargetAuraHighlight(overlay, spellID)
+    updateTargetAuraHighlight(overlay, spellID, actionButton.action)
     updateAggroHighlight(overlay)
     updateCleanseActionHighlight(overlay, actionButton)
     placeActionButtonOverlay(overlay, actionButton)

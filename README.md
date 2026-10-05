@@ -21,6 +21,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - _Tanking:_ **Taunt**, **Mocking Blow** — Highlights while the player tanks the target.
 - _Usable attacks:_ **Execute**, **Overpower**, **Revenge**, **Victory Rush** — Glows while the spell is usable.
 - _Interrupts:_ **Shield Bash** — Glows during a hostile target cast or channel while the spell is usable.
+- _Fear warning:_ **Intimidating Shout** — Blinks red while the spell is usable and the hostile target has **Rend** or **Deep Wound** from any caster.
 
 ## Installation
 
