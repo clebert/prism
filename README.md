@@ -19,7 +19,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - _Shared target debuffs:_ **Hamstring**, **Demoralizing Shout**, **Thunder Clap** — Highlights while the target has the matching debuff.
 - _Shared target debuff stacks:_ **Sunder Armor** — Highlights when fully stacked.
 - _Tanking:_ **Taunt**, **Mocking Blow** — Highlights while the player tanks the target.
-- _Usable attacks:_ **Overpower**, **Revenge**, **Victory Rush** — Glows while the spell is usable.
+- _Usable attacks:_ **Execute**, **Overpower**, **Revenge**, **Victory Rush** — Glows while the spell is usable.
 - _Interrupts:_ **Shield Bash** — Glows during a hostile target cast or channel while the spell is usable.
 
 ## Installation

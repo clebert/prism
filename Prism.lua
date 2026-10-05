@@ -35,6 +35,13 @@ local demoralizingShoutSpellIDs = {
     [11555] = true,
     [11556] = true,
 }
+local executeSpellIDs = {
+    [5308] = true,
+    [20658] = true,
+    [20660] = true,
+    [20661] = true,
+    [20662] = true,
+}
 local hamstringSpellIDs = {
     [1715] = true,
     [7372] = true,
@@ -224,7 +231,8 @@ local function isSpell(spellID, spellIDs)
 end
 
 local function isUsableGlowSpell(spellID)
-    return isSpell(spellID, overpowerSpellIDs)
+    return isSpell(spellID, executeSpellIDs)
+        or isSpell(spellID, overpowerSpellIDs)
         or isSpell(spellID, revengeSpellIDs)
         or isSpell(spellID, victoryRushSpellIDs)
 end
