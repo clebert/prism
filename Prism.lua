@@ -32,6 +32,9 @@ local poulticeItemIDs = {
     [255719] = true,
 }
 -- Each table includes every spell rank that an action button can store.
+local challengingShoutSpellIDs = {
+    [1161] = true,
+}
 local demoralizingShoutSpellIDs = {
     [1160] = true,
     [6190] = true,
@@ -245,7 +248,9 @@ local function isUsableGlowSpell(spellID)
 end
 
 local function isAggroHighlightSpell(spellID)
-    return isSpell(spellID, tauntSpellIDs) or isSpell(spellID, mockingBlowSpellIDs)
+    return isSpell(spellID, tauntSpellIDs)
+        or isSpell(spellID, mockingBlowSpellIDs)
+        or isSpell(spellID, challengingShoutSpellIDs)
 end
 
 local function isCastGlowSpell(spellID)
