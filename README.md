@@ -28,3 +28,61 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - Download Prism from [CurseForge](https://www.curseforge.com/wow/addons/prism).
 - Extract Prism into the `Interface/AddOns/` directory for the Forever client.
 - Restart WoW, or type `/reload` if the game is open.
+
+## Architecture
+
+The main file selects the shared rules and the current class rules. The core contains no class-specific branches.
+
+| File | Responsibility |
+| --- | --- |
+| `Core.lua` | Implements action matching, mechanics, visuals, secure aura containers, placement, and refresh control. |
+| `Shared.lua` | Defines class-independent rules and item IDs. |
+| `Classes/Warrior.lua` | Defines Warrior spell IDs, aura IDs, and feedback rules. |
+| `Prism.lua` | Selects the rules and starts the core. |
+
+The TOC loads these files in that order. Add each class file after `Shared.lua` and before `Prism.lua` in `Prism.toc`.
+
+### Rules
+
+Each rule defines a unique `key`, an `action` selector, a `condition`, and a `visual`.
+
+Action selectors match spell IDs, item IDs, or item categories. The shared self-buff rule matches any spell action.
+
+Spell selectors also match the base spell ID. Aura filters match only their declared IDs.
+
+Keep action IDs separate from aura IDs. Set `includeActionSpellID` only when the action can also identify the aura.
+
+Several rules can apply to one action. Each aura rule uses a separate secure container for its filter and alpha.
+
+| Mechanic | Condition |
+| --- | --- |
+| `aura` | A declared buff or debuff is active on the selected unit. |
+| `aura-stacks` | A declared aura reaches the specified application count. |
+| `dispel-type` | A debuff with the specified dispel type is active on the selected unit. |
+| `full-health` | The selected living unit has full health. |
+| `usable` | The action is usable. |
+| `target-cast` | A living hostile target casts or channels, and the action is usable. |
+| `tanking` | The player tanks the living hostile target. |
+
+The unit can be `player`, `target`, or `heal-target`. The heal target is an assistable current target, or the player if no assistable target exists.
+
+Set `requireUsable` on an aura rule to require a usable action. Set `ownAura` with the `PLAYER` filter to restrict the caster.
+
+The visuals are `highlight`, `red-blink`, and `glow`. The core keeps condition alpha separate from animation alpha.
+
+### Validation
+
+Use Lua 5.1 for the syntax checks and tests.
+
+```bash
+luac5.1 -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua
+lua5.1 tests/fear-warning.lua
+lua5.1 tests/mechanics.lua
+lua5.1 tests/rules.lua
+bash -n install.sh tests/install.sh
+bash tests/install.sh
+```
+
+Run `./install.sh` to install every source file listed in the TOC. Set `PRISM_ADDON_DIRECTORY` to install in another directory.
+
+Use `/reload`, then test the behavior in and out of combat. Test action paging, bar visibility, UI scaling, and spell movement.

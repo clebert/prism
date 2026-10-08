@@ -32,9 +32,13 @@ Distinguish the action spell from its activation aura, teaching spell, and relat
 
 ## Validation
 
-Run `luac -p Prism.lua` with a compatible Lua parser.
+Run `luac -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua` with a compatible Lua parser.
 
-Use `luac5.1 -p Prism.lua` when the Lua 5.1 parser has that name.
+Use `luac5.1` when the Lua 5.1 parser has that name.
+
+Run the Lua tests in `tests/fear-warning.lua`, `tests/mechanics.lua`, and `tests/rules.lua` with Lua 5.1.
+
+Run `bash tests/install.sh` to test the installation.
 
 Run `./install.sh` to install Prism in the default macOS Forever client.
 

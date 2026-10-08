@@ -6,4 +6,7 @@
 ## RequiredDeps: Blizzard_AuraContainer, Blizzard_ActionBar
 ## X-Curse-Project-ID: 1419830
 
+Core.lua
+Shared.lua
+Classes/Warrior.lua
 Prism.lua
