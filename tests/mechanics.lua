@@ -111,6 +111,12 @@ for _, spellID in ipairs({ 72, 1671, 1672 }) do
     client.refresh()
     assert(not client.getSpellGlow())
     client.deadUnits.target = false
+    client.targetExists = false
+    client.refresh()
+    assert(not client.getSpellGlow(), "An absent target activated the interrupt glow.")
+    client.targetExists = true
+    client.refresh()
+    assert(client.getSpellGlow(), "The interrupt glow did not return with the target.")
     actions[button.action].isUsable = false
     client.refresh()
     assert(not client.getSpellGlow())
@@ -141,6 +147,18 @@ for _, spellID in ipairs({ 355, 694, 7400, 7402, 20559, 20560, 1161 }) do
     client.refresh()
     assert(not tankingHighlightShown())
     client.targetExists = true
+    client.targetHostile = false
+    client.targetFriendly = true
+    client.refresh()
+    assert(not tankingHighlightShown(), "A friendly target activated the tanking highlight.")
+    client.targetHostile = true
+    client.targetFriendly = false
+    client.deadUnits.target = true
+    client.refresh()
+    assert(not tankingHighlightShown(), "A dead target activated the tanking highlight.")
+    client.deadUnits.target = false
+    client.refresh()
+    assert(tankingHighlightShown(), "The tanking highlight did not return with a living hostile target.")
 end
 
 client.fullHealthUnits.player = true
@@ -157,6 +175,21 @@ local healthTexture = client.healthTexture
 client.items[1251] = nil
 client.refresh()
 assert(client.alpha(healthTexture) == 1, "Missing item data lost the cached bandage category.")
+
+-- Synthetic items test unknown data and incorrect item categories.
+setAction({ itemID = 999008 })
+assert(client.alpha(healthTexture) == 0, "Another item inherited the cached bandage category.")
+assert(not poisonContainer.enabled and client.alpha(poisonContainer) == 0)
+client.items[999009] = { classID = 0, subClassID = 0 }
+client.items[999010] = { classID = 1, subClassID = 7 }
+for _, itemID in ipairs({ 999009, 999010 }) do
+    setAction({ itemID = itemID })
+    assert(client.alpha(healthTexture) == 0, "An incorrect item category activated the bandage highlight.")
+    assert(not poisonContainer.enabled, "An incorrect item category activated the bandage warning.")
+end
+client.items[1251] = { classID = 0, subClassID = 7 }
+setAction({ itemID = 1251 })
+assert(client.alpha(healthTexture) == 1 and poisonContainer.enabled)
 client.targetFriendly = true
 client.fullHealthUnits.target = true
 client.event("PLAYER_TARGET_CHANGED")
@@ -169,6 +202,39 @@ client.deadUnits.target = false
 client.targetFriendly = false
 client.event("PLAYER_TARGET_CHANGED")
 assert(poisonContainer.unit == "player")
+
+local healTargets = {
+    { exists = false, friendly = true, dead = false, fullHealth = true, unit = "player", alpha = 1 },
+    { exists = true, friendly = false, dead = false, fullHealth = true, unit = "player", alpha = 1 },
+    { exists = true, friendly = true, dead = false, fullHealth = false, unit = "target", alpha = 0 },
+    { exists = true, friendly = true, dead = true, fullHealth = true, unit = "target", alpha = 0 },
+    { exists = true, friendly = true, dead = false, fullHealth = true, unit = "target", alpha = 1 },
+}
+for _, target in ipairs(healTargets) do
+    client.targetExists = target.exists
+    client.targetFriendly = target.friendly
+    client.targetHostile = not target.friendly
+    client.deadUnits.target = target.dead
+    client.fullHealthUnits.target = target.fullHealth
+    local targetQueries = client.healthQueryCount.target
+    client.event("PLAYER_TARGET_CHANGED")
+    assert(poisonContainer.unit == target.unit, "The bandage warning selected the wrong heal target.")
+    assert(client.alpha(healthTexture) == target.alpha, "The bandage highlight used an incorrect health condition.")
+    if target.alpha == 1 then
+        assert(healthTexture.alpha.healthUnit == target.unit, "The bandage highlight selected the wrong heal target.")
+    end
+    if not target.exists or target.dead then
+        assert(client.healthQueryCount.target == targetQueries, "The core queried health for an absent or dead target.")
+    end
+end
+client.targetFriendly = false
+client.targetHostile = true
+client.fullHealthUnits.player = false
+client.event("PLAYER_TARGET_CHANGED")
+assert(client.alpha(healthTexture) == 0, "A wounded player activated the bandage highlight.")
+client.fullHealthUnits.player = true
+client.event("PLAYER_TARGET_CHANGED")
+assert(client.alpha(healthTexture) == 1)
 
 for _, itemID in ipairs({ 6452, 6453, 19440, 255715, 255716, 255717, 255718, 255719 }) do
     setAction({ itemID = itemID })

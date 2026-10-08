@@ -23,6 +23,7 @@ jobs:
           lua5.1 tests/hunter.lua
           lua5.1 tests/mechanics.lua
           lua5.1 tests/rules.lua
+          lua5.1 tests/runtime.lua
           bash -n install.sh
           bash -n tests/install.sh
           bash tests/install.sh

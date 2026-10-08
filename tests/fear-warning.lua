@@ -8,7 +8,6 @@ client.items[1251] = { classID = 0, subClassID = 7 }
 local button = addActionButton("ActionButton1", 1)
 actions[1] = { spellID = 5246 }
 client.loadAddon()
-local controller = client.controller
 refresh()
 
 local container = getContainer("target", "fear-break")
@@ -58,17 +57,17 @@ actions[1].isUsable = true
 refresh()
 assert(client.alpha(container) == 1, "The warning did not return when Intimidating Shout became usable.")
 actions[1].isUsable = false
-controller.scripts.OnEvent(controller, "ACTION_USABLE_CHANGED")
+client.event("ACTION_USABLE_CHANGED")
 assert(client.alpha(container) == 0, "The usability event did not hide the warning.")
 actions[1].isUsable = true
-controller.scripts.OnEvent(controller, "ACTION_USABLE_CHANGED")
+client.event("ACTION_USABLE_CHANGED")
 assert(client.alpha(container) == 1, "The usability event did not restore the warning.")
 
 local refreshCount = container.refreshCount
-controller.scripts.OnEvent(controller, "PLAYER_TARGET_CHANGED")
+client.event("PLAYER_TARGET_CHANGED")
 assert(container.refreshCount > refreshCount, "A target change did not refresh the secure container.")
-controller.scripts.OnEvent(controller, "PLAYER_REGEN_DISABLED")
-controller.scripts.OnEvent(controller, "PLAYER_REGEN_ENABLED")
+client.event("PLAYER_REGEN_DISABLED")
+client.event("PLAYER_REGEN_ENABLED")
 assert(slot.enabled and client.alpha(container) == 1)
 
 button.scale = 1.5

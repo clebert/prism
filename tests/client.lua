@@ -1,6 +1,7 @@
 local client = {
     frames = {},
     actions = {},
+    actionQueryCount = {},
     items = {},
     baseSpellIDs = {},
     class = arg[1] or "WARRIOR",
@@ -17,9 +18,6 @@ local client = {
 local frameMethods = {}
 local animationMethods = {}
 
-local function ignore()
-end
-
 local function newFrame(frameType, name, parent, template)
     local frame = {
         frameType = frameType,
@@ -35,6 +33,7 @@ local function newFrame(frameType, name, parent, template)
         height = 36,
         slots = {},
         textures = {},
+        animationGroups = {},
         scripts = {},
         events = {},
         refreshCount = 0,
@@ -55,12 +54,30 @@ local function newAnimationGroup()
     return setmetatable({ animations = {} }, { __index = animationMethods })
 end
 
-frameMethods.EnableMouse = ignore
-frameMethods.SetAllPoints = ignore
-frameMethods.SetTexture = ignore
-frameMethods.SetBlendMode = ignore
-frameMethods.SetFrameStrata = ignore
-frameMethods.ClearAllPoints = ignore
+function frameMethods:EnableMouse(enabled)
+    self.mouseEnabled = enabled
+end
+
+function frameMethods:SetAllPoints(region)
+    self.allPoints = region or self.parent
+end
+
+function frameMethods:SetTexture(texture)
+    self.texture = texture
+end
+
+function frameMethods:SetBlendMode(mode)
+    self.blendMode = mode
+end
+
+function frameMethods:SetFrameStrata(strata)
+    self.strata = strata
+end
+
+function frameMethods:ClearAllPoints()
+    self.point = nil
+    self.allPoints = nil
+end
 
 function frameMethods:RegisterEvent(event)
     self.events[event] = true
@@ -154,14 +171,18 @@ function frameMethods:SetScript(script, callback)
     self.scripts[script] = callback
 end
 
-function frameMethods:CreateTexture()
-    local texture = newFrame("Texture", nil, self)
+function frameMethods:CreateTexture(name, layer, template, subLevel)
+    local texture = newFrame("Texture", name, self, template)
+    texture.drawLayer = layer
+    texture.subLevel = subLevel
     self.textures[#self.textures + 1] = texture
     return texture
 end
 
 function frameMethods:CreateAnimationGroup()
-    return newAnimationGroup()
+    local animation = newAnimationGroup()
+    self.animationGroups[#self.animationGroups + 1] = animation
+    return animation
 end
 
 function frameMethods:AddAuraShownAnimation(animation)
@@ -190,6 +211,7 @@ function frameMethods:AddAuraSlot(key, filter, options)
     local auraFrame = newFrame("AuraButton", nil, self)
     options.initializeFrame(auraFrame)
     self.slots[key] = {
+        frame = auraFrame,
         filter = filter,
         candidateFilters = options.candidateFilters,
         texture = auraFrame.textures[1],
@@ -275,7 +297,10 @@ C_CurveUtil = {
 }
 C_Spell = { GetBaseSpell = function(spellID) return client.baseSpellIDs[spellID] or spellID end }
 C_ActionBar = {
-    HasAction = function(slot) return client.actions[slot] ~= nil end,
+    HasAction = function(slot)
+        client.actionQueryCount[slot] = (client.actionQueryCount[slot] or 0) + 1
+        return client.actions[slot] ~= nil
+    end,
     GetSpell = function(slot) return client.actions[slot].spellID end,
     IsUsableAction = function(slot)
         return { boolean = client.actions[slot].isUsable ~= false }
@@ -374,11 +399,12 @@ function client.loadAddon()
     return namespace
 end
 
-function client.refresh()
-    client.controller.scripts.OnUpdate(client.controller, 0.1)
+function client.refresh(elapsed)
+    client.controller.scripts.OnUpdate(client.controller, elapsed or 0.1)
 end
 
 function client.event(event)
+    assert(client.controller.events[event], "The controller did not register " .. event .. ".")
     client.controller.scripts.OnEvent(client.controller, event)
 end
 

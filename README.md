@@ -88,11 +88,36 @@ lua5.1 tests/fear-warning.lua
 lua5.1 tests/hunter.lua
 lua5.1 tests/mechanics.lua
 lua5.1 tests/rules.lua
+lua5.1 tests/runtime.lua
 bash -n install.sh
 bash -n tests/install.sh
 bash tests/install.sh
 ```
 
-Run `./install.sh` to install every source file listed in the TOC. Set `PRISM_ADDON_DIRECTORY` to install in another directory.
+The mock checks rule configuration, visual construction, action matching, event registration, placement, and refresh intervals.
+It does not reproduce aura selection or client security restrictions.
+Spell-ID assertions preserve the declared lists. They do not verify the IDs against client data.
 
-Use `/reload`, then test the behavior in and out of combat. Test action paging, bar visibility, UI scaling, and spell movement.
+#### Client checks
+
+Before release, verify the declared spell IDs in version-matched `SpellName` and `SpellEffect` data.
+This verification must use the exact Forever client build.
+
+Run `./install.sh` to install every source file listed in the TOC. Set `PRISM_ADDON_DIRECTORY` to install in another directory.
+Use `/reload`, then run every applicable client check in and out of combat.
+The checks must produce no Lua error or blocked-action error.
+
+| Feature | Check | Expected result |
+| --- | --- | --- |
+| Player buffs | Apply and remove a buff that matches the action spell ID. | The highlight appears only while the buff is active. |
+| Own target debuffs | Compare the player's Rend or Serpent Sting with another caster's copy. | Only the player's debuff activates the highlight. |
+| Shared target debuffs | Apply and remove a declared debuff from different casters. | Each caster's matching debuff activates the highlight. |
+| Aura stacks | Change Sunder Armor from four stacks to five stacks, then back to four stacks. | The highlight appears only at five stacks. |
+| Fear warning | Apply and remove Rend or Deep Wound from different casters. Change Intimidating Shout usability and target hostility. | The warning blinks red only with a matching hostile target debuff and a usable action. |
+| Dispel feedback | Test poison and disease on the player and an assistable target. Remove the debuff or make the action unusable. | Bandages blink for poison. Cleansing items glow for their declared dispel type. No debuff or an unusable action hides the visual. |
+| Bandage health | Test full health, partial health, a dead friendly target, and no assistable target. | Only a living heal target at full health activates the highlight. No assistable target selects the player. |
+| Pet health | Change pet health. Dismiss, replace, or kill the pet. Make Mend Pet unusable. | Only a living pet at full health activates the highlight. Usability does not affect the highlight. |
+| Usable attacks | Change the usability of each declared usable attack. | The glow appears only while the action is usable. |
+| Interrupts | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Shield Bash usability. | Only a usable Shield Bash glows for a living hostile target cast or channel. |
+| Tanking | Gain and lose target threat. Select a friendly target, a dead target, or no target. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
+| Placement | Test every supported bar. Change UI scale, button size, bar visibility, action pages, and spell placement. | Each visual stays aligned with its button. Hidden bars and replaced actions leave no stale visual. |
