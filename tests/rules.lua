@@ -3,6 +3,7 @@ local Prism = {}
 assert(loadfile("Core.lua"))("Prism", Prism)
 assert(loadfile("Shared.lua"))("Prism", Prism)
 assert(loadfile("Classes/Warrior.lua"))("Prism", Prism)
+assert(loadfile("Classes/Hunter.lua"))("Prism", Prism)
 
 local start = Prism.Start
 local selectedRules
@@ -18,6 +19,16 @@ for _, rule in ipairs(selectedRules) do
     keys[rule.key] = true
 end
 assert(keys["self-buff"] and keys["own-rend"])
+client.class = "HUNTER"
+assert(loadfile("Prism.lua"))("Prism", Prism)
+assert(#selectedRules == #Prism.sharedRules + #Prism.classRules.HUNTER)
+keys = {}
+for _, rule in ipairs(selectedRules) do
+    assert(not keys[rule.key], "Two Hunter rules have the same key.")
+    keys[rule.key] = true
+end
+assert(keys["self-buff"] and keys["own-serpent-sting"] and keys["mend-pet-full-health"])
+assert(not keys["own-rend"], "A Hunter selected Warrior rules.")
 client.class = "MAGE"
 assert(loadfile("Prism.lua"))("Prism", Prism)
 assert(#selectedRules == #Prism.sharedRules)
@@ -33,7 +44,7 @@ local rules = {
     {
         key = "test-full-health",
         action = { spellIDs = spellIDs },
-        condition = { mechanic = "full-health", unit = "player" },
+        condition = { mechanic = "full-health", unit = "pet" },
         visual = "glow",
     },
     {
@@ -59,7 +70,8 @@ Prism.Start = start
 Prism.Start(rules)
 client.addActionButton("ActionButton1", 1)
 client.actions[1] = { spellID = 999003 }
-client.fullHealthUnits.player = true
+client.petExists = true
+client.fullHealthUnits.pet = true
 client.refresh()
 local glow = client.getSpellGlow()
 assert(glow and glow.ProcLoop:IsPlaying(), "The full-health mechanic did not start its glow.")
@@ -81,7 +93,20 @@ assert(not slot.candidateFilters.includeSpellIDs[999003], "The core confused the
 assert(slot.applicationOptions.minApplications == 3)
 assert(slot.applicationOptions.maxApplications == 3)
 
-client.fullHealthUnits.player = false
+local healthQueries = client.healthQueryCount.pet
+client.petExists = false
+client.refresh()
+assert(client.alpha(glow) == 0, "An absent pet retained full-health feedback.")
+assert(client.healthQueryCount.pet == healthQueries, "The core queried health for an absent pet.")
+client.petExists = true
+client.deadUnits.pet = true
+client.refresh()
+assert(client.alpha(glow) == 0)
+assert(client.healthQueryCount.pet == healthQueries, "The core queried health for a dead pet.")
+client.deadUnits.pet = false
+client.refresh()
+assert(client.alpha(glow) == 1)
+client.fullHealthUnits.pet = false
 client.refresh()
 assert(client.alpha(glow) == 0)
 client.actions[1] = nil

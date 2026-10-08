@@ -23,6 +23,13 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - _Interrupts:_ **Shield Bash** — Glows during a hostile target cast or channel while the spell is usable.
 - _Fear warning:_ **Intimidating Shout** — Blinks red while the spell is usable and the hostile target has **Rend** or **Deep Wound** from any caster.
 
+### Hunter
+
+- _Own target debuffs:_ **Serpent Sting** — Highlights while the target has the player's debuff.
+- _Shared target debuffs:_ **Hunter's Mark**, **Concussive Shot**, **Wing Clip** — Highlights while the target has the matching debuff from any caster.
+- _Usable attacks:_ **Mongoose Bite** — Glows while the spell is usable.
+- _Pet healing:_ **Mend Pet** — Highlights while the player's living pet has full health. The highlight does not require a usable action.
+
 ## Installation
 
 - Download Prism from [CurseForge](https://www.curseforge.com/wow/addons/prism).
@@ -38,6 +45,7 @@ The main file selects the shared rules and the current class rules. The core con
 | `Core.lua` | Implements action matching, mechanics, visuals, secure aura containers, placement, and refresh control. |
 | `Shared.lua` | Defines class-independent rules and item IDs. |
 | `Classes/Warrior.lua` | Defines Warrior spell IDs, aura IDs, and feedback rules. |
+| `Classes/Hunter.lua` | Defines Hunter spell IDs, aura IDs, and feedback rules. |
 | `Prism.lua` | Selects the rules and starts the core. |
 
 The TOC loads these files in that order. Add each class file after `Shared.lua` and before `Prism.lua` in `Prism.toc`.
@@ -59,12 +67,12 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 | `aura` | A declared buff or debuff is active on the selected unit. |
 | `aura-stacks` | A declared aura reaches the specified application count. |
 | `dispel-type` | A debuff with the specified dispel type is active on the selected unit. |
-| `full-health` | The selected living unit has full health. |
+| `full-health` | The selected unit exists, is alive, and has full health. |
 | `usable` | The action is usable. |
 | `target-cast` | A living hostile target casts or channels, and the action is usable. |
 | `tanking` | The player tanks the living hostile target. |
 
-The unit can be `player`, `target`, or `heal-target`. The heal target is an assistable current target, or the player if no assistable target exists.
+The unit can be `player`, `pet`, `target`, or `heal-target`. The heal target is an assistable current target, or the player if no assistable target exists.
 
 Set `requireUsable` on an aura rule to require a usable action. Set `ownAura` with the `PLAYER` filter to restrict the caster.
 
@@ -77,9 +85,11 @@ Use Lua 5.1 for the syntax checks and tests.
 ```bash
 luac5.1 -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua
 lua5.1 tests/fear-warning.lua
+lua5.1 tests/hunter.lua
 lua5.1 tests/mechanics.lua
 lua5.1 tests/rules.lua
-bash -n install.sh tests/install.sh
+bash -n install.sh
+bash -n tests/install.sh
 bash tests/install.sh
 ```
 

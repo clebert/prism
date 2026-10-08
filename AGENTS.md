@@ -36,7 +36,7 @@ Run `luac -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua` with a com
 
 Use `luac5.1` when the Lua 5.1 parser has that name.
 
-Run the Lua tests in `tests/fear-warning.lua`, `tests/mechanics.lua`, and `tests/rules.lua` with Lua 5.1.
+Run the Lua tests in `tests/fear-warning.lua`, `tests/hunter.lua`, `tests/mechanics.lua`, and `tests/rules.lua` with Lua 5.1.
 
 Run `bash tests/install.sh` to test the installation.
 

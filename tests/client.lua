@@ -7,8 +7,10 @@ local client = {
     targetExists = true,
     targetFriendly = false,
     targetHostile = true,
+    petExists = false,
     deadUnits = {},
     fullHealthUnits = {},
+    healthQueryCount = {},
     threatStatus = 3,
     isTanking = true,
 }
@@ -303,7 +305,15 @@ function UnitClass()
 end
 
 function UnitExists(unit)
-    return unit ~= "target" or client.targetExists
+    if unit == "target" then
+        return client.targetExists
+    end
+
+    if unit == "pet" then
+        return client.petExists
+    end
+
+    return true
 end
 
 function UnitCanAssist()
@@ -319,6 +329,7 @@ function UnitIsDeadOrGhost(unit)
 end
 
 function UnitHealthPercent(unit, usePredicted, curve)
+    client.healthQueryCount[unit] = (client.healthQueryCount[unit] or 0) + 1
     assert(usePredicted == false)
     assert(curve.curveType == Enum.LuaCurveType.Step)
     assert(curve.points[1][1] == 0 and curve.points[1][2] == 0)

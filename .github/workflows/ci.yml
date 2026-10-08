@@ -20,7 +20,9 @@ jobs:
           sudo apt-get install --yes lua5.1
           luac5.1 -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua
           lua5.1 tests/fear-warning.lua
+          lua5.1 tests/hunter.lua
           lua5.1 tests/mechanics.lua
           lua5.1 tests/rules.lua
-          bash -n install.sh tests/install.sh
+          bash -n install.sh
+          bash -n tests/install.sh
           bash tests/install.sh

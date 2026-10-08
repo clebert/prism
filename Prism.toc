@@ -9,4 +9,5 @@
 Core.lua
 Shared.lua
 Classes/Warrior.lua
+Classes/Hunter.lua
 Prism.lua

@@ -243,7 +243,7 @@ local mechanicHandlers = {
     ["full-health"] = function(state)
         local unit = resolveUnit(state.rule.condition.unit)
 
-        if UnitIsDeadOrGhost(unit) then
+        if not UnitExists(unit) or UnitIsDeadOrGhost(unit) then
             hideRuleVisual(state)
             return
         end
