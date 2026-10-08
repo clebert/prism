@@ -3,7 +3,7 @@ client.class = "HUNTER"
 local actions = client.actions
 local button = client.addActionButton("ActionButton1", 1)
 local Prism = client.loadAddon()
-assert(Prism.classRules.HUNTER and #Prism.classRules.HUNTER == 6, "The Hunter class rules are missing.")
+assert(Prism.classRules.HUNTER, "The Hunter class rules are missing.")
 
 local function setAction(action)
     actions[button.action] = action
@@ -29,6 +29,17 @@ local targetRules = {
         own = true,
     },
     {
+        key = "own-viper-sting",
+        actionIDs = { 3034, 14279, 14280 },
+        auraIDs = { 3034, 14279, 14280 },
+        own = true,
+    },
+    {
+        key = "scorpid-sting",
+        actionIDs = { 3043 },
+        auraIDs = { 3043 },
+    },
+    {
         key = "hunters-mark",
         actionIDs = { 1130, 14323, 14324, 14325 },
         auraIDs = { 1130, 14323, 14324, 14325 },
@@ -49,7 +60,7 @@ for _, rule in ipairs(targetRules) do
     for _, spellID in ipairs(rule.actionIDs) do
         setAction({ spellID = spellID, isUsable = false })
         local container = client.getContainer("target", rule.key)
-        assert(container and container.template == "CustomAuraContainerTemplate")
+        assert(container and container.template == "CustomAuraContainerTemplate", "The Hunter aura rule is missing: " .. rule.key .. ".")
         assert(container.enabled and client.alpha(container) == 1)
         local slot = container.slots[rule.key]
         assert(slot.enabled and slot.texture)
@@ -80,6 +91,12 @@ for _, rule in ipairs(targetRules) do
         previousContainer, previousKey = container, rule.key
     end
 end
+
+setAction({ spellID = 18545 })
+local scorpidContainer = client.getContainer("target", "scorpid-sting")
+assert(not scorpidContainer.slots["scorpid-sting"].enabled, "The unrelated Scorpid Sting effect selected the player rule.")
+assert(not scorpidContainer.enabled and client.alpha(scorpidContainer) == 0)
+assert(not client.getSpellGlow())
 
 -- A synthetic override tests the existing base-spell match.
 client.baseSpellIDs[999007] = 13550
@@ -119,6 +136,32 @@ for _, spellID in ipairs({ 1495, 14269, 14270, 14271 }) do
     button.visible = true
     client.refresh()
     assert(client.getSpellGlow() == mongooseGlow)
+end
+
+for _, spellID in ipairs({ 19306, 1242634, 20909, 20910 }) do
+    setAction({ spellID = spellID, isUsable = false })
+    assert(not client.getSpellGlow(), "An unusable Counterattack rank has a glow.")
+    actions[button.action].isUsable = true
+    client.event("ACTION_USABLE_CHANGED")
+    local counterattackGlow = client.getSpellGlow()
+    assert(counterattackGlow and counterattackGlow.ProcLoop:IsPlaying(), "A Counterattack rank has no glow.")
+    assert(math.abs(counterattackGlow.width - 75.6) < 0.001)
+    assert(not client.getContainer("target", "counterattack"), "Counterattack created a target aura rule.")
+    client.event("PLAYER_REGEN_DISABLED")
+    client.event("PLAYER_REGEN_ENABLED")
+    assert(client.getSpellGlow() == counterattackGlow)
+    actions[button.action].isUsable = false
+    client.event("ACTION_USABLE_CHANGED")
+    assert(not client.getSpellGlow(), "An unusable Counterattack retained its glow.")
+    actions[button.action].isUsable = true
+    client.event("ACTION_USABLE_CHANGED")
+    assert(client.getSpellGlow() == counterattackGlow)
+    button.visible = false
+    client.refresh()
+    assert(not client.getSpellGlow())
+    button.visible = true
+    client.refresh()
+    assert(client.getSpellGlow() == counterattackGlow)
 end
 
 client.petExists = true
@@ -186,4 +229,5 @@ assert(not client.getSpellGlow())
 setAction(nil)
 assert(client.alpha(healthFrame) == 0 and not client.getSpellGlow())
 
+assert(#Prism.classRules.HUNTER == 9, "The Hunter class rules are incomplete.")
 print("Hunter tests passed.")

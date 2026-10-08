@@ -11,6 +11,14 @@ local serpentStingSpellIDs = {
     [13555] = true,
     [25295] = true,
 }
+local viperStingSpellIDs = {
+    [3034] = true,
+    [14279] = true,
+    [14280] = true,
+}
+local scorpidStingSpellIDs = {
+    [3043] = true,
+}
 local huntersMarkSpellIDs = {
     [1130] = true,
     [14323] = true,
@@ -30,6 +38,12 @@ local mongooseBiteSpellIDs = {
     [14269] = true,
     [14270] = true,
     [14271] = true,
+}
+local counterattackSpellIDs = {
+    [19306] = true,
+    [20909] = true,
+    [20910] = true,
+    [1242634] = true,
 }
 local mendPetSpellIDs = {
     [136] = true,
@@ -52,6 +66,31 @@ Prism.classRules.HUNTER = {
             auraSpellIDs = serpentStingSpellIDs,
             includeActionSpellID = true,
             ownAura = true,
+        },
+        visual = "highlight",
+    },
+    {
+        key = "own-viper-sting",
+        action = { spellIDs = viperStingSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "target",
+            filter = "HARMFUL|PLAYER",
+            auraSpellIDs = viperStingSpellIDs,
+            includeActionSpellID = true,
+            ownAura = true,
+        },
+        visual = "highlight",
+    },
+    {
+        key = "scorpid-sting",
+        action = { spellIDs = scorpidStingSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "target",
+            filter = "HARMFUL",
+            auraSpellIDs = scorpidStingSpellIDs,
+            includeActionSpellID = true,
         },
         visual = "highlight",
     },
@@ -94,6 +133,12 @@ Prism.classRules.HUNTER = {
     {
         key = "mongoose-bite",
         action = { spellIDs = mongooseBiteSpellIDs },
+        condition = { mechanic = "usable" },
+        visual = "glow",
+    },
+    {
+        key = "counterattack",
+        action = { spellIDs = counterattackSpellIDs },
         condition = { mechanic = "usable" },
         visual = "glow",
     },

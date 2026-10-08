@@ -25,9 +25,9 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ### Hunter
 
-- _Own target debuffs:_ **Serpent Sting** — Highlights while the target has the player's debuff.
-- _Shared target debuffs:_ **Hunter's Mark**, **Concussive Shot**, **Wing Clip** — Highlights while the target has the matching debuff from any caster.
-- _Usable attacks:_ **Mongoose Bite** — Glows while the spell is usable.
+- _Own target debuffs:_ **Serpent Sting**, **Viper Sting** — Highlights while the target has the player's matching debuff.
+- _Shared target debuffs:_ **Hunter's Mark**, **Concussive Shot**, **Wing Clip**, **Scorpid Sting** — Highlights while the target has the matching debuff from any caster.
+- _Usable attacks:_ **Mongoose Bite**, **Counterattack** — Glows while the spell is usable.
 - _Pet healing:_ **Mend Pet** — Highlights while the player's living pet has full health. The highlight does not require a usable action.
 
 ## Installation
@@ -110,7 +110,7 @@ The checks must produce no Lua error or blocked-action error.
 | Feature | Check | Expected result |
 | --- | --- | --- |
 | Player buffs | Apply and remove a buff that matches the action spell ID. | The highlight appears only while the buff is active. |
-| Own target debuffs | Compare the player's Rend or Serpent Sting with another caster's copy. | Only the player's debuff activates the highlight. |
+| Own target debuffs | Compare the player's Rend, Serpent Sting, or Viper Sting with another caster's copy. | Only the player's debuff activates the highlight. |
 | Shared target debuffs | Apply and remove a declared debuff from different casters. | Each caster's matching debuff activates the highlight. |
 | Aura stacks | Change Sunder Armor from four stacks to five stacks, then back to four stacks. | The highlight appears only at five stacks. |
 | Fear warning | Apply and remove Rend or Deep Wound from different casters. Change Intimidating Shout usability and target hostility. | The warning blinks red only with a matching hostile target debuff and a usable action. |
