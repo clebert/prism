@@ -216,6 +216,39 @@ scenario("Visual construction and animation", function(client)
     assert(not glow.ProcLoop:IsPlaying(), "The removed action retained its glow animation.")
 end)
 
+scenario("Tanking usability", function(client)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID, isUsable = false }
+    startRules({
+        {
+            key = "usable-tanking",
+            action = action,
+            condition = { mechanic = "tanking" },
+            requireUsable = true,
+            visual = "glow",
+        },
+    })
+    client.refresh()
+    assert(not client.getSpellGlow(), "An unusable tanking action activated the glow.")
+    client.actions[1].isUsable = true
+    client.event("ACTION_USABLE_CHANGED")
+    local glow = client.getSpellGlow()
+    assert(glow and glow.ProcLoop:IsPlaying(), "A usable tanking action has no glow.")
+    assert(glow.parent.booleanInput and glow.parent.parent.booleanInput, "Tanking and usability share one alpha condition.")
+    client.isTanking = false
+    client.refresh()
+    assert(not client.getSpellGlow(), "A usable action activated the glow without tanking.")
+    client.actions[1].isUsable = false
+    client.event("ACTION_USABLE_CHANGED")
+    assert(not client.getSpellGlow())
+    client.isTanking = true
+    client.refresh()
+    assert(not client.getSpellGlow(), "Tanking replaced the unusable action condition.")
+    client.actions[1].isUsable = true
+    client.event("ACTION_USABLE_CHANGED")
+    assert(client.getSpellGlow() == glow)
+end)
+
 scenario("Bar discovery, placement, and reuse", function(client)
     local prefixes = {
         "ActionButton",

@@ -128,7 +128,20 @@ local function createRuleState(overlay, rule, spellID)
         frame:SetAlpha(0)
         frame:Show()
         state.region = frame
-        state.visualRegion, state.animation = createVisual(frame, rule.visual)
+        local visualParent = frame
+
+        if rule.requireUsable then
+            -- Separate frames combine secret conditions without a Lua comparison.
+            local usabilityFrame = CreateFrame("Frame", nil, frame)
+            usabilityFrame:EnableMouse(false)
+            usabilityFrame:SetAllPoints()
+            usabilityFrame:SetAlpha(0)
+            usabilityFrame:Show()
+            state.usabilityRegion = usabilityFrame
+            visualParent = usabilityFrame
+        end
+
+        state.visualRegion, state.animation = createVisual(visualParent, rule.visual)
 
         if rule.visual == "glow" then
             state.glowFrame = state.visualRegion
@@ -283,6 +296,11 @@ local function updateRuleState(state, spellID, actionSlotID)
 
     if not container then
         mechanicHandlers[condition.mechanic](state, actionSlotID)
+
+        if state.usabilityRegion then
+            setUsableAlpha(state.usabilityRegion, actionSlotID)
+        end
+
         return
     end
 

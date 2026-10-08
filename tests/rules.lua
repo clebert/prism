@@ -28,7 +28,7 @@ for _, rule in ipairs(selectedRules) do
     keys[rule.key] = true
 end
 assert(keys["self-buff"] and keys["own-serpent-sting"] and keys["mend-pet-full-health"])
-assert(keys["own-viper-sting"] and keys["scorpid-sting"] and keys["counterattack"], "A Hunter did not select the added rules.")
+assert(keys["own-viper-sting"] and keys["scorpid-sting"] and keys["counterattack"] and keys["disengage"], "A Hunter did not select the added rules.")
 assert(not keys["own-rend"], "A Hunter selected Warrior rules.")
 client.class = "MAGE"
 assert(loadfile("Prism.lua"))("Prism", Prism)

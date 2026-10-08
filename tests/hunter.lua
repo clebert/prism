@@ -164,6 +164,82 @@ for _, spellID in ipairs({ 19306, 1242634, 20909, 20910 }) do
     assert(client.getSpellGlow() == counterattackGlow)
 end
 
+for _, spellID in ipairs({ 781, 14272, 14273 }) do
+    setAction({ spellID = spellID, isUsable = false })
+    assert(not client.getSpellGlow(), "An unusable Disengage rank has a glow.")
+    actions[button.action].isUsable = true
+    client.event("ACTION_USABLE_CHANGED")
+    local disengageGlow = client.getSpellGlow()
+    assert(disengageGlow and disengageGlow.ProcLoop:IsPlaying(), "A usable Disengage rank has no tanking glow.")
+    assert(math.abs(disengageGlow.width - 75.6) < 0.001)
+    assert(not client.getContainer("target", "disengage"), "Disengage created a target aura rule.")
+
+    client.isTanking = false
+    client.refresh()
+    assert(not client.getSpellGlow(), "Disengage glows without tanking.")
+    client.isTanking = true
+    client.threatStatus = nil
+    client.refresh()
+    assert(not client.getSpellGlow(), "Disengage glows without target threat.")
+    client.threatStatus = 3
+    client.targetExists = false
+    client.event("PLAYER_TARGET_CHANGED")
+    assert(not client.getSpellGlow(), "Disengage glows without a target.")
+    client.targetExists = true
+    client.targetHostile = false
+    client.targetFriendly = true
+    client.event("PLAYER_TARGET_CHANGED")
+    assert(not client.getSpellGlow(), "A friendly target activated the Disengage glow.")
+    client.targetHostile = true
+    client.targetFriendly = false
+    client.deadUnits.target = true
+    client.refresh()
+    assert(not client.getSpellGlow(), "A dead target activated the Disengage glow.")
+    client.deadUnits.target = false
+    client.refresh()
+    assert(client.getSpellGlow() == disengageGlow)
+    client.event("PLAYER_REGEN_DISABLED")
+    client.event("PLAYER_REGEN_ENABLED")
+    assert(client.getSpellGlow() == disengageGlow)
+
+    actions[button.action].isUsable = false
+    client.event("ACTION_USABLE_CHANGED")
+    assert(not client.getSpellGlow(), "An unusable Disengage retained its tanking glow.")
+    client.isTanking = false
+    client.refresh()
+    actions[button.action].isUsable = true
+    client.event("ACTION_USABLE_CHANGED")
+    assert(not client.getSpellGlow(), "Usability replaced the tanking condition.")
+    client.isTanking = true
+    client.refresh()
+    assert(client.getSpellGlow() == disengageGlow)
+    button.visible = false
+    client.refresh()
+    assert(not client.getSpellGlow())
+    button.visible = true
+    client.refresh()
+    assert(client.getSpellGlow() == disengageGlow)
+end
+
+setAction({ spellID = 14344 })
+assert(not client.getSpellGlow(), "The Disengage teaching spell selected the action rule.")
+client.baseSpellIDs[999011] = 781
+setAction({ spellID = 999011 })
+local disengageGlow = client.getSpellGlow()
+assert(disengageGlow, "A Disengage override has no tanking glow.")
+button.action = 13
+actions[13] = { spellID = 781, isUsable = false }
+client.refresh()
+assert(not client.getSpellGlow(), "Action paging retained the Disengage usability condition.")
+actions[13].isUsable = true
+client.event("ACTION_USABLE_CHANGED")
+assert(client.getSpellGlow() == disengageGlow)
+setAction({ spellID = 5116 })
+assert(not client.getSpellGlow(), "A replacement action retained the Disengage glow.")
+setAction(nil)
+assert(not client.getSpellGlow())
+button.action = 1
+
 client.petExists = true
 client.fullHealthUnits.pet = true
 client.targetFriendly = true
@@ -229,5 +305,5 @@ assert(not client.getSpellGlow())
 setAction(nil)
 assert(client.alpha(healthFrame) == 0 and not client.getSpellGlow())
 
-assert(#Prism.classRules.HUNTER == 9, "The Hunter class rules are incomplete.")
+assert(#Prism.classRules.HUNTER == 10, "The Hunter class rules are incomplete.")
 print("Hunter tests passed.")

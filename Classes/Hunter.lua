@@ -45,6 +45,11 @@ local counterattackSpellIDs = {
     [20910] = true,
     [1242634] = true,
 }
+local disengageSpellIDs = {
+    [781] = true,
+    [14272] = true,
+    [14273] = true,
+}
 local mendPetSpellIDs = {
     [136] = true,
     [3111] = true,
@@ -140,6 +145,13 @@ Prism.classRules.HUNTER = {
         key = "counterattack",
         action = { spellIDs = counterattackSpellIDs },
         condition = { mechanic = "usable" },
+        visual = "glow",
+    },
+    {
+        key = "disengage",
+        action = { spellIDs = disengageSpellIDs },
+        condition = { mechanic = "tanking" },
+        requireUsable = true,
         visual = "glow",
     },
     {

@@ -28,6 +28,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - _Own target debuffs:_ **Serpent Sting**, **Viper Sting** — Highlights while the target has the player's matching debuff.
 - _Shared target debuffs:_ **Hunter's Mark**, **Concussive Shot**, **Wing Clip**, **Scorpid Sting** — Highlights while the target has the matching debuff from any caster.
 - _Usable attacks:_ **Mongoose Bite**, **Counterattack** — Glows while the spell is usable.
+- _Threat reduction:_ **Disengage** — Glows while the player tanks a living hostile target and the action is usable.
 - _Pet healing:_ **Mend Pet** — Highlights while the player's living pet has full health. The highlight does not require a usable action.
 
 ## Installation
@@ -74,7 +75,7 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 
 The unit can be `player`, `pet`, `target`, or `heal-target`. The heal target is an assistable current target, or the player if no assistable target exists.
 
-Set `requireUsable` on an aura rule to require a usable action. Set `ownAura` with the `PLAYER` filter to restrict the caster.
+Set `requireUsable` on a rule to require a usable action. Set `ownAura` with the `PLAYER` filter to restrict the caster.
 
 The visuals are `highlight`, `red-blink`, and `glow`. The core keeps condition alpha separate from animation alpha.
 
@@ -119,5 +120,6 @@ The checks must produce no Lua error or blocked-action error.
 | Pet health | Change pet health. Dismiss, replace, or kill the pet. Make Mend Pet unusable. | Only a living pet at full health activates the highlight. Usability does not affect the highlight. |
 | Usable attacks | Change the usability of each declared usable attack. | The glow appears only while the action is usable. |
 | Interrupts | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Shield Bash usability. | Only a usable Shield Bash glows for a living hostile target cast or channel. |
-| Tanking | Gain and lose target threat. Select a friendly target, a dead target, or no target. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
+| Warrior tanking | Gain and lose target threat. Select a friendly target, a dead target, or no target. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
+| Threat reduction | Gain and lose target threat. Change Disengage usability. Select a friendly target, a dead target, or no target. | Disengage glows only while the action is usable and the player tanks a living hostile target. |
 | Placement | Test every supported bar. Change UI scale, button size, bar visibility, action pages, and spell placement. | Each visual stays aligned with its button. Hidden bars and replaced actions leave no stale visual. |
