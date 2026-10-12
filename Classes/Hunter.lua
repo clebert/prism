@@ -50,6 +50,14 @@ local disengageSpellIDs = {
     [14272] = true,
     [14273] = true,
 }
+local feedPetSpellIDs = {
+    [6991] = true,
+}
+local feedPetAuraSpellIDs = {
+    [1539] = true,
+}
+-- The client uses 3 for the Happy state.
+local happyPetHappiness = 3
 local mendPetSpellIDs = {
     [136] = true,
     [3111] = true,
@@ -59,6 +67,23 @@ local mendPetSpellIDs = {
     [13543] = true,
     [13544] = true,
 }
+local revivePetSpellIDs = {
+    [982] = true,
+}
+
+local function combineSpellIDs(first, second)
+    local spellIDs = {}
+
+    for spellID in pairs(first) do
+        spellIDs[spellID] = true
+    end
+
+    for spellID in pairs(second) do
+        spellIDs[spellID] = true
+    end
+
+    return spellIDs
+end
 
 Prism.classRules.HUNTER = {
     {
@@ -75,17 +100,42 @@ Prism.classRules.HUNTER = {
         visual = "highlight",
     },
     {
-        key = "own-viper-sting",
+        key = "serpent-sting-replacement",
+        action = { spellIDs = serpentStingSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "target",
+            filter = "HARMFUL|PLAYER",
+            auraSpellIDs = combineSpellIDs(viperStingSpellIDs, scorpidStingSpellIDs),
+            ownAura = true,
+        },
+        requireUsable = true,
+        visual = "red-blink",
+    },
+    {
+        key = "viper-sting",
+        action = { spellIDs = viperStingSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "target",
+            filter = "HARMFUL",
+            auraSpellIDs = viperStingSpellIDs,
+            includeActionSpellID = true,
+        },
+        visual = "highlight",
+    },
+    {
+        key = "viper-sting-replacement",
         action = { spellIDs = viperStingSpellIDs },
         condition = {
             mechanic = "aura",
             unit = "target",
             filter = "HARMFUL|PLAYER",
-            auraSpellIDs = viperStingSpellIDs,
-            includeActionSpellID = true,
+            auraSpellIDs = combineSpellIDs(serpentStingSpellIDs, scorpidStingSpellIDs),
             ownAura = true,
         },
-        visual = "highlight",
+        requireUsable = true,
+        visual = "red-blink",
     },
     {
         key = "scorpid-sting",
@@ -98,6 +148,19 @@ Prism.classRules.HUNTER = {
             includeActionSpellID = true,
         },
         visual = "highlight",
+    },
+    {
+        key = "scorpid-sting-replacement",
+        action = { spellIDs = scorpidStingSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "target",
+            filter = "HARMFUL|PLAYER",
+            auraSpellIDs = combineSpellIDs(serpentStingSpellIDs, viperStingSpellIDs),
+            ownAura = true,
+        },
+        requireUsable = true,
+        visual = "red-blink",
     },
     {
         key = "hunters-mark",
@@ -155,9 +218,45 @@ Prism.classRules.HUNTER = {
         visual = "glow",
     },
     {
+        key = "feed-pet-happy",
+        action = { spellIDs = feedPetSpellIDs },
+        condition = { mechanic = "pet-happiness", happiness = happyPetHappiness },
+        visual = "highlight",
+    },
+    {
+        key = "feed-pet-not-happy",
+        action = { spellIDs = feedPetSpellIDs },
+        condition = {
+            mechanic = "pet-happiness",
+            happiness = happyPetHappiness,
+            below = true,
+            outOfCombat = true,
+        },
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
+        key = "feed-pet-active",
+        action = { spellIDs = feedPetSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "pet",
+            filter = "HELPFUL",
+            auraSpellIDs = feedPetAuraSpellIDs,
+        },
+        visual = "highlight",
+        suppressGlow = "feed-pet-not-happy",
+    },
+    {
         key = "mend-pet-full-health",
         action = { spellIDs = mendPetSpellIDs },
         condition = { mechanic = "full-health", unit = "pet" },
+        visual = "highlight",
+    },
+    {
+        key = "revive-pet-alive",
+        action = { spellIDs = revivePetSpellIDs },
+        condition = { mechanic = "alive", unit = "pet" },
         visual = "highlight",
     },
 }

@@ -28,13 +28,16 @@ for _, rule in ipairs(selectedRules) do
     keys[rule.key] = true
 end
 assert(keys["self-buff"] and keys["own-serpent-sting"] and keys["mend-pet-full-health"])
-assert(keys["own-viper-sting"] and keys["scorpid-sting"] and keys["counterattack"] and keys["disengage"], "A Hunter did not select the added rules.")
+assert(keys["viper-sting"] and keys["scorpid-sting"] and keys["counterattack"] and keys["disengage"], "A Hunter did not select all declared rules.")
+assert(keys["serpent-sting-replacement"] and keys["viper-sting-replacement"] and keys["scorpid-sting-replacement"], "A Hunter did not select the sting replacement warnings.")
+assert(keys["feed-pet-happy"] and keys["feed-pet-not-happy"] and keys["feed-pet-active"], "A Hunter did not select the Feed Pet rules.")
+assert(keys["revive-pet-alive"], "A Hunter did not select the Revive Pet rule.")
 assert(not keys["own-rend"], "A Hunter selected Warrior rules.")
 client.class = "MAGE"
 assert(loadfile("Prism.lua"))("Prism", Prism)
 assert(#selectedRules == #Prism.sharedRules)
 for index, rule in ipairs(selectedRules) do
-    assert(rule == Prism.sharedRules[index], "Another class selected Warrior rules.")
+    assert(rule == Prism.sharedRules[index], "Another class selected class-specific rules.")
 end
 assert(Prism.classRules.MAGE == nil)
 assert(client.controller == nil, "The core started before the main file selected the rules.")

@@ -9,6 +9,9 @@ local client = {
     targetFriendly = false,
     targetHostile = true,
     petExists = false,
+    petHappiness = 3,
+    happinessQueryCount = 0,
+    combatUnits = {},
     deadUnits = {},
     fullHealthUnits = {},
     healthQueryCount = {},
@@ -62,8 +65,19 @@ function frameMethods:SetAllPoints(region)
     self.allPoints = region or self.parent
 end
 
-function frameMethods:SetTexture(texture)
+function frameMethods:SetTexture(texture, horizontalWrap, verticalWrap)
     self.texture = texture
+    self.horizontalWrap = horizontalWrap
+    self.verticalWrap = verticalWrap
+end
+
+function frameMethods:SetTexCoord(left, right, bottom, top)
+    self.texCoords = { left, right, bottom, top }
+end
+
+function frameMethods:AddMaskTexture(mask)
+    self.masks = self.masks or {}
+    self.masks[#self.masks + 1] = mask
 end
 
 function frameMethods:SetBlendMode(mode)
@@ -179,6 +193,15 @@ function frameMethods:CreateTexture(name, layer, template, subLevel)
     return texture
 end
 
+function frameMethods:CreateMaskTexture(name, layer, template, subLevel)
+    local mask = newFrame("MaskTexture", name, self, template)
+    mask.drawLayer = layer
+    mask.subLevel = subLevel
+    self.maskTextures = self.maskTextures or {}
+    self.maskTextures[#self.maskTextures + 1] = mask
+    return mask
+end
+
 function frameMethods:CreateAnimationGroup()
     local animation = newAnimationGroup()
     self.animationGroups[#self.animationGroups + 1] = animation
@@ -271,6 +294,15 @@ function CreateFrame(frameType, name, parent, template)
     local frame = newFrame(frameType, name, parent, template)
     if template == "ActionButtonSpellAlertTemplate" then
         frame.ProcLoop = newAnimationGroup()
+        -- Template regions are not addon-created frames.
+        for _, key in ipairs({ "ProcStartFlipbook", "ProcLoopFlipbook", "ProcAltGlow" }) do
+            frame[key] = setmetatable({
+                frameType = "Texture",
+                parent = frame,
+                alpha = 1,
+                visible = key == "ProcLoopFlipbook",
+            }, { __index = frameMethods })
+        end
     elseif frameType == "Frame" and not parent then
         client.controller = frame
     end
@@ -296,6 +328,12 @@ C_CurveUtil = {
     end,
 }
 C_Spell = { GetBaseSpell = function(spellID) return client.baseSpellIDs[spellID] or spellID end }
+C_PetInfo = {
+    GetPetHappiness = function()
+        client.happinessQueryCount = client.happinessQueryCount + 1
+        return client.petHappiness
+    end,
+}
 C_ActionBar = {
     HasAction = function(slot)
         client.actionQueryCount[slot] = (client.actionQueryCount[slot] or 0) + 1
@@ -351,6 +389,10 @@ end
 
 function UnitIsDeadOrGhost(unit)
     return client.deadUnits[unit] == true
+end
+
+function UnitAffectingCombat(unit)
+    return client.combatUnits[unit] == true
 end
 
 function UnitHealthPercent(unit, usePredicted, curve)
@@ -417,6 +459,13 @@ function client.getContainer(unit, slotKey)
     end
 end
 
+function client.isVisible(frame)
+    if not frame.visible then
+        return false
+    end
+    return not frame.parent or client.isVisible(frame.parent)
+end
+
 function client.alpha(frame)
     local alpha = frame.alpha
     if type(alpha) == "table" then
@@ -426,7 +475,18 @@ function client.alpha(frame)
         return 0
     end
     if frame.parent then
-        return alpha * client.alpha(frame.parent)
+        alpha = alpha * client.alpha(frame.parent)
+    end
+    for _, mask in ipairs(rawget(frame, "masks") or {}) do
+        if client.isVisible(mask) then
+            local coordinates = mask.texCoords
+            if mask.horizontalWrap == "CLAMPTOBLACKADDITIVE" and coordinates[1] > 1 and coordinates[2] > 1 then
+                return 0
+            end
+            if mask.verticalWrap == "CLAMPTOBLACKADDITIVE" and coordinates[3] > 1 and coordinates[4] > 1 then
+                return 0
+            end
+        end
     end
     return alpha
 end
@@ -434,7 +494,7 @@ end
 function client.getSpellGlow()
     for index = #client.frames, 1, -1 do
         local frame = client.frames[index]
-        if rawget(frame, "template") == "ActionButtonSpellAlertTemplate" and client.alpha(frame) > 0 then
+        if rawget(frame, "template") == "ActionButtonSpellAlertTemplate" and client.alpha(frame.ProcLoopFlipbook) > 0 then
             return frame
         end
     end

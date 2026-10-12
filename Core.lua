@@ -116,6 +116,18 @@ local function createAuraCandidateFilters(condition, actionSpellID)
     return filters
 end
 
+local function suppressGlowWithAura(auraButton, glowFrame)
+    local mask = auraButton:CreateMaskTexture(nil, "ARTWORK")
+    mask:SetAllPoints(glowFrame)
+    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    -- Sample beyond the texture bounds to make the visible mask transparent.
+    mask:SetTexCoord(2, 3, 2, 3)
+    mask:Show()
+    glowFrame.ProcStartFlipbook:AddMaskTexture(mask)
+    glowFrame.ProcLoopFlipbook:AddMaskTexture(mask)
+    glowFrame.ProcAltGlow:AddMaskTexture(mask)
+end
+
 local function createRuleState(overlay, rule, spellID)
     local condition = rule.condition
     local state = { rule = rule, active = true, actionSpellID = spellID }
@@ -163,6 +175,12 @@ local function createRuleState(overlay, rule, spellID)
         initializeFrame = function(auraButton)
             auraButton:EnableMouse(false)
             auraButton:SetAllPoints()
+
+            if rule.suppressGlow then
+                local suppressedState = overlay.states[rule.suppressGlow]
+                assert(suppressedState and suppressedState.glowFrame, "The aura rule must follow the glow rule.")
+                suppressGlowWithAura(auraButton, suppressedState.glowFrame)
+            end
 
             local visualParent = auraButton
 
@@ -253,6 +271,17 @@ local function isTargetCastingOrChanneling()
 end
 
 local mechanicHandlers = {
+    alive = function(state)
+        local unit = resolveUnit(state.rule.condition.unit)
+
+        if not UnitExists(unit) or UnitIsDeadOrGhost(unit) then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(1)
+    end,
     ["full-health"] = function(state)
         local unit = resolveUnit(state.rule.condition.unit)
 
@@ -263,6 +292,34 @@ local mechanicHandlers = {
 
         showRuleVisual(state)
         state.region:SetAlpha(UnitHealthPercent(unit, false, fullHealthCurve))
+    end,
+    ["pet-happiness"] = function(state)
+        if not UnitExists("pet") or UnitIsDeadOrGhost("pet") then
+            hideRuleVisual(state)
+            return
+        end
+
+        local condition = state.rule.condition
+
+        if condition.outOfCombat and UnitAffectingCombat("pet") then
+            hideRuleVisual(state)
+            return
+        end
+
+        local happiness = C_PetInfo.GetPetHappiness()
+        local hasMatchingHappiness = happiness == condition.happiness
+
+        if condition.below then
+            hasMatchingHappiness = happiness ~= nil and happiness < condition.happiness
+        end
+
+        if not hasMatchingHappiness then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(1)
     end,
     usable = function(state, actionSlotID)
         showRuleVisual(state)

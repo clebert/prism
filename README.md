@@ -25,11 +25,17 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ### Hunter
 
-- _Own target debuffs:_ **Serpent Sting**, **Viper Sting** — Highlights while the target has the player's matching debuff.
-- _Shared target debuffs:_ **Hunter's Mark**, **Concussive Shot**, **Wing Clip**, **Scorpid Sting** — Highlights while the target has the matching debuff from any caster.
+- _Own target debuffs:_ **Serpent Sting** — Highlights while the target has the player's matching debuff.
+- _Shared target debuffs:_ **Hunter's Mark**, **Concussive Shot**, **Wing Clip**, **Scorpid Sting**, **Viper Sting** — Highlights while the target has the matching debuff from any caster.
+- _Sting replacement warning:_ A usable **Serpent Sting**, **Viper Sting**, or **Scorpid Sting** blinks red while the target has the player's different sting. Another hunter's sting does not activate the warning.
 - _Usable attacks:_ **Mongoose Bite**, **Counterattack** — Glows while the spell is usable.
 - _Threat reduction:_ **Disengage** — Glows while the player tanks a living hostile target and the action is usable.
 - _Pet healing:_ **Mend Pet** — Highlights while the player's living pet has full health. The highlight does not require a usable action.
+- _Pet feeding:_ **Feed Pet** — Highlights while the living pet is Happy or has the Feed Pet Effect buff. Action usability does not affect the highlight. Glows only without the buff, while the action is usable and the living pet is below Happy and out of combat.
+- _Pet revival:_ **Revive Pet** — Highlights while the player's pet is alive. The highlight does not require a usable action.
+
+The client exposes three pet happiness states. Feed Pet uses the highest state, Happy, not an exact happiness percentage.
+The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 
 ## Installation
 
@@ -68,7 +74,9 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 | `aura` | A declared buff or debuff is active on the selected unit. |
 | `aura-stacks` | A declared aura reaches the specified application count. |
 | `dispel-type` | A debuff with the specified dispel type is active on the selected unit. |
+| `alive` | The selected unit exists and is alive. |
 | `full-health` | The selected unit exists, is alive, and has full health. |
+| `pet-happiness` | The living pet matches the declared happiness state or is below it when `below` is true. |
 | `usable` | The action is usable. |
 | `target-cast` | A living hostile target casts or channels, and the action is usable. |
 | `tanking` | The player tanks the living hostile target. |
@@ -76,6 +84,9 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 The unit can be `player`, `pet`, `target`, or `heal-target`. The heal target is an assistable current target, or the player if no assistable target exists.
 
 Set `requireUsable` on a rule to require a usable action. Set `ownAura` with the `PLAYER` filter to restrict the caster.
+Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
+Set `suppressGlow` to a glow rule key on an aura rule. Place the aura rule after the glow rule.
+The secure aura container suppresses the glow with a texture mask.
 
 The visuals are `highlight`, `red-blink`, and `glow`. The core keeps condition alpha separate from animation alpha.
 
@@ -96,7 +107,7 @@ bash tests/install.sh
 ```
 
 The mock checks rule configuration, visual construction, action matching, event registration, placement, and refresh intervals.
-It does not reproduce aura selection or client security restrictions.
+It does not reproduce aura selection, texture rendering, or client security restrictions.
 Spell-ID assertions preserve the declared lists. They do not verify the IDs against client data.
 
 #### Client checks
@@ -111,13 +122,16 @@ The checks must produce no Lua error or blocked-action error.
 | Feature | Check | Expected result |
 | --- | --- | --- |
 | Player buffs | Apply and remove a buff that matches the action spell ID. | The highlight appears only while the buff is active. |
-| Own target debuffs | Compare the player's Rend, Serpent Sting, or Viper Sting with another caster's copy. | Only the player's debuff activates the highlight. |
-| Shared target debuffs | Apply and remove a declared debuff from different casters. | Each caster's matching debuff activates the highlight. |
+| Own target debuffs | Compare the player's Rend or Serpent Sting with another caster's copy. | Only the player's debuff activates the highlight. |
+| Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight. |
+| Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target. | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it. |
 | Aura stacks | Change Sunder Armor from four stacks to five stacks, then back to four stacks. | The highlight appears only at five stacks. |
 | Fear warning | Apply and remove Rend or Deep Wound from different casters. Change Intimidating Shout usability and target hostility. | The warning blinks red only with a matching hostile target debuff and a usable action. |
 | Dispel feedback | Test poison and disease on the player and an assistable target. Remove the debuff or make the action unusable. | Bandages blink for poison. Cleansing items glow for their declared dispel type. No debuff or an unusable action hides the visual. |
 | Bandage health | Test full health, partial health, a dead friendly target, and no assistable target. | Only a living heal target at full health activates the highlight. No assistable target selects the player. |
 | Pet health | Change pet health. Dismiss, replace, or kill the pet. Make Mend Pet unusable. | Only a living pet at full health activates the highlight. Usability does not affect the highlight. |
+| Pet feeding | Test each happiness state with and without the Feed Pet Effect buff. Dismiss, replace, or kill the pet. Change Feed Pet usability. Change pet combat separately from player combat. | Happy or the active buff activates the highlight, regardless of usability or pet combat. The active buff suppresses the glow. Without the buff, the glow requires a living pet below Happy and out of combat, with a usable action. |
+| Pet revival | Test a living pet with full or partial health. Dismiss, replace, or kill the pet. Make Revive Pet unusable. | Only a living pet activates the Revive Pet highlight. Pet health and action usability do not affect the highlight. |
 | Usable attacks | Change the usability of each declared usable attack. | The glow appears only while the action is usable. |
 | Interrupts | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Shield Bash usability. | Only a usable Shield Bash glows for a living hostile target cast or channel. |
 | Warrior tanking | Gain and lose target threat. Select a friendly target, a dead target, or no target. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
