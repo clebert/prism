@@ -126,6 +126,7 @@ Prism.classRules.DRUID = {
         key = "mark-of-the-wild-missing",
         action = markOfTheWild.action,
         condition = { mechanic = "self-target" },
+        requireUsable = true,
         visual = "glow",
     },
     Rules.RankedAura("mark-of-the-wild-active", markOfTheWildRanks, {
@@ -135,6 +136,7 @@ Prism.classRules.DRUID = {
         key = "thorns-missing",
         action = thorns.action,
         condition = { mechanic = "self-target" },
+        requireUsable = true,
         visual = "glow",
     },
     Rules.RankedAura("thorns-active", thornsRanks, {

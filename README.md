@@ -67,9 +67,10 @@ Different spell families remain separate, even when their effects are similar.
 - _Curse cleansing:_ **Remove Curse** — Glows while the action is usable and the heal target has a curse debuff.
 - _Poison cleansing:_ **Abolish Poison** — Glows while the action is usable and the heal target has a poison debuff.
   The active buff also highlights the button.
-- _Self-buff glow:_ **Mark of the Wild**, **Thorns** — Each spell glows when the player lacks an equal or stronger buff and is the heal target.
+- _Self-buff glow:_ **Mark of the Wild**, **Thorns** — Each spell requires a usable action.
+  The spell glows when the player lacks an equal or stronger buff and is the heal target.
   Another assistable target disables the glow. A weaker buff activates the glow.
-  Any caster's equal or stronger buff suppresses the glow. Action usability does not affect the glow.
+  Any caster's equal or stronger buff suppresses the glow.
 
 ## Installation
 
@@ -258,7 +259,7 @@ The checks must produce no Lua error or blocked-action error.
 | Druid buff highlights | Test the declared targetable Druid buffs on the player and another assistable target. Apply and remove equal and stronger ranks. | Each declared targetable buff follows the heal target. Only the selected unit's equal or stronger rank activates the highlight. |
 | Druid player-only buffs | Test Enrage and each Nature's Grasp rank on the player. Trigger Nature's Grasp against an enemy. Change targets and action usability. | Only the player buff activates the highlight. Equal or stronger Nature's Grasp ranks count. The triggered root does not keep the Nature's Grasp highlight active. |
 | Racial buffs | Apply and remove each supported racial on characters from different classes. Change target selection and action usability. | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it. |
-| Druid self buffs | Apply and remove weaker, equal, and stronger Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Each spell glows when the player lacks an equal or stronger buff and is the heal target. A weaker buff activates the glow. Action usability does not affect the glow. |
+| Druid self buffs | Apply and remove weaker, equal, and stronger Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. Change action usability. Test flight and player death. | Each usable spell glows when the player lacks an equal or stronger buff and is the heal target. A weaker buff activates the glow. An unusable spell does not glow. |
 | Explicit buff scope | Test undeclared Druid spells and buffs on Warrior, Hunter, and unsupported classes. | No automatic buff highlight appears. Existing explicit mechanics continue. |
 | Druid healing | Test all three spells at full and partial health on the player and an assistable target. Test death, hostile targets, and no target. Apply and remove Regrowth and Rejuvenation. Change action usability. | The full-health highlight requires a living heal target at full health. Buff highlights remain independent. Action usability does not affect either highlight. |
 | Own target debuffs | Compare the player's Rend, Serpent Sting, Moonfire, Rip, or Rake with another caster's copy. Test every declared rank. Change action usability and targets. | Only the player's aura activates the highlight. Druid rules require an equal or stronger rank. Warrior and Hunter rules match their declared IDs. |
