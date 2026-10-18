@@ -84,7 +84,15 @@ local function createVisual(parent, visual)
     return texture
 end
 
-local function resolveUnit(unit)
+local function resolveUnit(unit, spellID)
+    if unit == "buff-target" then
+        if not C_Spell.IsSpellHelpful(spellID) or C_Spell.IsSelfBuff(spellID) then
+            return "player"
+        end
+
+        unit = "heal-target"
+    end
+
     if unit ~= "heal-target" then
         return unit
     end
@@ -127,7 +135,7 @@ local function createGlowSuppression(overlay, rule, spellID)
     local width = UIParent:GetWidth() * 2
     local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
     container:EnableMouse(false)
-    container:SetUnit(resolveUnit(condition.unit))
+    container:SetUnit(resolveUnit(condition.unit, spellID))
     container:AddAuraGroup(rule.key, condition.filter, {
         maxFrameCount = 1,
         candidateFilters = createAuraCandidateFilters(condition, spellID),
@@ -187,7 +195,7 @@ local function createRuleState(overlay, rule, spellID)
     local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
     container:SetFrameStrata("HIGH")
     container:EnableMouse(false)
-    state.unit = resolveUnit(condition.unit)
+    state.unit = resolveUnit(condition.unit, spellID)
     container:SetUnit(state.unit)
     state.region = container
     state.auraContainer = container
@@ -395,7 +403,7 @@ local function updateRuleState(state, spellID, actionSlotID)
         return
     end
 
-    local unit = resolveUnit(condition.unit)
+    local unit = resolveUnit(condition.unit, spellID)
 
     if state.unit ~= unit then
         container:SetUnit(unit)

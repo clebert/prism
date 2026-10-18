@@ -69,6 +69,42 @@ scenario("Spell selectors and aura identity", function(client)
     assert(not self.enabled and not own.enabled and not shared.enabled)
 end)
 
+for _, mechanic in ipairs({ "aura", "aura-stacks" }) do
+    scenario(mechanic .. " buff target selection", function(client)
+        client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        client.helpfulSpells[spellID], client.helpfulSpells[rankID] = true, true
+        client.selfBuffSpells[rankID] = true
+        client.targetFriendly = true
+        client.startRules({
+            {
+                key = "buff", action = action, visual = "highlight",
+                condition = {
+                    mechanic = mechanic, unit = "buff-target", filter = "HELPFUL|PLAYER", ownAura = true,
+                    auraSpellIDs = { [auraID] = true }, includeActionSpellID = true,
+                    applications = mechanic == "aura-stacks" and 3 or nil,
+                },
+            },
+        })
+        client.refresh()
+        local container = client.getContainer("target", "buff")
+        assert(container, "The buff target ignored the action spell during initialization.")
+        local slot = container.slots.buff
+        assert(slot.filter == "HELPFUL|PLAYER" and slot.candidateFilters.isFromPlayerOrPlayerPet)
+        local changes, frames = container.filterChangeCount, #client.frames
+        client.refresh()
+        assert(container.filterChangeCount == changes)
+        client.actions[1].spellID = rankID
+        client.refresh()
+        assert(container.unit == "player", "The self-only buff checks another friendly unit.")
+        assertIDs(slot.candidateFilters.includeSpellIDs, { [rankID] = true, [auraID] = true })
+        client.actions[1].spellID = spellID
+        client.refresh()
+        assert(container.unit == "target" and #client.frames == frames)
+        assertIDs(slot.candidateFilters.includeSpellIDs, { [spellID] = true, [auraID] = true })
+    end)
+end
+
 scenario("Secure aura usability and lifecycle", function(client)
     local button = client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }

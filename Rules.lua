@@ -19,7 +19,7 @@ local mechanicFields = {
     tanking = { mechanic = true },
 }
 local auraMechanics = { aura = true, ["aura-stacks"] = true, ["dispel-type"] = true }
-local units = { player = true, pet = true, target = true, ["heal-target"] = true }
+local units = { player = true, pet = true, target = true, ["heal-target"] = true, ["buff-target"] = true }
 local visuals = { highlight = true, ["red-blink"] = true, glow = true, none = true }
 local filters = { HELPFUL = true, HARMFUL = true, ["HELPFUL|PLAYER"] = true, ["HARMFUL|PLAYER"] = true }
 local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true, Bleed = true, None = true }
@@ -87,6 +87,11 @@ local function checkCondition(condition, action, context)
 
     if mechanicFields[mechanic].unit then
         check(units[condition.unit], "Unknown unit.", context)
+    end
+
+    if condition.unit == "buff-target" then
+        check((mechanic == "aura" or mechanic == "aura-stacks") and (condition.filter == "HELPFUL" or condition.filter == "HELPFUL|PLAYER"), "A buff target requires a helpful aura.", context)
+        check(action.anySpell or action.spellIDs, "A buff target requires a spell selector.", context)
     end
 
     if auraMechanics[mechanic] then

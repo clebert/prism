@@ -4,6 +4,8 @@ local client = {
     actionQueryCount = {},
     items = {},
     baseSpellIDs = {},
+    helpfulSpells = {},
+    selfBuffSpells = {},
     class = arg[1] or "WARRIOR",
     targetExists = true,
     targetFriendly = false,
@@ -453,7 +455,17 @@ C_CurveUtil = {
         return curve
     end,
 }
-C_Spell = { GetBaseSpell = function(spellID) return client.baseSpellIDs[spellID] or spellID end }
+C_Spell = {
+    GetBaseSpell = function(spellID) return client.baseSpellIDs[spellID] or spellID end,
+    IsSpellHelpful = function(spellID)
+        assert(type(spellID) == "number", "The helpful spell check requires a spell ID.")
+        return client.helpfulSpells[spellID] == true
+    end,
+    IsSelfBuff = function(spellID)
+        assert(type(spellID) == "number", "The self buff check requires a spell ID.")
+        return client.selfBuffSpells[spellID] == true
+    end,
+}
 C_PetInfo = {
     GetPetHappiness = function()
         client.happinessQueryCount = client.happinessQueryCount + 1

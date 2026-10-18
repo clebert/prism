@@ -8,7 +8,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ### General
 
-- _Player buffs:_ Highlights an action button while the player has a buff with the same client spell ID.
+- _Buffs:_ Highlights an action button while the buff target has a buff with the same client spell ID. Targetable helpful buffs use the heal target. Self-only buffs and other spells use the player.
 - _Healing:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
 - _Poison cleansing:_ Glows **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom** while the item is usable and the heal target has a poison debuff.
 - _Disease cleansing:_ Glows **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice** while the item is usable and the heal target has a disease debuff.
@@ -68,7 +68,7 @@ The TOC loads these files in that order. Add each class file after `Shared.lua` 
 
 Each rule defines a unique `key`, an `action` selector, a `condition`, and a `visual`.
 
-Action selectors match spell IDs, item IDs, or item categories. The shared self-buff rule matches any spell action.
+Action selectors match spell IDs, item IDs, or item categories. The shared buff rule matches any spell action.
 Spell selectors also match the base spell ID. Aura filters match only their declared IDs.
 
 Keep action IDs separate from aura IDs. Set `includeActionSpellID` only when the action can also identify the aura.
@@ -87,8 +87,12 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 | `target-cast` | A living hostile target casts or channels. |
 | `tanking` | The player tanks the living hostile target. |
 
-The unit can be `player`, `pet`, `target`, or `heal-target`.
+The unit can be `player`, `pet`, `target`, `heal-target`, or `buff-target`.
 The heal target is an assistable current target, or the player if no assistable target exists.
+The buff target is the heal target for helpful spells that are not self-only buffs.
+Self-only buffs and other spells select the player.
+The core uses `C_Spell.IsSpellHelpful` and `C_Spell.IsSelfBuff` to select the buff target.
+Use `buff-target` only for helpful aura conditions with a spell selector.
 
 Set `requireUsable` on a rule to require a usable action. This modifier also applies to `target-cast` rules.
 Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
@@ -188,7 +192,7 @@ The checks must produce no Lua error or blocked-action error.
 
 | Feature | Check | Expected result |
 | --- | --- | --- |
-| Player buffs | Apply and remove a buff that matches the action spell ID. | The highlight appears only while the buff is active. |
+| Buff highlights | Apply and remove a matching buff separately on the player and an assistable target. Change targets with targetable buffs and self-only buffs. | Targetable helpful buffs follow the heal target. Self-only buffs keep the player. Only the selected unit's matching buff activates the highlight. |
 | Druid self buff | Apply and remove different Mark ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Mark glows only without any Mark rank on the player, when the heal target is the player. Action usability does not affect the glow. |
 | Own target debuffs | Compare the player's Rend or Serpent Sting with another caster's copy. | Only the player's debuff activates the highlight. |
 | Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight. |

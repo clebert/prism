@@ -61,9 +61,61 @@ scenario("Lifecycle event refreshes", function(client)
 
     client.actions[1].spellID = auraID
     client.event("ACTION_USABLE_CHANGED")
-    local slot = containers[1].slots["self-buff"]
+    local slot = containers[1].slots["spell-buff"]
     assert(slot.candidateFilters.includeSpellIDs[auraID], "The usability event did not refresh the action match.")
     assert(not slot.candidateFilters.includeSpellIDs[spellID])
+end)
+
+scenario("Shared buff highlights select the spell target", function(client)
+    local button = client.addActionButton("ActionButton1", 1)
+    local otherSpellID = 999103
+    client.actions[1] = { spellID = spellID, isUsable = false }
+    client.helpfulSpells[spellID], client.helpfulSpells[auraID] = true, true
+    client.selfBuffSpells[auraID] = true
+    client.targetFriendly = true
+    client.loadAddon()
+    client.refresh()
+    local container = client.getContainer("target", "spell-buff")
+    assert(container, "The targetable buff highlight checks the player instead of the helpful target.")
+    local slot = container.slots["spell-buff"]
+    local frames = #client.frames
+
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        for _, target in ipairs({
+            { exists = true, friendly = true, unit = "target" },
+            { exists = true, friendly = false, unit = "player" },
+            { exists = false, friendly = false, unit = "player" },
+            { exists = true, friendly = true, unit = "target" },
+        }) do
+            client.targetExists, client.targetFriendly = target.exists, target.friendly
+            local refreshes = container.refreshCount
+            client.event("PLAYER_TARGET_CHANGED")
+            assert(container.refreshCount > refreshes, "The target change did not refresh the buff highlight.")
+            for _, id in ipairs({ spellID, auraID, otherSpellID, spellID }) do
+                client.actions[1].spellID = id
+                client.event("ACTION_USABLE_CHANGED")
+                local expectedUnit = id == spellID and target.unit or "player"
+                assert(container.unit == expectedUnit, "The buff highlight selected the wrong unit for the action.")
+                assert(slot.candidateFilters.includeSpellIDs[id])
+                assert(client.alpha(container) == 1, "Usability changed the buff highlight.")
+                for _, present in ipairs({ false, true }) do
+                    client.setAuraPresent(slot, present)
+                    assert(client.alpha(slot.texture) == (present and 1 or 0))
+                end
+            end
+        end
+    end
+    assert(#client.frames == frames, "A target or action change replaced the buff highlight.")
+    button.visible = false
+    client.refresh()
+    assert(client.alpha(container) == 0)
+    button.visible = true
+    client.refresh()
+    assert(client.alpha(container) == 1)
+    client.actions[1] = nil
+    client.refresh()
+    assert(not container.enabled)
 end)
 
 scenario("Refresh intervals", function(client)

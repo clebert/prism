@@ -120,6 +120,14 @@ local invalidCases = {
     { "unknown mechanic", function(rules) rules[1].condition = { mechanic = "unknown" } end },
     { "unknown condition field", function(rules) rules[1].condition.typo = true end },
     { "unknown unit", function(rules) rules[1].condition.unit = "unknown" end },
+    { "harmful buff target", function(rules) rules[1].condition.unit = "buff-target" end },
+    { "item buff target", function(rules)
+        rules[1].action = { itemIDs = ids }
+        rules[1].condition.unit, rules[1].condition.filter = "buff-target", "HELPFUL"
+    end },
+    { "non-aura buff target", function(rules)
+        rules[1].condition = { mechanic = "alive", unit = "buff-target" }
+    end },
     { "unknown filter", function(rules) rules[1].condition.filter = "unknown" end },
     { "missing aura IDs", function(rules) rules[1].condition.auraSpellIDs = nil end },
     { "empty aura IDs", function(rules) rules[1].condition.auraSpellIDs = {} end },

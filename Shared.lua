@@ -19,11 +19,11 @@ local poulticeItemIDs = {
 
 Prism.sharedRules = {
     {
-        key = "self-buff",
+        key = "spell-buff",
         action = { anySpell = true },
         condition = {
             mechanic = "aura",
-            unit = "player",
+            unit = "buff-target",
             filter = "HELPFUL",
             includeActionSpellID = true,
         },
