@@ -1,23 +1,5 @@
-local failures = {}
-
-local function scenario(name, callback)
-    local client = dofile("tests/client.lua")
-    client.class = "MAGE"
-    local ok, message = pcall(callback, client)
-
-    for _, frame in ipairs(client.frames) do
-        if frame.frameType == "CheckButton" then
-            _G[frame.name] = nil
-        end
-    end
-
-    if ok then
-        print(name .. " passed.")
-    else
-        failures[#failures + 1] = name .. ": " .. tostring(message)
-        print(failures[#failures])
-    end
-end
+local suite = dofile("tests/scenarios.lua")
+local scenario = suite.scenario
 
 local function assertClose(actual, expected, message)
     assert(type(actual) == "number" and math.abs(actual - expected) < 0.0001, message)
@@ -34,12 +16,6 @@ end
 local spellID = 999101
 local auraID = 999102
 local action = { spellIDs = { [spellID] = true } }
-
-local function startRules(rules)
-    local Prism = {}
-    assert(loadfile("Core.lua"))("Prism", Prism)
-    Prism.Start(rules)
-end
 
 scenario("Event registration and dispatch", function(client)
     client.loadAddon()
@@ -163,7 +139,7 @@ scenario("Visual construction and animation", function(client)
         },
         visual = "highlight",
     }
-    startRules(rules)
+    client.startRules(rules)
     client.refresh()
     local textureCount = 0
     local blink, glow
@@ -171,8 +147,15 @@ scenario("Visual construction and animation", function(client)
         if frame.frameType == "Texture" and frame.parent ~= UIParent then
             assertHighlight(frame)
             textureCount = textureCount + 1
-            if frame.color and frame.parent.frameType ~= "AuraButton" then
-                blink = frame
+            if frame.color then
+                assert(frame.color[1] == 1 and frame.color[2] == 0 and frame.color[3] == 0)
+                local animation = frame.animationGroups[1]
+                local fade = animation.animations[1]
+                assert(animation.looping == "BOUNCE" and fade.animationType == "Alpha")
+                assert(fade.fromAlpha == 0.2 and fade.toAlpha == 1 and fade.duration == 0.4)
+                if frame.parent.frameType ~= "AuraButton" then
+                    blink = frame
+                end
             end
         elseif rawget(frame, "template") == "ActionButtonSpellAlertTemplate" then
             assert(frame.point[1] == "CENTER", "The glow is not centered.")
@@ -219,7 +202,7 @@ end)
 scenario("Tanking usability", function(client)
     client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID, isUsable = false }
-    startRules({
+    client.startRules({
         {
             key = "usable-tanking",
             action = action,
@@ -276,7 +259,7 @@ scenario("Bar discovery, placement, and reuse", function(client)
     end
     client.addActionButton("UnsupportedButton1", 1)
     UIParent.scale = 0.75
-    startRules({
+    client.startRules({
         {
             key = "bar-aura",
             action = action,
@@ -347,5 +330,52 @@ scenario("Bar discovery, placement, and reuse", function(client)
     end
 end)
 
-assert(#failures == 0, table.concat(failures, "\n"))
-print("Runtime tests passed.")
+scenario("A false ownership flag keeps every caster", function(client)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.startRules({
+        {
+            key = "shared-aura",
+            action = action,
+            condition = {
+                mechanic = "aura", unit = "target", filter = "HARMFUL",
+                auraSpellIDs = { [auraID] = true }, ownAura = false,
+            },
+            visual = "highlight",
+        },
+    })
+    client.refresh()
+    local slot = client.getContainer("target", "shared-aura").slots["shared-aura"]
+    assert(slot.candidateFilters.isFromPlayerOrPlayerPet == nil, "A false ownership flag excludes the player's aura.")
+end)
+
+scenario("Aura suppression ignores declaration order", function(client)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.startRules({
+        {
+            key = "suppressor",
+            action = action,
+            condition = { mechanic = "aura", unit = "pet", filter = "HELPFUL", auraSpellIDs = { [auraID] = true } },
+            visual = "highlight",
+            suppressGlow = "suppressed-glow",
+        },
+        {
+            key = "suppressed-glow",
+            action = action,
+            condition = { mechanic = "usable" },
+            visual = "glow",
+        },
+    })
+    client.refresh()
+    local slot = client.getContainer("pet", "suppressor").slots.suppressor
+    slot.frame.visible = false
+    local glow = client.getSpellGlow()
+    assert(glow, "The dependency has no glow.")
+    slot.frame.visible = true
+    assert(not client.getSpellGlow(), "The aura did not suppress the glow.")
+    slot.frame.visible = false
+    assert(client.getSpellGlow() == glow, "Aura removal did not restore the glow.")
+end)
+
+suite.finish("Runtime")

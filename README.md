@@ -46,9 +46,11 @@ The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 ## Architecture
 
 The main file selects the shared rules and the current class rules. The core contains no class-specific branches.
+Class files compose tested mechanics through rule tables and small Lua helpers. They contain no frame operations or gameplay callbacks.
 
 | File | Responsibility |
 | --- | --- |
+| `Rules.lua` | Provides rule helpers, validates declarations, and resolves glow dependencies. |
 | `Core.lua` | Implements action matching, mechanics, visuals, secure aura containers, placement, and refresh control. |
 | `Shared.lua` | Defines class-independent rules and item IDs. |
 | `Classes/Warrior.lua` | Defines Warrior spell IDs, aura IDs, and feedback rules. |
@@ -62,11 +64,9 @@ The TOC loads these files in that order. Add each class file after `Shared.lua` 
 Each rule defines a unique `key`, an `action` selector, a `condition`, and a `visual`.
 
 Action selectors match spell IDs, item IDs, or item categories. The shared self-buff rule matches any spell action.
-
 Spell selectors also match the base spell ID. Aura filters match only their declared IDs.
 
 Keep action IDs separate from aura IDs. Set `includeActionSpellID` only when the action can also identify the aura.
-
 Several rules can apply to one action. Each aura rule uses a separate secure container for its filter and alpha.
 
 | Mechanic | Condition |
@@ -78,37 +78,88 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 | `full-health` | The selected unit exists, is alive, and has full health. |
 | `pet-happiness` | The living pet matches the declared happiness state or is below it when `below` is true. |
 | `usable` | The action is usable. |
-| `target-cast` | A living hostile target casts or channels, and the action is usable. |
+| `target-cast` | A living hostile target casts or channels. |
 | `tanking` | The player tanks the living hostile target. |
 
-The unit can be `player`, `pet`, `target`, or `heal-target`. The heal target is an assistable current target, or the player if no assistable target exists.
+The unit can be `player`, `pet`, `target`, or `heal-target`.
+The heal target is an assistable current target, or the player if no assistable target exists.
 
-Set `requireUsable` on a rule to require a usable action. Set `ownAura` with the `PLAYER` filter to restrict the caster.
+Set `requireUsable` on a rule to require a usable action. This modifier also applies to `target-cast` rules.
 Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
-Set `suppressGlow` to a glow rule key on an aura rule. Place the aura rule after the glow rule.
-The secure aura container suppresses the glow with a texture mask.
+
+Aura filters support `HELPFUL`, `HARMFUL`, `HELPFUL|PLAYER`, and `HARMFUL|PLAYER`.
+A raw aura condition must pair the `PLAYER` filter with `ownAura = true`.
+A false or absent `ownAura` flag keeps every caster.
+Dispel conditions require `HARMFUL` and a declared `dispelType`.
+
+Set `suppressGlow` on a plain `aura` rule to reference a non-aura glow rule.
+The glow selector must cover every action that the aura rule selects.
+Rule order does not affect this dependency. The secure aura container suppresses the glow with a texture mask.
+The mask follows aura presence, not an application count.
 
 The visuals are `highlight`, `red-blink`, and `glow`. The core keeps condition alpha separate from animation alpha.
+Separate frames combine secret conditions without a Lua comparison. Aura slots remain under client control.
+
+### Rule helpers
+
+Use `local Rules = Prism.Rules` in a declaration file.
+
+| Helper | Result |
+| --- | --- |
+| `Rules.TargetDebuff(auraSpellIDs, options)` | Returns a target debuff condition. |
+| `Rules.UsableGlow(key, spellIDs)` | Returns a complete usable-action glow rule. |
+| `Rules.Union(...)` | Returns the union of ID sets without changes to the input sets. |
+
+`TargetDebuff` supports `ownAura`, `includeActionSpellID`, and `applications` options.
+It derives both caster checks from `ownAura`. It selects `aura-stacks` when `applications` is set.
+It does not infer aura IDs from action IDs.
+
+For example, an own target debuff can use this declaration:
+
+```lua
+{
+    key = "own-debuff",
+    action = { spellIDs = actionSpellIDs },
+    condition = Rules.TargetDebuff(auraSpellIDs, { ownAura = true }),
+    visual = "highlight",
+}
+```
+
+Use explicit rule tables for other combinations. Do not add a helper for each concrete spell.
+
+`Prism.Start` calls `Rules.Prepare` before it creates the controller or action overlays.
+The validator checks keys, fields, selectors, mechanics, visuals, units, ID sets, caster checks, and glow dependencies.
+It returns the rules in dependency order without changes to the declarations.
 
 ### Validation
 
 Use Lua 5.1 for the syntax checks and tests.
 
 ```bash
-luac5.1 -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua
-lua5.1 tests/fear-warning.lua
-lua5.1 tests/hunter.lua
-lua5.1 tests/mechanics.lua
+luac5.1 -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua
 lua5.1 tests/rules.lua
+lua5.1 tests/mechanics.lua
+lua5.1 tests/composition.lua
 lua5.1 tests/runtime.lua
 bash -n install.sh
 bash -n tests/install.sh
 bash tests/install.sh
 ```
 
-The mock checks rule configuration, visual construction, action matching, event registration, placement, and refresh intervals.
-It does not reproduce aura selection, texture rendering, or client security restrictions.
-Spell-ID assertions preserve the declared lists. They do not verify the IDs against client data.
+| Test file | Coverage |
+| --- | --- |
+| `tests/rules.lua` | Tests helpers and validation, then checks shared rules with every declared class. |
+| `tests/mechanics.lua` | Tests mechanics, action selectors, aura filters, item data, and unit changes with synthetic IDs. |
+| `tests/composition.lua` | Tests independent feedback, usability gates, pet combat, and secure aura suppression with synthetic IDs. |
+| `tests/runtime.lua` | Tests visuals, animation, events, refresh intervals, bar discovery, placement, and reuse. |
+
+A spell that uses tested mechanics needs no spell-specific behavior test.
+Add a core test for each mechanic change or untested combination. Add helper tests when a reusable declaration pattern needs code.
+The generic rule tests validate each class loaded through the TOC. They do not duplicate spell lists.
+
+The mock does not reproduce aura selection, texture rendering, or client security restrictions.
+Configuration validation cannot prove that a spell ID or mechanic expresses the intended behavior.
+Verify spell IDs against client data and test the affected behavior in the client.
 
 #### Client checks
 

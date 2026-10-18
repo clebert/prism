@@ -1,121 +1,206 @@
 local client = dofile("tests/client.lua")
 local Prism = {}
-assert(loadfile("Core.lua"))("Prism", Prism)
-assert(loadfile("Shared.lua"))("Prism", Prism)
-assert(loadfile("Classes/Warrior.lua"))("Prism", Prism)
-assert(loadfile("Classes/Hunter.lua"))("Prism", Prism)
 
+for source in io.lines("Prism.toc") do
+    if source:match("%.lua$") and source ~= "Prism.lua" then
+        assert(loadfile(source))("Prism", Prism)
+    end
+end
+
+assert(not client.controller, "The definitions started the core.")
+local Rules = Prism.Rules
 local start = Prism.Start
 local selectedRules
 Prism.Start = function(rules)
     selectedRules = rules
 end
 
-assert(loadfile("Prism.lua"))("Prism", Prism)
-assert(#selectedRules == #Prism.sharedRules + #Prism.classRules.WARRIOR)
-local keys = {}
-for _, rule in ipairs(selectedRules) do
-    assert(not keys[rule.key], "Two rules have the same key.")
-    keys[rule.key] = true
-end
-assert(keys["self-buff"] and keys["own-rend"])
-client.class = "HUNTER"
-assert(loadfile("Prism.lua"))("Prism", Prism)
-assert(#selectedRules == #Prism.sharedRules + #Prism.classRules.HUNTER)
-keys = {}
-for _, rule in ipairs(selectedRules) do
-    assert(not keys[rule.key], "Two Hunter rules have the same key.")
-    keys[rule.key] = true
-end
-assert(keys["self-buff"] and keys["own-serpent-sting"] and keys["mend-pet-full-health"])
-assert(keys["viper-sting"] and keys["scorpid-sting"] and keys["counterattack"] and keys["disengage"], "A Hunter did not select all declared rules.")
-assert(keys["serpent-sting-replacement"] and keys["viper-sting-replacement"] and keys["scorpid-sting-replacement"], "A Hunter did not select the sting replacement warnings.")
-assert(keys["feed-pet-happy"] and keys["feed-pet-not-happy"] and keys["feed-pet-active"], "A Hunter did not select the Feed Pet rules.")
-assert(keys["revive-pet-alive"], "A Hunter did not select the Revive Pet rule.")
-assert(not keys["own-rend"], "A Hunter selected Warrior rules.")
-client.class = "MAGE"
-assert(loadfile("Prism.lua"))("Prism", Prism)
-assert(#selectedRules == #Prism.sharedRules)
-for index, rule in ipairs(selectedRules) do
-    assert(rule == Prism.sharedRules[index], "Another class selected class-specific rules.")
-end
-assert(Prism.classRules.MAGE == nil)
-assert(client.controller == nil, "The core started before the main file selected the rules.")
+local function checkClass(class, classRules)
+    client.class = class
+    assert(loadfile("Prism.lua"))("Prism", Prism)
+    local expected = {}
 
--- Synthetic IDs separate the action from its aura.
-local spellIDs = { [999003] = true }
-local rules = {
-    {
-        key = "test-full-health",
-        action = { spellIDs = spellIDs },
-        condition = { mechanic = "full-health", unit = "pet" },
-        visual = "glow",
-    },
-    {
-        key = "test-usable",
-        action = { spellIDs = spellIDs },
-        condition = { mechanic = "usable" },
-        visual = "red-blink",
-    },
-    {
-        key = "test-stacks",
-        action = { spellIDs = spellIDs },
+    for _, group in ipairs({ Prism.sharedRules, classRules }) do
+        for _, rule in ipairs(group) do
+            expected[#expected + 1] = rule
+        end
+    end
+
+    assert(#selectedRules == #expected, "The class selected an incorrect rule count.")
+
+    for index, rule in ipairs(expected) do
+        assert(selectedRules[index] == rule, "The class selected an incorrect rule.")
+    end
+
+    assert(#Rules.Prepare(selectedRules) == #expected)
+end
+
+checkClass("UNSUPPORTED", {})
+for class, rules in pairs(Prism.classRules) do
+    checkClass(class, rules)
+end
+Prism.Start = start
+
+-- Synthetic IDs keep the helper and validator tests independent of game data.
+local firstID, secondID, thirdID = 999101, 999102, 999103
+local ids = { [firstID] = true, [secondID] = true }
+local otherIDs = { [secondID] = true, [thirdID] = true }
+local union = Rules.Union(ids, otherIDs)
+assert(union[firstID] and union[secondID] and union[thirdID])
+union[firstID] = nil
+assert(ids[firstID] and not ids[thirdID] and not otherIDs[firstID], "The union changed an input set.")
+assert(next(Rules.Union()) == nil)
+assert(not pcall(Rules.Union, { [firstID] = false }))
+
+local function auraRule()
+    return {
+        key = "test-aura",
+        action = { spellIDs = { [firstID] = true } },
         condition = {
-            mechanic = "aura-stacks",
+            mechanic = "aura",
             unit = "target",
             filter = "HARMFUL",
-            auraSpellIDs = { [999004] = true },
-            applications = 3,
+            auraSpellIDs = { [secondID] = true },
         },
         visual = "highlight",
-    },
-}
-Prism.Start = start
-Prism.Start(rules)
-client.addActionButton("ActionButton1", 1)
-client.actions[1] = { spellID = 999003 }
-client.petExists = true
-client.fullHealthUnits.pet = true
-client.refresh()
-local glow = client.getSpellGlow()
-assert(glow and glow.ProcLoop:IsPlaying(), "The full-health mechanic did not start its glow.")
-local redBlink
-for _, frame in ipairs(client.frames) do
-    if frame.frameType == "Texture" and frame.color and frame.color[1] == 1 then
-        redBlink = frame
+    }
+end
+
+for _, own in ipairs({ false, true }) do
+    for _, includeAction in ipairs({ false, true }) do
+        local options = { ownAura = own, includeActionSpellID = includeAction }
+        local rule = auraRule()
+        rule.condition = Rules.TargetDebuff(ids, options)
+        assert(rule.condition.unit == "target" and rule.condition.mechanic == "aura")
+        assert(rule.condition.filter == (own and "HARMFUL|PLAYER" or "HARMFUL"))
+        assert(rule.condition.ownAura == own and rule.condition.includeActionSpellID == includeAction)
+        assert(rule.condition.auraSpellIDs == ids and options.applications == nil)
+        Rules.Prepare({ rule })
+        options.applications = 5
+        rule.condition = Rules.TargetDebuff(ids, options)
+        assert(rule.condition.mechanic == "aura-stacks" and rule.condition.applications == 5)
+        Rules.Prepare({ rule })
     end
 end
-assert(redBlink and redBlink.parent.booleanInput, "The blink animation shares its alpha with the usability condition.")
-client.actions[1].isUsable = false
-client.refresh()
-assert(client.alpha(redBlink) == 0)
-assert(client.alpha(glow) == 1, "Usability changed an independent full-health rule.")
-local container = client.getContainer("target", "test-stacks")
-local slot = container.slots["test-stacks"]
-assert(slot.candidateFilters.includeSpellIDs[999004])
-assert(not slot.candidateFilters.includeSpellIDs[999003], "The core confused the action ID with the aura ID.")
-assert(slot.applicationOptions.minApplications == 3)
-assert(slot.applicationOptions.maxApplications == 3)
+assert(not pcall(Rules.TargetDebuff, ids, { typo = true }))
+local plainDebuff = Rules.TargetDebuff(ids)
+assert(plainDebuff.filter == "HARMFUL" and plainDebuff.includeActionSpellID == nil)
+local usableGlow = Rules.UsableGlow("test-glow", ids)
+assert(usableGlow.key == "test-glow" and usableGlow.action.spellIDs == ids)
+assert(usableGlow.condition.mechanic == "usable" and usableGlow.visual == "glow")
+Rules.Prepare({ usableGlow })
 
-local healthQueries = client.healthQueryCount.pet
-client.petExists = false
-client.refresh()
-assert(client.alpha(glow) == 0, "An absent pet retained full-health feedback.")
-assert(client.healthQueryCount.pet == healthQueries, "The core queried health for an absent pet.")
-client.petExists = true
-client.deadUnits.pet = true
-client.refresh()
-assert(client.alpha(glow) == 0)
-assert(client.healthQueryCount.pet == healthQueries, "The core queried health for a dead pet.")
-client.deadUnits.pet = false
-client.refresh()
-assert(client.alpha(glow) == 1)
-client.fullHealthUnits.pet = false
-client.refresh()
-assert(client.alpha(glow) == 0)
-client.actions[1] = nil
-client.refresh()
-assert(not slot.enabled and not container.enabled)
-assert(not client.getSpellGlow())
+local invalidCases = {
+    { "duplicate key", function(rules) rules[2] = auraRule() end },
+    { "sparse list", function(rules) rules[3] = Rules.UsableGlow("glow", ids) end },
+    { "list field", function(rules) rules.extra = true end },
+    { "missing key", function(rules) rules[1].key = nil end },
+    { "empty key", function(rules) rules[1].key = "" end },
+    { "unknown rule field", function(rules) rules[1].typo = true end },
+    { "unknown visual", function(rules) rules[1].visual = "unknown" end },
+    { "invalid usability", function(rules) rules[1].requireUsable = 1 end },
+    { "missing action", function(rules) rules[1].action = nil end },
+    { "no selector", function(rules) rules[1].action = {} end },
+    { "two selectors", function(rules) rules[1].action.itemIDs = ids end },
+    { "unknown selector", function(rules) rules[1].action.typo = ids end },
+    { "false wildcard", function(rules) rules[1].action = { anySpell = false } end },
+    { "incomplete category", function(rules) rules[1].action = { itemClassID = 0 } end },
+    { "invalid category", function(rules) rules[1].action = { itemClassID = -1, itemSubClassID = 7 } end },
+    { "empty ID set", function(rules) rules[1].action.spellIDs = {} end },
+    { "negative ID", function(rules) rules[1].action.spellIDs = { [-1] = true } end },
+    { "fractional ID", function(rules) rules[1].action.spellIDs = { [1.5] = true } end },
+    { "string ID", function(rules) rules[1].action.spellIDs = { ["999101"] = true } end },
+    { "false ID", function(rules) rules[1].action.spellIDs = { [firstID] = false } end },
+    { "missing condition", function(rules) rules[1].condition = nil end },
+    { "unknown mechanic", function(rules) rules[1].condition = { mechanic = "unknown" } end },
+    { "unknown condition field", function(rules) rules[1].condition.typo = true end },
+    { "unknown unit", function(rules) rules[1].condition.unit = "unknown" end },
+    { "unknown filter", function(rules) rules[1].condition.filter = "unknown" end },
+    { "missing aura IDs", function(rules) rules[1].condition.auraSpellIDs = nil end },
+    { "empty aura IDs", function(rules) rules[1].condition.auraSpellIDs = {} end },
+    { "inconsistent ownership", function(rules) rules[1].condition.ownAura = true end },
+    { "missing ownership", function(rules) rules[1].condition.filter = "HARMFUL|PLAYER" end },
+    { "invalid ownership", function(rules) rules[1].condition.ownAura = "true" end },
+    { "invalid action flag", function(rules) rules[1].condition.includeActionSpellID = 1 end },
+    { "item aura identity", function(rules)
+        rules[1].action = { itemIDs = ids }
+        rules[1].condition.includeActionSpellID = true
+    end },
+    { "invalid applications", function(rules)
+        rules[1].condition.mechanic = "aura-stacks"
+        rules[1].condition.applications = 0
+    end },
+    { "unknown dispel", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "unknown" }
+    end },
+    { "helpful dispel", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HELPFUL", dispelType = "Poison" }
+    end },
+    { "invalid happiness", function(rules) rules[1].condition = { mechanic = "pet-happiness", happiness = 4 } end },
+    { "invalid below flag", function(rules)
+        rules[1].condition = { mechanic = "pet-happiness", happiness = 3, below = 1 }
+    end },
+    { "invalid combat flag", function(rules)
+        rules[1].condition = { mechanic = "pet-happiness", happiness = 3, outOfCombat = "pet" }
+    end },
+    { "missing dependency", function(rules) rules[1].suppressGlow = "missing" end },
+    { "non-glow dependency", function(rules)
+        rules[1].suppressGlow = "other-aura"
+        rules[2] = auraRule()
+        rules[2].key = "other-aura"
+    end },
+    { "aura glow dependency", function(rules)
+        rules[1].suppressGlow = "other-aura"
+        rules[2] = auraRule()
+        rules[2].key, rules[2].visual = "other-aura", "glow"
+    end },
+    { "non-aura suppressor", function(rules)
+        rules[1] = Rules.UsableGlow("plain", ids)
+        rules[1].suppressGlow = "glow"
+        rules[2] = Rules.UsableGlow("glow", ids)
+    end },
+    { "incompatible dependency", function(rules)
+        rules[1].suppressGlow = "glow"
+        rules[2] = Rules.UsableGlow("glow", { [thirdID] = true })
+    end },
+    { "stack-gated suppressor", function(rules)
+        rules[1].suppressGlow = "glow"
+        rules[1].condition.mechanic = "aura-stacks"
+        rules[1].condition.applications = 5
+        rules[2] = Rules.UsableGlow("glow", ids)
+    end },
+}
+
+for _, case in ipairs(invalidCases) do
+    local rules = { auraRule() }
+    case[2](rules)
+    local ok, message = pcall(Rules.Prepare, rules)
+    assert(not ok, "The validator accepted " .. case[1] .. ".")
+    assert(tostring(message):find("Prism rule", 1, true), "The validator failed outside its checks: " .. tostring(message))
+end
+
+for _, selector in ipairs({ { spellIDs = ids }, { anySpell = true }, { itemIDs = ids }, { itemClassID = 0, itemSubClassID = 7 } }) do
+    local suppressor = auraRule()
+    suppressor.action, suppressor.suppressGlow = selector, "glow"
+    local glow = Rules.UsableGlow("glow", ids)
+    glow.action = {}
+    for field, value in pairs(selector) do
+        glow.action[field] = type(value) == "table" and Rules.Union(value) or value
+    end
+    local input = { suppressor, glow }
+    local prepared = Rules.Prepare(input)
+    assert(prepared[1] == glow and prepared[2] == suppressor)
+    assert(input[1] == suppressor, "Dependency resolution changed the declarations.")
+end
+assert(#Rules.Prepare({}) == 0)
+assert(not pcall(Rules.Prepare, "invalid"))
+
+local frameCount = #client.frames
+local invalid = auraRule()
+invalid.key, invalid.condition = "invalid-mechanic", { mechanic = "unknown" }
+local ok, message = pcall(Prism.Start, { invalid })
+assert(not ok, "The core accepted an unknown mechanic.")
+assert(tostring(message):find("invalid-mechanic", 1, true), "The validation error has no rule key.")
+assert(#client.frames == frameCount, "The core created frames before validation.")
 
 print("Rule tests passed.")

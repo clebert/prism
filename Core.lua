@@ -93,7 +93,7 @@ local function resolveUnit(unit)
 end
 
 local function createAuraCandidateFilters(condition, actionSpellID)
-    local filters = { isFromPlayerOrPlayerPet = condition.ownAura }
+    local filters = { isFromPlayerOrPlayerPet = condition.ownAura or nil }
 
     if condition.auraSpellIDs or condition.includeActionSpellID then
         local includeSpellIDs = {}
@@ -178,7 +178,7 @@ local function createRuleState(overlay, rule, spellID)
 
             if rule.suppressGlow then
                 local suppressedState = overlay.states[rule.suppressGlow]
-                assert(suppressedState and suppressedState.glowFrame, "The aura rule must follow the glow rule.")
+                assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
                 suppressGlowWithAura(auraButton, suppressedState.glowFrame)
             end
 
@@ -325,14 +325,14 @@ local mechanicHandlers = {
         showRuleVisual(state)
         setUsableAlpha(state.region, actionSlotID)
     end,
-    ["target-cast"] = function(state, actionSlotID)
+    ["target-cast"] = function(state)
         if not isLivingHostileTarget() or not isTargetCastingOrChanneling() then
             hideRuleVisual(state)
             return
         end
 
         showRuleVisual(state)
-        setUsableAlpha(state.region, actionSlotID)
+        state.region:SetAlpha(1)
     end,
     tanking = function(state)
         if not isLivingHostileTarget() or UnitThreatSituation("player", "target") == nil then
@@ -600,7 +600,7 @@ local function refreshAuraStates()
 end
 
 function Prism.Start(rules)
-    activeRules = rules
+    activeRules = Prism.Rules.Prepare(rules)
     local controller = CreateFrame("Frame")
     local elapsedSinceRefresh = overlayRefreshIntervalSeconds
 

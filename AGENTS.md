@@ -32,11 +32,15 @@ Distinguish the action spell from its activation aura, teaching spell, and relat
 
 ## Validation
 
-Run `luac -p Prism.lua Core.lua Shared.lua Classes/*.lua tests/*.lua` with a compatible Lua parser.
+Run `luac -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua` with a compatible Lua parser.
 
 Use `luac5.1` when the Lua 5.1 parser has that name.
 
-Run the Lua tests in `tests/fear-warning.lua`, `tests/hunter.lua`, `tests/mechanics.lua`, and `tests/rules.lua` with Lua 5.1.
+Run `tests/rules.lua`, `tests/mechanics.lua`, `tests/composition.lua`, and `tests/runtime.lua` with Lua 5.1.
+
+Test mechanics and their combinations with synthetic IDs. Validate every class declaration through the generic rule tests.
+
+A spell that uses tested mechanics needs no spell-specific behavior test. A mechanic change needs core tests.
 
 Run `bash tests/install.sh` to test the installation.
 

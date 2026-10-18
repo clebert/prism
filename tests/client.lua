@@ -441,6 +441,23 @@ function client.loadAddon()
     return namespace
 end
 
+function client.startRules(rules)
+    local namespace = {}
+    assert(loadfile("Rules.lua"))("Prism", namespace)
+    assert(loadfile("Core.lua"))("Prism", namespace)
+    namespace.Start(rules)
+    return namespace
+end
+
+function client.getHighlight()
+    for index = #client.frames, 1, -1 do
+        local frame = client.frames[index]
+        if frame.frameType == "Texture" and frame.texture == "Interface\\Buttons\\CheckButtonHilight" and frame.parent.frameType == "Frame" then
+            return frame
+        end
+    end
+end
+
 function client.refresh(elapsed)
     client.controller.scripts.OnUpdate(client.controller, elapsed or 0.1)
 end

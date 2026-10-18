@@ -1,4 +1,5 @@
 local _, Prism = ...
+local Rules = Prism.Rules
 
 local serpentStingSpellIDs = {
     [1978] = true,
@@ -71,145 +72,66 @@ local revivePetSpellIDs = {
     [982] = true,
 }
 
-local function combineSpellIDs(first, second)
-    local spellIDs = {}
-
-    for spellID in pairs(first) do
-        spellIDs[spellID] = true
-    end
-
-    for spellID in pairs(second) do
-        spellIDs[spellID] = true
-    end
-
-    return spellIDs
-end
-
 Prism.classRules.HUNTER = {
     {
         key = "own-serpent-sting",
         action = { spellIDs = serpentStingSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL|PLAYER",
-            auraSpellIDs = serpentStingSpellIDs,
-            includeActionSpellID = true,
-            ownAura = true,
-        },
+        condition = Rules.TargetDebuff(serpentStingSpellIDs, { ownAura = true, includeActionSpellID = true }),
         visual = "highlight",
     },
     {
         key = "serpent-sting-replacement",
         action = { spellIDs = serpentStingSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL|PLAYER",
-            auraSpellIDs = combineSpellIDs(viperStingSpellIDs, scorpidStingSpellIDs),
-            ownAura = true,
-        },
+        condition = Rules.TargetDebuff(Rules.Union(viperStingSpellIDs, scorpidStingSpellIDs), { ownAura = true }),
         requireUsable = true,
         visual = "red-blink",
     },
     {
         key = "viper-sting",
         action = { spellIDs = viperStingSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL",
-            auraSpellIDs = viperStingSpellIDs,
-            includeActionSpellID = true,
-        },
+        condition = Rules.TargetDebuff(viperStingSpellIDs, { includeActionSpellID = true }),
         visual = "highlight",
     },
     {
         key = "viper-sting-replacement",
         action = { spellIDs = viperStingSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL|PLAYER",
-            auraSpellIDs = combineSpellIDs(serpentStingSpellIDs, scorpidStingSpellIDs),
-            ownAura = true,
-        },
+        condition = Rules.TargetDebuff(Rules.Union(serpentStingSpellIDs, scorpidStingSpellIDs), { ownAura = true }),
         requireUsable = true,
         visual = "red-blink",
     },
     {
         key = "scorpid-sting",
         action = { spellIDs = scorpidStingSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL",
-            auraSpellIDs = scorpidStingSpellIDs,
-            includeActionSpellID = true,
-        },
+        condition = Rules.TargetDebuff(scorpidStingSpellIDs, { includeActionSpellID = true }),
         visual = "highlight",
     },
     {
         key = "scorpid-sting-replacement",
         action = { spellIDs = scorpidStingSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL|PLAYER",
-            auraSpellIDs = combineSpellIDs(serpentStingSpellIDs, viperStingSpellIDs),
-            ownAura = true,
-        },
+        condition = Rules.TargetDebuff(Rules.Union(serpentStingSpellIDs, viperStingSpellIDs), { ownAura = true }),
         requireUsable = true,
         visual = "red-blink",
     },
     {
         key = "hunters-mark",
         action = { spellIDs = huntersMarkSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL",
-            auraSpellIDs = huntersMarkSpellIDs,
-            includeActionSpellID = true,
-        },
+        condition = Rules.TargetDebuff(huntersMarkSpellIDs, { includeActionSpellID = true }),
         visual = "highlight",
     },
     {
         key = "concussive-shot",
         action = { spellIDs = concussiveShotSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL",
-            auraSpellIDs = concussiveShotSpellIDs,
-            includeActionSpellID = true,
-        },
+        condition = Rules.TargetDebuff(concussiveShotSpellIDs, { includeActionSpellID = true }),
         visual = "highlight",
     },
     {
         key = "wing-clip",
         action = { spellIDs = wingClipSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "target",
-            filter = "HARMFUL",
-            auraSpellIDs = wingClipSpellIDs,
-            includeActionSpellID = true,
-        },
+        condition = Rules.TargetDebuff(wingClipSpellIDs, { includeActionSpellID = true }),
         visual = "highlight",
     },
-    {
-        key = "mongoose-bite",
-        action = { spellIDs = mongooseBiteSpellIDs },
-        condition = { mechanic = "usable" },
-        visual = "glow",
-    },
-    {
-        key = "counterattack",
-        action = { spellIDs = counterattackSpellIDs },
-        condition = { mechanic = "usable" },
-        visual = "glow",
-    },
+    Rules.UsableGlow("mongoose-bite", mongooseBiteSpellIDs),
+    Rules.UsableGlow("counterattack", counterattackSpellIDs),
     {
         key = "disengage",
         action = { spellIDs = disengageSpellIDs },
