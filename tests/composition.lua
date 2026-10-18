@@ -221,6 +221,62 @@ scenario("Target debuff highlights and cast glows stay independent", function(cl
     assert(not slot.enabled and not container.enabled and not client.getSpellGlow())
 end)
 
+scenario("Heal target health and buff highlights stay independent", function(client)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.helpfulSpells[spellID] = true
+    client.startRules({
+        {
+            key = "buff", action = { anySpell = true }, visual = "highlight",
+            condition = { mechanic = "aura", unit = "buff-target", filter = "HELPFUL", includeActionSpellID = true },
+        },
+        {
+            key = "health", action = action, visual = "highlight",
+            condition = { mechanic = "full-health", unit = "heal-target" },
+        },
+    })
+    client.refresh()
+    local health = client.healthTexture
+    local frames = #client.frames
+
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        for _, target in ipairs({
+            { exists = true, friendly = true, unit = "target" },
+            { exists = true, friendly = false, unit = "player" },
+            { exists = false, friendly = false, unit = "player" },
+        }) do
+            client.targetExists, client.targetFriendly = target.exists, target.friendly
+            client.event("PLAYER_TARGET_CHANGED")
+            local buff = client.getContainer(target.unit, "buff")
+            local slot = buff.slots.buff
+            for _, full in ipairs({ false, true }) do
+                client.fullHealthUnits.player, client.fullHealthUnits.target = not full, not full
+                client.fullHealthUnits[target.unit] = full
+                for _, present in ipairs({ false, true }) do
+                    client.setAuraPresent(slot, present)
+                    for _, usable in ipairs({ false, true }) do
+                        client.actions[1].isUsable = usable
+                        client.event("ACTION_USABLE_CHANGED")
+                        assert(client.alpha(health) == (full and 1 or 0), "The buff or action usability changed the health highlight.")
+                        assert(health.alpha.healthUnit == target.unit, "The health highlight selected another unit.")
+                        assert(client.alpha(slot.texture) == (present and 1 or 0), "Health or action usability changed the buff highlight.")
+                    end
+                end
+            end
+            local queries = client.healthQueryCount[target.unit]
+            client.deadUnits[target.unit] = true
+            client.refresh()
+            assert(client.alpha(health) == 0 and client.healthQueryCount[target.unit] == queries)
+            client.deadUnits[target.unit] = false
+        end
+    end
+    assert(#client.frames == frames, "The condition changes replaced the frames.")
+    client.actions[1] = nil
+    client.refresh()
+    assert(client.alpha(health) == 0)
+end)
+
 scenario("Missing self buff with secure layout suppression", function(client)
     local button = client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID, isUsable = false }

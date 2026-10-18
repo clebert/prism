@@ -243,6 +243,57 @@ scenario("Item categories, delayed data, and heal targets", function(client)
     assert(client.alpha(health) == 0)
 end)
 
+for _, mechanic in ipairs({ "full-health", "full-mana" }) do
+    scenario(mechanic .. " player-only item highlight", function(client)
+        local button = client.addActionButton("ActionButton1", 1)
+        local itemID = 999203
+        local fullUnits = mechanic == "full-health" and client.fullHealthUnits or client.fullManaUnits
+        local queryCount = mechanic == "full-health" and client.healthQueryCount or client.manaQueryCount
+        client.actions[1] = { itemID = itemID, isUsable = false }
+        client.startRules({
+            {
+                key = "resource", action = { itemIDs = { [itemID] = true } }, visual = "highlight",
+                condition = { mechanic = mechanic, unit = "player" },
+            },
+        })
+        client.refresh()
+        local highlight = client.getHighlight()
+        assert(highlight and client.alpha(highlight) == 0)
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for _, full in ipairs({ false, true }) do
+                fullUnits.player, fullUnits.target = full, not full
+                for _, target in ipairs({
+                    { exists = true, friendly = true },
+                    { exists = true, friendly = false },
+                    { exists = false, friendly = false },
+                }) do
+                    client.targetExists, client.targetFriendly = target.exists, target.friendly
+                    client.event("PLAYER_TARGET_CHANGED")
+                    assert(client.alpha(highlight) == (full and 1 or 0), "The item checked the target or action usability.")
+                    assert(queryCount.target == nil and queryCount.pet == nil)
+                end
+            end
+        end
+        local queries = queryCount.player
+        client.deadUnits.player = true
+        client.refresh()
+        assert(client.alpha(highlight) == 0 and queryCount.player == queries)
+        client.deadUnits.player = false
+        client.refresh()
+        assert(client.alpha(highlight) == 1)
+        client.actions[1].itemID = itemID + 1
+        client.refresh()
+        assert(client.alpha(highlight) == 0, "An unrelated item kept the highlight.")
+        client.actions[1].itemID = itemID
+        client.refresh()
+        assert(client.alpha(highlight) == 1)
+        button.action = 13
+        client.refresh()
+        assert(client.alpha(highlight) == 0)
+    end)
+end
+
 scenario("Exact item selectors and dispel types", function(client)
     client.addActionButton("ActionButton1", 1)
     local rules = {}

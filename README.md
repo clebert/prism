@@ -9,7 +9,9 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 ### General
 
 - _Buffs:_ Highlights an action button while the buff target has a buff with the same client spell ID. Targetable helpful buffs use the heal target. Self-only buffs and other spells use the player.
-- _Healing:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
+- _Bandages:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
+- _Healing potions:_ Highlights **healing potions** while the player is alive and has full health. The current target and action usability do not affect the highlight.
+- _Mana potions:_ Highlights **mana potions** while the player is alive and has full mana. The current target and action usability do not affect the highlight.
 - _Poison cleansing:_ Glows **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom** while the item is usable and the heal target has a poison debuff.
 - _Disease cleansing:_ Glows **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice** while the item is usable and the heal target has a disease debuff.
 
@@ -46,6 +48,8 @@ The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 - _Tanking:_ **Growl**, **Challenging Roar** — Highlights while the player tanks a living hostile target. Action usability does not affect the highlight.
 - _Threat reduction:_ **Cower** — Glows while the action is usable and the player tanks a living hostile target.
 - _Interrupts:_ **Bash** — Glows during a hostile target cast or channel while the spell is usable.
+- _Healing:_ **Healing Touch**, **Regrowth**, **Rejuvenation** — Highlights while the heal target is alive and has full health.
+  Action usability does not affect the highlight. Regrowth and Rejuvenation keep their independent buff highlights.
 - _Curse cleansing:_ **Remove Curse** — Glows while the action is usable and the heal target has a curse debuff.
 - _Poison cleansing:_ **Abolish Poison** — Glows while the action is usable and the heal target has a poison debuff.
   The active buff also highlights the button.
@@ -91,6 +95,7 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 | `dispel-type` | A debuff with the specified dispel type is active on the selected unit. |
 | `alive` | The selected unit exists and is alive. |
 | `full-health` | The selected unit exists, is alive, and has full health. |
+| `full-mana` | The selected unit exists, is alive, and has full mana, regardless of its active power type. |
 | `pet-happiness` | The living pet matches the declared happiness state or is below it when `below` is true. |
 | `usable` | The action is usable. |
 | `self-target` | The heal target is the player. |
@@ -175,8 +180,8 @@ bash tests/install.sh
 | Test file | Coverage |
 | --- | --- |
 | `tests/rules.lua` | Tests helpers and validation, then checks shared rules with every declared class. |
-| `tests/mechanics.lua` | Tests mechanics, action selectors, aura filters, item data, and unit changes with synthetic IDs. |
-| `tests/composition.lua` | Tests independent highlights and cast glows, spell cleansing, usability gates, pet combat, and secure aura suppression with synthetic IDs. |
+| `tests/mechanics.lua` | Tests mechanics, action selectors, aura filters, item data, unit changes, and player-only resource highlights with synthetic IDs. |
+| `tests/composition.lua` | Tests independent highlights and cast glows, heal target health, spell cleansing, usability gates, pet combat, and secure aura suppression with synthetic IDs. |
 | `tests/runtime.lua` | Tests visuals, animation, events, refresh intervals, bar discovery, placement, and reuse. |
 | `tests/probe.lua` | Tests the standalone test addon, combat steps, report persistence, and controls. |
 
@@ -204,6 +209,7 @@ The checks must produce no Lua error or blocked-action error.
 | --- | --- | --- |
 | Buff highlights | Apply and remove a matching buff separately on the player and an assistable target. Change targets with targetable buffs and self-only buffs. | Targetable helpful buffs follow the heal target. Self-only buffs keep the player. Only the selected unit's matching buff activates the highlight. |
 | Druid self buffs | Apply and remove different Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Each spell glows only without any rank of its buff on the player, when the heal target is the player. Action usability does not affect the glow. |
+| Druid healing | Test all three spells at full and partial health on the player and an assistable target. Test death, hostile targets, and no target. Apply and remove Regrowth and Rejuvenation. Change action usability. | The full-health highlight requires a living heal target at full health. Buff highlights remain independent. Action usability does not affect either highlight. |
 | Own target debuffs | Compare the player's Rend, Serpent Sting, Moonfire, Rip, or Rake with another caster's copy. Test every declared rank. Change action usability and targets. | Only the player's debuff activates the highlight. |
 | Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test Entangling Roots from direct casts and Nature's Grasp, with different casters. Test Bash, Demoralizing Roar, Faerie Fire, Hibernate, and Soothe Animal from different druids. Test every declared rank. Change action usability and targets. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight, regardless of rank or action usability. |
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target. | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it. |
@@ -212,6 +218,8 @@ The checks must produce no Lua error or blocked-action error.
 | Dispel feedback | Test poison, disease, and curses on the player and an assistable target. Remove the debuff or make the action unusable. | Bandages blink for poison. Cleansing items and spells glow for their declared dispel type. No debuff or an unusable action hides the visual. |
 | Druid cleansing | Test Remove Curse with curses and Abolish Poison with poison on the player and another assistable target. Apply and remove the Abolish Poison buff separately from the poison debuff. Change action usability and targets. | Each usable spell glows only for its matching debuff on the heal target. The Abolish Poison buff highlight remains independent of the poison glow and action usability. |
 | Bandage health | Test full health, partial health, a dead friendly target, and no assistable target. | Only a living heal target at full health activates the highlight. No assistable target selects the player. |
+| Healing potions | Change player health. Select friendly targets with different health. Test no target, death, and an unusable potion. | Only a living player at full health activates the highlight. The current target and action usability do not affect the highlight. |
+| Mana potions | Change player mana. Change druid forms. Select friendly targets with different mana. Test no target, death, and an unusable potion. | Only a living player at full mana activates the highlight. The current target, active power type, and action usability do not affect the highlight. |
 | Pet health | Change pet health. Dismiss, replace, or kill the pet. Make Mend Pet unusable. | Only a living pet at full health activates the highlight. Usability does not affect the highlight. |
 | Pet feeding | Test each happiness state with and without the Feed Pet Effect buff. Dismiss, replace, or kill the pet. Change Feed Pet usability. Change pet combat separately from player combat. | Happy or the active buff activates the highlight, regardless of usability or pet combat. The active buff suppresses the glow. Without the buff, the glow requires a living pet below Happy and out of combat, with a usable action. |
 | Pet revival | Test a living pet with full or partial health. Dismiss, replace, or kill the pet. Make Revive Pet unusable. | Only a living pet activates the Revive Pet highlight. Pet health and action usability do not affect the highlight. |

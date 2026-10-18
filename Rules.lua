@@ -12,6 +12,7 @@ local mechanicFields = {
     ["dispel-type"] = { mechanic = true, unit = true, filter = true, dispelType = true },
     alive = unitFields,
     ["full-health"] = unitFields,
+    ["full-mana"] = unitFields,
     ["pet-happiness"] = { mechanic = true, happiness = true, below = true, outOfCombat = true },
     usable = { mechanic = true },
     ["self-target"] = { mechanic = true },

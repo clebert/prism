@@ -41,6 +41,19 @@ local faerieFireSpellIDs = {
 local growlSpellIDs = {
     [6795] = true,
 }
+local healingTouchSpellIDs = {
+    [5185] = true,
+    [5186] = true,
+    [5187] = true,
+    [5188] = true,
+    [5189] = true,
+    [6778] = true,
+    [8903] = true,
+    [9758] = true,
+    [9888] = true,
+    [9889] = true,
+    [25297] = true,
+}
 local hibernateSpellIDs = {
     [2637] = true,
     [18657] = true,
@@ -72,6 +85,30 @@ local rakeSpellIDs = {
     [1823] = true,
     [1824] = true,
     [9904] = true,
+}
+local regrowthSpellIDs = {
+    [8936] = true,
+    [8938] = true,
+    [8939] = true,
+    [8940] = true,
+    [8941] = true,
+    [9750] = true,
+    [9856] = true,
+    [9857] = true,
+    [9858] = true,
+}
+local rejuvenationSpellIDs = {
+    [774] = true,
+    [1058] = true,
+    [1430] = true,
+    [2090] = true,
+    [2091] = true,
+    [3627] = true,
+    [8910] = true,
+    [9839] = true,
+    [9840] = true,
+    [9841] = true,
+    [25299] = true,
 }
 local removeCurseSpellIDs = {
     [2782] = true,
@@ -187,6 +224,12 @@ Prism.classRules.DRUID = {
         condition = { mechanic = "target-cast" },
         requireUsable = true,
         visual = "glow",
+    },
+    {
+        key = "healing-full-health",
+        action = { spellIDs = Rules.Union(healingTouchSpellIDs, regrowthSpellIDs, rejuvenationSpellIDs) },
+        condition = { mechanic = "full-health", unit = "heal-target" },
+        visual = "highlight",
     },
     {
         key = "remove-curse",

@@ -18,6 +18,8 @@ local client = {
     deadUnits = {},
     fullHealthUnits = {},
     healthQueryCount = {},
+    fullManaUnits = {},
+    manaQueryCount = {},
     threatStatus = 3,
     isTanking = true,
 }
@@ -442,6 +444,7 @@ Enum = {
     LuaCurveType = { Step = 1 },
     ItemClass = { Consumable = 0 },
     ItemConsumableSubclass = { Bandage = 7 },
+    PowerType = { Mana = 0 },
 }
 C_CurveUtil = {
     CreateCurve = function()
@@ -545,6 +548,16 @@ function UnitHealthPercent(unit, usePredicted, curve)
     assert(curve.points[1][1] == 0 and curve.points[1][2] == 0)
     assert(curve.points[2][1] == 1 and curve.points[2][2] == 1)
     return { healthUnit = unit, alpha = client.fullHealthUnits[unit] and 1 or 0 }
+end
+
+function UnitPowerPercent(unit, powerType, unmodified, curve)
+    client.manaQueryCount[unit] = (client.manaQueryCount[unit] or 0) + 1
+    assert(powerType == Enum.PowerType.Mana, "The mana check used another power type.")
+    assert(unmodified == false)
+    assert(curve.curveType == Enum.LuaCurveType.Step)
+    assert(curve.points[1][1] == 0 and curve.points[1][2] == 0)
+    assert(curve.points[2][1] == 1 and curve.points[2][2] == 1)
+    return { manaUnit = unit, alpha = client.fullManaUnits[unit] and 1 or 0 }
 end
 
 function UnitCastingInfo()

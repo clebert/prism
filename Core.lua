@@ -27,11 +27,11 @@ local auraMechanics = {
     ["dispel-type"] = true,
 }
 
--- A step curve keeps the full-health comparison inside the client.
-local fullHealthCurve = C_CurveUtil.CreateCurve()
-fullHealthCurve:SetType(Enum.LuaCurveType.Step)
-fullHealthCurve:AddPoint(0, 0)
-fullHealthCurve:AddPoint(1, 1)
+-- A step curve keeps resource comparisons inside the client.
+local fullResourceCurve = C_CurveUtil.CreateCurve()
+fullResourceCurve:SetType(Enum.LuaCurveType.Step)
+fullResourceCurve:AddPoint(0, 0)
+fullResourceCurve:AddPoint(1, 1)
 
 -- Measure a plain boolean because the documented alpha range differs from the client range.
 local booleanTrueAlpha = 1
@@ -329,7 +329,18 @@ local mechanicHandlers = {
         end
 
         showRuleVisual(state)
-        state.region:SetAlpha(UnitHealthPercent(unit, false, fullHealthCurve))
+        state.region:SetAlpha(UnitHealthPercent(unit, false, fullResourceCurve))
+    end,
+    ["full-mana"] = function(state)
+        local unit = resolveUnit(state.rule.condition.unit)
+
+        if not UnitExists(unit) or UnitIsDeadOrGhost(unit) then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(UnitPowerPercent(unit, Enum.PowerType.Mana, false, fullResourceCurve))
     end,
     ["pet-happiness"] = function(state)
         if not UnitExists("pet") or UnitIsDeadOrGhost("pet") then
