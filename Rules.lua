@@ -14,12 +14,13 @@ local mechanicFields = {
     ["full-health"] = unitFields,
     ["pet-happiness"] = { mechanic = true, happiness = true, below = true, outOfCombat = true },
     usable = { mechanic = true },
+    ["self-target"] = { mechanic = true },
     ["target-cast"] = { mechanic = true },
     tanking = { mechanic = true },
 }
 local auraMechanics = { aura = true, ["aura-stacks"] = true, ["dispel-type"] = true }
 local units = { player = true, pet = true, target = true, ["heal-target"] = true }
-local visuals = { highlight = true, ["red-blink"] = true, glow = true }
+local visuals = { highlight = true, ["red-blink"] = true, glow = true, none = true }
 local filters = { HELPFUL = true, HARMFUL = true, ["HELPFUL|PLAYER"] = true, ["HARMFUL|PLAYER"] = true }
 local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true, Bleed = true, None = true }
 local actionFields = { anySpell = true, spellIDs = true, itemIDs = true, itemClassID = true, itemSubClassID = true }
@@ -196,6 +197,7 @@ function Rules.Prepare(rules)
         check(type(rule.key) == "string" and rule.key ~= "", "A non-empty key is required.", context)
         check(not byKey[rule.key], "The key is not unique.", context)
         check(visuals[rule.visual], "Unknown visual.", context)
+        check(rule.visual ~= "none" or rule.suppressGlow ~= nil, "A rule without a visual must suppress a glow.", context)
         checkBoolean(rule.requireUsable, context .. ".requireUsable")
         checkAction(rule.action, context .. ".action")
         checkCondition(rule.condition, rule.action, context .. ".condition")

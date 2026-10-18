@@ -273,4 +273,31 @@ for _, mechanic in ipairs({ "tanking", "target-cast" }) do
     end
 end
 
+for _, requireUsable in ipairs({ false, true }) do
+    scenario("Self target with usability " .. tostring(requireUsable), function(client)
+        client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        client.startRules({
+            { key = "self-target", action = action, condition = { mechanic = "self-target" }, requireUsable = requireUsable, visual = "glow" },
+        })
+        for _, target in ipairs({
+            { exists = false, friendly = false, self = false, expected = true },
+            { exists = true, friendly = false, self = false, expected = true },
+            { exists = true, friendly = true, self = false, expected = false },
+            { exists = true, friendly = true, self = true, expected = true },
+        }) do
+            client.targetExists, client.targetFriendly, client.targetIsPlayer = target.exists, target.friendly, target.self
+            for _, usable in ipairs({ false, true }) do
+                client.actions[1].isUsable = usable
+                client.event("PLAYER_TARGET_CHANGED")
+                local glow = client.getSpellGlow()
+                assert((glow ~= nil) == (target.expected and (not requireUsable or usable)))
+                if glow then
+                    assert(type(glow.parent.booleanInput) == "table", "The identity result bypassed the alpha API.")
+                end
+            end
+        end
+    end)
+end
+
 suite.finish("Mechanic")

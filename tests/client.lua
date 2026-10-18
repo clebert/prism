@@ -8,6 +8,7 @@ local client = {
     targetExists = true,
     targetFriendly = false,
     targetHostile = true,
+    targetIsPlayer = false,
     petExists = false,
     petHappiness = 3,
     happinessQueryCount = 0,
@@ -133,7 +134,20 @@ function frameMethods:IsVisible()
     return self.visible
 end
 
-frameMethods.IsShown = frameMethods.IsVisible
+function frameMethods:IsShown()
+    if self.secretShown then
+        return { boolean = self.visible }
+    end
+    return self.visible
+end
+
+function frameMethods:GetParent()
+    return self.parent
+end
+
+function frameMethods:SetParent(parent)
+    self.parent = parent
+end
 
 function frameMethods:GetName()
     return self.name
@@ -212,6 +226,13 @@ function frameMethods:AddAuraShownAnimation(animation)
     self.auraAnimation = animation
 end
 
+function frameMethods:AddDispelTypeTexture(texture, options)
+    assert(options.showAlways and options.style == Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset)
+    assert(texture.parent == self and not texture.texture, "The presence texture must have no asset.")
+    texture.secretShown = true
+    self.presenceTexture = texture
+end
+
 function frameMethods:SetApplicationBar(bar, options)
     self.applicationBar = bar
     self.applicationOptions = options
@@ -233,16 +254,25 @@ function frameMethods:AddAuraSlot(key, filter, options)
     assert(not self.slots[key], "The aura slot already exists.")
     local auraFrame = newFrame("AuraButton", nil, self)
     options.initializeFrame(auraFrame)
+    local visualTexture
+    for _, texture in ipairs(auraFrame.textures) do
+        if texture.texture then
+            visualTexture = texture
+            break
+        end
+    end
     self.slots[key] = {
         frame = auraFrame,
         filter = filter,
         candidateFilters = options.candidateFilters,
-        texture = auraFrame.textures[1],
+        texture = visualTexture,
+        presenceTexture = auraFrame.presenceTexture,
         animation = auraFrame.auraAnimation,
         applicationBar = auraFrame.applicationBar,
         applicationOptions = auraFrame.applicationOptions,
         enabled = true,
     }
+    client.setAuraPresent(self.slots[key], true)
     auraFrame.restricted = true
 end
 
@@ -252,7 +282,9 @@ function frameMethods:SetAuraSlotCandidateFilters(key, filters)
 end
 
 function frameMethods:SetAuraSlotEnabled(key, enabled)
-    self.slots[key].enabled = enabled
+    local slot = self.slots[key]
+    slot.enabled = enabled
+    client.setAuraPresent(slot, slot.auraPresent)
     self.slotChangeCount = self.slotChangeCount + 1
 end
 
@@ -311,6 +343,7 @@ end
 
 UIParent = newFrame("Frame", "UIParent")
 Enum = {
+    CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 },
     LuaCurveType = { Step = 1 },
     ItemClass = { Consumable = 0 },
     ItemConsumableSubclass = { Bandage = 7 },
@@ -383,6 +416,11 @@ function UnitCanAssist()
     return client.targetFriendly
 end
 
+function UnitIsUnit(unit1, unit2)
+    assert(unit2 == "player")
+    return { boolean = unit1 == "player" or (unit1 == "target" and client.targetIsPlayer) }
+end
+
 function UnitCanAttack()
     return client.targetHostile
 end
@@ -449,6 +487,14 @@ function client.startRules(rules)
     return namespace
 end
 
+function client.setAuraPresent(slot, present)
+    slot.auraPresent = present
+    slot.frame.visible = present and slot.enabled
+    if slot.presenceTexture then
+        slot.presenceTexture.visible = present and slot.enabled
+    end
+end
+
 function client.getHighlight()
     for index = #client.frames, 1, -1 do
         local frame = client.frames[index]
@@ -476,13 +522,6 @@ function client.getContainer(unit, slotKey)
     end
 end
 
-function client.isVisible(frame)
-    if not frame.visible then
-        return false
-    end
-    return not frame.parent or client.isVisible(frame.parent)
-end
-
 function client.alpha(frame)
     local alpha = frame.alpha
     if type(alpha) == "table" then
@@ -495,7 +534,7 @@ function client.alpha(frame)
         alpha = alpha * client.alpha(frame.parent)
     end
     for _, mask in ipairs(rawget(frame, "masks") or {}) do
-        if client.isVisible(mask) then
+        if mask.visible then
             local coordinates = mask.texCoords
             if mask.horizontalWrap == "CLAMPTOBLACKADDITIVE" and coordinates[1] > 1 and coordinates[2] > 1 then
                 return 0

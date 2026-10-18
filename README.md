@@ -37,6 +37,10 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 The client exposes three pet happiness states. Feed Pet uses the highest state, Happy, not an exact happiness percentage.
 The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 
+### Druid
+
+- _Self buff:_ **Mark of the Wild** — Glows while the player lacks every Mark rank and the heal target is the player. Another assistable target disables the glow. Any caster's Mark suppresses the glow. Action usability does not affect the glow.
+
 ## Installation
 
 - Download Prism from [CurseForge](https://www.curseforge.com/wow/addons/prism).
@@ -55,6 +59,7 @@ Class files compose tested mechanics through rule tables and small Lua helpers. 
 | `Shared.lua` | Defines class-independent rules and item IDs. |
 | `Classes/Warrior.lua` | Defines Warrior spell IDs, aura IDs, and feedback rules. |
 | `Classes/Hunter.lua` | Defines Hunter spell IDs, aura IDs, and feedback rules. |
+| `Classes/Druid.lua` | Defines Druid spell IDs, aura IDs, and feedback rules. |
 | `Prism.lua` | Selects the rules and starts the core. |
 
 The TOC loads these files in that order. Add each class file after `Shared.lua` and before `Prism.lua` in `Prism.toc`.
@@ -78,6 +83,7 @@ Several rules can apply to one action. Each aura rule uses a separate secure con
 | `full-health` | The selected unit exists, is alive, and has full health. |
 | `pet-happiness` | The living pet matches the declared happiness state or is below it when `below` is true. |
 | `usable` | The action is usable. |
+| `self-target` | The heal target is the player. |
 | `target-cast` | A living hostile target casts or channels. |
 | `tanking` | The player tanks the living hostile target. |
 
@@ -94,10 +100,13 @@ Dispel conditions require `HARMFUL` and a declared `dispelType`.
 
 Set `suppressGlow` on a plain `aura` rule to reference a non-aura glow rule.
 The glow selector must cover every action that the aura rule selects.
-Rule order does not affect this dependency. The secure aura container suppresses the glow with a texture mask.
-The mask follows aura presence, not an application count.
+Rule order does not affect this dependency. The secure aura container controls a child texture's secret shown flag.
+The child texture has no asset. The core passes the flag to `SetAlphaFromBoolean` with reversed alpha values.
+Each suppressor has a separate alpha frame. An inactive suppressor releases its alpha frame.
+The suppression follows aura presence, not an application count.
 
-The visuals are `highlight`, `red-blink`, and `glow`. The core keeps condition alpha separate from animation alpha.
+The visuals are `highlight`, `red-blink`, and `glow`. A suppressor can use `none` to omit its visible feedback.
+The core keeps condition alpha separate from animation alpha.
 Separate frames combine secret conditions without a Lua comparison. Aura slots remain under client control.
 
 ### Rule helpers
@@ -173,6 +182,7 @@ The checks must produce no Lua error or blocked-action error.
 | Feature | Check | Expected result |
 | --- | --- | --- |
 | Player buffs | Apply and remove a buff that matches the action spell ID. | The highlight appears only while the buff is active. |
+| Druid self buff | Apply and remove different Mark ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Mark glows only without any Mark rank on the player, when the heal target is the player. Action usability does not affect the glow. |
 | Own target debuffs | Compare the player's Rend or Serpent Sting with another caster's copy. | Only the player's debuff activates the highlight. |
 | Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight. |
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target. | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it. |

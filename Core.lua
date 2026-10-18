@@ -55,6 +55,10 @@ local function createHighlightTexture(parent)
 end
 
 local function createVisual(parent, visual)
+    if visual == "none" then
+        return
+    end
+
     if visual == "glow" then
         local glowFrame = CreateFrame("Frame", nil, parent, "ActionButtonSpellAlertTemplate")
         glowFrame:SetPoint("CENTER")
@@ -116,16 +120,21 @@ local function createAuraCandidateFilters(condition, actionSpellID)
     return filters
 end
 
-local function suppressGlowWithAura(auraButton, glowFrame)
-    local mask = auraButton:CreateMaskTexture(nil, "ARTWORK")
-    mask:SetAllPoints(glowFrame)
-    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    -- Sample beyond the texture bounds to make the visible mask transparent.
-    mask:SetTexCoord(2, 3, 2, 3)
-    mask:Show()
-    glowFrame.ProcStartFlipbook:AddMaskTexture(mask)
-    glowFrame.ProcLoopFlipbook:AddMaskTexture(mask)
-    glowFrame.ProcAltGlow:AddMaskTexture(mask)
+local function createGlowSuppression(auraButton, glowFrame)
+    local region = CreateFrame("Frame", nil, glowFrame:GetParent())
+    region:EnableMouse(false)
+    region:SetAllPoints()
+    region:Show()
+    glowFrame:SetParent(region)
+
+    -- The client controls the secret shown flag. No texture asset is necessary.
+    local presenceTexture = auraButton:CreateTexture()
+    presenceTexture:Hide()
+    auraButton:AddDispelTypeTexture(presenceTexture, {
+        showAlways = true,
+        style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,
+    })
+    return presenceTexture, region
 end
 
 local function createRuleState(overlay, rule, spellID)
@@ -179,7 +188,7 @@ local function createRuleState(overlay, rule, spellID)
             if rule.suppressGlow then
                 local suppressedState = overlay.states[rule.suppressGlow]
                 assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
-                suppressGlowWithAura(auraButton, suppressedState.glowFrame)
+                state.presenceTexture, state.suppressionRegion = createGlowSuppression(auraButton, suppressedState.glowFrame)
             end
 
             local visualParent = auraButton
@@ -236,6 +245,9 @@ local function setRuleStateActive(state, active)
     end
 
     if not active then
+        if state.suppressionRegion then
+            state.suppressionRegion:SetAlpha(1)
+        end
         hideRuleVisual(state)
     end
 end
@@ -325,6 +337,10 @@ local mechanicHandlers = {
         showRuleVisual(state)
         setUsableAlpha(state.region, actionSlotID)
     end,
+    ["self-target"] = function(state)
+        showRuleVisual(state)
+        state.region:SetAlphaFromBoolean(UnitIsUnit(resolveUnit("heal-target"), "player"), booleanTrueAlpha, 0)
+    end,
     ["target-cast"] = function(state)
         if not isLivingHostileTarget() or not isTargetCastingOrChanneling() then
             hideRuleVisual(state)
@@ -377,6 +393,10 @@ local function updateRuleState(state, spellID, actionSlotID)
         setUsableAlpha(container, actionSlotID)
     else
         container:SetAlpha(1)
+    end
+
+    if state.presenceTexture then
+        state.suppressionRegion:SetAlphaFromBoolean(state.presenceTexture:IsShown(), 0, booleanTrueAlpha)
     end
 end
 

@@ -349,6 +349,19 @@ scenario("A false ownership flag keeps every caster", function(client)
     assert(slot.candidateFilters.isFromPlayerOrPlayerPet == nil, "A false ownership flag excludes the player's aura.")
 end)
 
+scenario("A hidden parent does not disable a texture mask", function(client)
+    local parent = CreateFrame("Frame", nil, UIParent)
+    local texture = UIParent:CreateTexture()
+    local mask = parent:CreateMaskTexture()
+    mask:SetAllPoints(texture)
+    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetTexCoord(2, 3, 2, 3)
+    mask:Show()
+    texture:AddMaskTexture(mask)
+    parent:Hide()
+    assert(client.alpha(texture) == 0, "A hidden parent disabled the mask.")
+end)
+
 scenario("Aura suppression ignores declaration order", function(client)
     client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }
@@ -369,12 +382,15 @@ scenario("Aura suppression ignores declaration order", function(client)
     })
     client.refresh()
     local slot = client.getContainer("pet", "suppressor").slots.suppressor
-    slot.frame.visible = false
+    client.setAuraPresent(slot, false)
+    client.refresh()
     local glow = client.getSpellGlow()
     assert(glow, "The dependency has no glow.")
-    slot.frame.visible = true
+    client.setAuraPresent(slot, true)
+    client.refresh()
     assert(not client.getSpellGlow(), "The aura did not suppress the glow.")
-    slot.frame.visible = false
+    client.setAuraPresent(slot, false)
+    client.refresh()
     assert(client.getSpellGlow() == glow, "Aura removal did not restore the glow.")
 end)
 

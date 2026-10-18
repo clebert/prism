@@ -89,6 +89,10 @@ local usableGlow = Rules.UsableGlow("test-glow", ids)
 assert(usableGlow.key == "test-glow" and usableGlow.action.spellIDs == ids)
 assert(usableGlow.condition.mechanic == "usable" and usableGlow.visual == "glow")
 Rules.Prepare({ usableGlow })
+local maskOnly = auraRule()
+maskOnly.visual, maskOnly.suppressGlow = "none", usableGlow.key
+local maskRules = Rules.Prepare({ maskOnly, usableGlow })
+assert(maskRules[1] == usableGlow and maskRules[2] == maskOnly)
 
 local invalidCases = {
     { "duplicate key", function(rules) rules[2] = auraRule() end },
@@ -98,6 +102,7 @@ local invalidCases = {
     { "empty key", function(rules) rules[1].key = "" end },
     { "unknown rule field", function(rules) rules[1].typo = true end },
     { "unknown visual", function(rules) rules[1].visual = "unknown" end },
+    { "no visual or suppression", function(rules) rules[1].visual = "none" end },
     { "invalid usability", function(rules) rules[1].requireUsable = 1 end },
     { "missing action", function(rules) rules[1].action = nil end },
     { "no selector", function(rules) rules[1].action = {} end },
