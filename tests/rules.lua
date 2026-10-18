@@ -52,6 +52,41 @@ assert(ids[firstID] and not ids[thirdID] and not otherIDs[firstID], "The union c
 assert(next(Rules.Union()) == nil)
 assert(not pcall(Rules.Union, { [firstID] = false }))
 
+local options = { unit = "target", filter = "HARMFUL", ownAura = true, applications = 5 }
+local ranks = { thirdID, { spellID = firstID, auraSpellIDs = { [firstID] = true, [999104] = true } }, secondID }
+local ranked = Rules.RankedAura("ranked", ranks, options)
+local filtersByAction = ranked.condition.auraSpellIDsByAction
+assert(ranked.action.spellIDs[firstID] and not ranked.action.spellIDs[999104])
+assert(ranked.condition.mechanic == "aura-stacks" and ranked.condition.applications == 5)
+assert(ranked.condition.filter == "HARMFUL|PLAYER" and ranked.condition.ownAura == true)
+assert(ranked.condition.includeActionSpellID and ranked.visual == "highlight")
+assert(filtersByAction[thirdID][thirdID] and filtersByAction[thirdID][999104] and filtersByAction[thirdID][secondID])
+assert(not filtersByAction[firstID][thirdID] and filtersByAction[firstID][firstID] and filtersByAction[firstID][secondID])
+assert(filtersByAction[firstID][999104] and not filtersByAction[secondID][999104])
+assert(filtersByAction[secondID][secondID] and not filtersByAction[secondID][firstID])
+assert(options.filter == "HARMFUL" and ranks[1] == thirdID and not ranks[2].auraSpellIDs[secondID])
+Rules.Prepare({ ranked })
+local indirect = Rules.RankedAura("indirect", {
+    { spellID = firstID, auraSpellIDs = { [thirdID] = true } },
+    { spellID = secondID, auraSpellIDs = { [999104] = true } },
+}, { unit = "player", filter = "HELPFUL" })
+assert(not indirect.condition.includeActionSpellID, "An indirect action ID became an aura selector.")
+assert(not indirect.condition.auraSpellIDsByAction[firstID][firstID])
+assert(indirect.condition.auraSpellIDsByAction[firstID][thirdID] and indirect.condition.auraSpellIDsByAction[firstID][999104])
+Rules.Prepare({ indirect })
+for _, invalidRanks in ipairs({
+    {}, { [1] = firstID, [3] = secondID }, { firstID, firstID }, { -1 },
+    { { spellID = firstID, auraSpellIDs = {} } },
+    { { spellID = firstID, auraSpellIDs = { [thirdID] = true } }, thirdID },
+    { { spellID = firstID, auraSpellIDs = { [secondID] = true }, typo = true } },
+}) do
+    local ok, message = pcall(Rules.RankedAura, "invalid-ranks", invalidRanks, { unit = "player", filter = "HELPFUL" })
+    assert(not ok and tostring(message):find("Prism rule", 1, true), "The rank helper accepted invalid data.")
+end
+assert(not pcall(Rules.RankedAura, "invalid", { firstID }, { unit = "player", filter = "HELPFUL", typo = true }))
+assert(not pcall(Rules.RankedAura, "invalid", { firstID }, { unit = "player", filter = "HELPFUL|PLAYER" }))
+assert(not pcall(Rules.RankedAura, "invalid", { firstID }, { unit = "player", filter = "HELPFUL", visual = false }), "The rank helper accepted a boolean visual.")
+
 local function auraRule()
     return {
         key = "test-aura",
@@ -65,6 +100,14 @@ local function auraRule()
         visual = "highlight",
     }
 end
+
+local function mappedAuraRule()
+    local rule = auraRule()
+    rule.condition.auraSpellIDs = nil
+    rule.condition.auraSpellIDsByAction = { [firstID] = { [secondID] = true } }
+    return rule
+end
+Rules.Prepare({ mappedAuraRule() })
 
 for _, own in ipairs({ false, true }) do
     for _, includeAction in ipairs({ false, true }) do
@@ -131,6 +174,30 @@ local invalidCases = {
     { "unknown filter", function(rules) rules[1].condition.filter = "unknown" end },
     { "missing aura IDs", function(rules) rules[1].condition.auraSpellIDs = nil end },
     { "empty aura IDs", function(rules) rules[1].condition.auraSpellIDs = {} end },
+    { "invalid aura map type", function(rules)
+        rules[1] = mappedAuraRule()
+        rules[1].condition.auraSpellIDsByAction = false
+    end },
+    { "two aura selectors", function(rules)
+        rules[1] = mappedAuraRule()
+        rules[1].condition.auraSpellIDs = ids
+    end },
+    { "aura map without spell IDs", function(rules)
+        rules[1] = mappedAuraRule()
+        rules[1].action = { anySpell = true }
+    end },
+    { "undeclared aura map action", function(rules)
+        rules[1] = mappedAuraRule()
+        rules[1].condition.auraSpellIDsByAction[thirdID] = ids
+    end },
+    { "incomplete aura map", function(rules)
+        rules[1] = mappedAuraRule()
+        rules[1].action.spellIDs[thirdID] = true
+    end },
+    { "empty mapped aura IDs", function(rules)
+        rules[1] = mappedAuraRule()
+        rules[1].condition.auraSpellIDsByAction[firstID] = {}
+    end },
     { "inconsistent ownership", function(rules) rules[1].condition.ownAura = true end },
     { "missing ownership", function(rules) rules[1].condition.filter = "HARMFUL|PLAYER" end },
     { "invalid ownership", function(rules) rules[1].condition.ownAura = "true" end },

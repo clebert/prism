@@ -4,6 +4,10 @@ local bandageAction = {
     itemClassID = Enum.ItemClass.Consumable,
     itemSubClassID = Enum.ItemConsumableSubclass.Bandage,
 }
+local racialBuffSpellIDs = {
+    [20580] = true,
+    [1259799] = true,
+}
 local healingPotionItemIDs = {
     [118] = true,
     [858] = true,
@@ -55,14 +59,9 @@ local poulticeItemIDs = {
 
 Prism.sharedRules = {
     {
-        key = "spell-buff",
-        action = { anySpell = true },
-        condition = {
-            mechanic = "aura",
-            unit = "buff-target",
-            filter = "HELPFUL",
-            includeActionSpellID = true,
-        },
+        key = "racial-buff",
+        action = { spellIDs = racialBuffSpellIDs },
+        condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", includeActionSpellID = true },
         visual = "highlight",
     },
     {

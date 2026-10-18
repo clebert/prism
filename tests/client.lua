@@ -6,7 +6,7 @@ local client = {
     baseSpellIDs = {},
     helpfulSpells = {},
     selfBuffSpells = {},
-    class = arg[1] or "WARRIOR",
+    class = arg[1] or "UNSUPPORTED",
     targetExists = true,
     targetFriendly = false,
     targetHostile = true,
@@ -585,16 +585,6 @@ function client.addActionButton(name, action)
     button.action = action
     _G[name] = button
     return button
-end
-
-function client.loadAddon()
-    local namespace = {}
-    for line in io.lines("Prism.toc") do
-        if line:match("%.lua$") then
-            assert(loadfile(line))("Prism", namespace)
-        end
-    end
-    return namespace
 end
 
 function client.startRules(rules)

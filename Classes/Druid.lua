@@ -1,14 +1,18 @@
 local _, Prism = ...
 local Rules = Prism.Rules
 
-local abolishPoisonSpellIDs = {
-    [2893] = true,
-}
-local bashSpellIDs = {
-    [5211] = true,
-    [6798] = true,
-    [8983] = true,
-}
+local healTargetBuff = { unit = "heal-target", filter = "HELPFUL" }
+local playerBuff = { unit = "player", filter = "HELPFUL" }
+local targetDebuff = { unit = "target", filter = "HARMFUL" }
+local ownTargetDebuff = { unit = "target", filter = "HARMFUL", ownAura = true }
+local markOfTheWildRanks = { 1126, 5232, 6756, 5234, 8907, 9884, 9885 }
+local thornsRanks = { 467, 782, 1075, 8914, 9756, 9910 }
+local markOfTheWild = Rules.RankedAura("mark-of-the-wild", markOfTheWildRanks, healTargetBuff)
+local thorns = Rules.RankedAura("thorns", thornsRanks, healTargetBuff)
+local regrowth = Rules.RankedAura("regrowth", { 8936, 8938, 8939, 8940, 8941, 9750, 9856, 9857, 9858 }, healTargetBuff)
+local rejuvenation = Rules.RankedAura("rejuvenation", { 774, 1058, 1430, 2090, 2091, 3627, 8910, 9839, 9840, 9841, 25299 }, healTargetBuff)
+local abolishPoisonBuff = Rules.RankedAura("abolish-poison-buff", { 2893 }, healTargetBuff)
+local bash = Rules.RankedAura("bash", { 5211, 6798, 8983 }, targetDebuff)
 local challengingRoarSpellIDs = {
     [5209] = true,
 }
@@ -16,27 +20,6 @@ local cowerSpellIDs = {
     [8998] = true,
     [9000] = true,
     [9892] = true,
-}
-local demoralizingRoarSpellIDs = {
-    [99] = true,
-    [1735] = true,
-    [9490] = true,
-    [9747] = true,
-    [9898] = true,
-}
-local entanglingRootsSpellIDs = {
-    [339] = true,
-    [1062] = true,
-    [5195] = true,
-    [5196] = true,
-    [9852] = true,
-    [9853] = true,
-}
-local faerieFireSpellIDs = {
-    [770] = true,
-    [778] = true,
-    [9749] = true,
-    [9907] = true,
 }
 local growlSpellIDs = {
     [6795] = true,
@@ -54,151 +37,35 @@ local healingTouchSpellIDs = {
     [9889] = true,
     [25297] = true,
 }
-local hibernateSpellIDs = {
-    [2637] = true,
-    [18657] = true,
-    [18658] = true,
-}
-local markOfTheWildSpellIDs = {
-    [1126] = true,
-    [5232] = true,
-    [6756] = true,
-    [5234] = true,
-    [8907] = true,
-    [9884] = true,
-    [9885] = true,
-}
-local moonfireSpellIDs = {
-    [8921] = true,
-    [8924] = true,
-    [8925] = true,
-    [8926] = true,
-    [8927] = true,
-    [8928] = true,
-    [8929] = true,
-    [9833] = true,
-    [9834] = true,
-    [9835] = true,
-}
-local rakeSpellIDs = {
-    [1822] = true,
-    [1823] = true,
-    [1824] = true,
-    [9904] = true,
-}
-local regrowthSpellIDs = {
-    [8936] = true,
-    [8938] = true,
-    [8939] = true,
-    [8940] = true,
-    [8941] = true,
-    [9750] = true,
-    [9856] = true,
-    [9857] = true,
-    [9858] = true,
-}
-local rejuvenationSpellIDs = {
-    [774] = true,
-    [1058] = true,
-    [1430] = true,
-    [2090] = true,
-    [2091] = true,
-    [3627] = true,
-    [8910] = true,
-    [9839] = true,
-    [9840] = true,
-    [9841] = true,
-    [25299] = true,
-}
 local removeCurseSpellIDs = {
     [2782] = true,
 }
-local ripSpellIDs = {
-    [1079] = true,
-    [9492] = true,
-    [9493] = true,
-    [9752] = true,
-    [9894] = true,
-    [9896] = true,
-}
-local sootheAnimalSpellIDs = {
-    [2908] = true,
-    [8955] = true,
-    [9901] = true,
-}
-local thornsSpellIDs = {
-    [467] = true,
-    [782] = true,
-    [1075] = true,
-    [8914] = true,
-    [9756] = true,
-    [9910] = true,
-}
--- Nature's Grasp applies separate Entangling Roots auras.
-local entanglingRootsAuraSpellIDs = Rules.Union({
-    [19975] = true,
-    [19974] = true,
-    [19973] = true,
-    [19972] = true,
-    [19971] = true,
-    [19970] = true,
-}, entanglingRootsSpellIDs)
 
 Prism.classRules.DRUID = {
-    {
-        key = "own-moonfire",
-        action = { spellIDs = moonfireSpellIDs },
-        condition = Rules.TargetDebuff(moonfireSpellIDs, { ownAura = true, includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "own-rip",
-        action = { spellIDs = ripSpellIDs },
-        condition = Rules.TargetDebuff(ripSpellIDs, { ownAura = true, includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "own-rake",
-        action = { spellIDs = rakeSpellIDs },
-        condition = Rules.TargetDebuff(rakeSpellIDs, { ownAura = true, includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "entangling-roots",
-        action = { spellIDs = entanglingRootsSpellIDs },
-        condition = Rules.TargetDebuff(entanglingRootsAuraSpellIDs, { includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "bash",
-        action = { spellIDs = bashSpellIDs },
-        condition = Rules.TargetDebuff(bashSpellIDs, { includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "demoralizing-roar",
-        action = { spellIDs = demoralizingRoarSpellIDs },
-        condition = Rules.TargetDebuff(demoralizingRoarSpellIDs, { includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "faerie-fire",
-        action = { spellIDs = faerieFireSpellIDs },
-        condition = Rules.TargetDebuff(faerieFireSpellIDs, { includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "hibernate",
-        action = { spellIDs = hibernateSpellIDs },
-        condition = Rules.TargetDebuff(hibernateSpellIDs, { includeActionSpellID = true }),
-        visual = "highlight",
-    },
-    {
-        key = "soothe-animal",
-        action = { spellIDs = sootheAnimalSpellIDs },
-        condition = Rules.TargetDebuff(sootheAnimalSpellIDs, { includeActionSpellID = true }),
-        visual = "highlight",
-    },
+    Rules.RankedAura("own-moonfire", { 8921, 8924, 8925, 8926, 8927, 8928, 8929, 9833, 9834, 9835 }, ownTargetDebuff),
+    Rules.RankedAura("own-rip", { 1079, 9492, 9493, 9752, 9894, 9896 }, ownTargetDebuff),
+    Rules.RankedAura("own-rake", { 1822, 1823, 1824, 9904 }, ownTargetDebuff),
+    -- Nature's Grasp applies separate auras for each Entangling Roots rank.
+    Rules.RankedAura("entangling-roots", {
+        { spellID = 339, auraSpellIDs = { [339] = true, [19975] = true } },
+        { spellID = 1062, auraSpellIDs = { [1062] = true, [19974] = true } },
+        { spellID = 5195, auraSpellIDs = { [5195] = true, [19973] = true } },
+        { spellID = 5196, auraSpellIDs = { [5196] = true, [19972] = true } },
+        { spellID = 9852, auraSpellIDs = { [9852] = true, [19971] = true } },
+        { spellID = 9853, auraSpellIDs = { [9853] = true, [19970] = true } },
+    }, targetDebuff),
+    bash,
+    Rules.RankedAura("demoralizing-roar", { 99, 1735, 9490, 9747, 9898 }, targetDebuff),
+    Rules.RankedAura("faerie-fire", { 770, 778, 9749, 9907 }, targetDebuff),
+    Rules.RankedAura("hibernate", { 2637, 18657, 18658 }, targetDebuff),
+    Rules.RankedAura("soothe-animal", { 2908, 8955, 9901 }, targetDebuff),
+    markOfTheWild,
+    thorns,
+    regrowth,
+    rejuvenation,
+    abolishPoisonBuff,
+    Rules.RankedAura("enrage", { 5229 }, playerBuff),
+    Rules.RankedAura("natures-grasp", { 16689, 16810, 16811, 16812, 16813, 17329 }, playerBuff),
     {
         key = "growl",
         action = { spellIDs = growlSpellIDs },
@@ -220,14 +87,14 @@ Prism.classRules.DRUID = {
     },
     {
         key = "bash-interrupt",
-        action = { spellIDs = bashSpellIDs },
+        action = bash.action,
         condition = { mechanic = "target-cast" },
         requireUsable = true,
         visual = "glow",
     },
     {
         key = "healing-full-health",
-        action = { spellIDs = Rules.Union(healingTouchSpellIDs, regrowthSpellIDs, rejuvenationSpellIDs) },
+        action = { spellIDs = Rules.Union(healingTouchSpellIDs, regrowth.action.spellIDs, rejuvenation.action.spellIDs) },
         condition = { mechanic = "full-health", unit = "heal-target" },
         visual = "highlight",
     },
@@ -245,7 +112,7 @@ Prism.classRules.DRUID = {
     },
     {
         key = "abolish-poison",
-        action = { spellIDs = abolishPoisonSpellIDs },
+        action = abolishPoisonBuff.action,
         condition = {
             mechanic = "dispel-type",
             unit = "heal-target",
@@ -257,38 +124,20 @@ Prism.classRules.DRUID = {
     },
     {
         key = "mark-of-the-wild-missing",
-        action = { spellIDs = markOfTheWildSpellIDs },
+        action = markOfTheWild.action,
         condition = { mechanic = "self-target" },
         visual = "glow",
     },
-    {
-        key = "mark-of-the-wild-active",
-        action = { spellIDs = markOfTheWildSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "player",
-            filter = "HELPFUL",
-            auraSpellIDs = markOfTheWildSpellIDs,
-        },
-        visual = "none",
-        suppressGlow = "mark-of-the-wild-missing",
-    },
+    Rules.RankedAura("mark-of-the-wild-active", markOfTheWildRanks, {
+        unit = "player", filter = "HELPFUL", visual = "none", suppressGlow = "mark-of-the-wild-missing",
+    }),
     {
         key = "thorns-missing",
-        action = { spellIDs = thornsSpellIDs },
+        action = thorns.action,
         condition = { mechanic = "self-target" },
         visual = "glow",
     },
-    {
-        key = "thorns-active",
-        action = { spellIDs = thornsSpellIDs },
-        condition = {
-            mechanic = "aura",
-            unit = "player",
-            filter = "HELPFUL",
-            auraSpellIDs = thornsSpellIDs,
-        },
-        visual = "none",
-        suppressGlow = "thorns-missing",
-    },
+    Rules.RankedAura("thorns-active", thornsRanks, {
+        unit = "player", filter = "HELPFUL", visual = "none", suppressGlow = "thorns-missing",
+    }),
 }

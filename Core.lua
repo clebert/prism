@@ -107,10 +107,15 @@ end
 local function createAuraCandidateFilters(condition, actionSpellID)
     local filters = { isFromPlayerOrPlayerPet = condition.ownAura or nil }
 
-    if condition.auraSpellIDs or condition.includeActionSpellID then
+    if condition.auraSpellIDs or condition.auraSpellIDsByAction or condition.includeActionSpellID then
         local includeSpellIDs = {}
+        local auraSpellIDs = condition.auraSpellIDs
 
-        for spellID in pairs(condition.auraSpellIDs or {}) do
+        if condition.auraSpellIDsByAction and actionSpellID then
+            auraSpellIDs = condition.auraSpellIDsByAction[actionSpellID] or condition.auraSpellIDsByAction[C_Spell.GetBaseSpell(actionSpellID)]
+        end
+
+        for spellID in pairs(auraSpellIDs or {}) do
             includeSpellIDs[spellID] = true
         end
 
@@ -424,7 +429,7 @@ local function updateRuleState(state, spellID, actionSlotID)
         state.unit = unit
     end
 
-    if condition.includeActionSpellID and state.actionSpellID ~= spellID then
+    if (condition.includeActionSpellID or condition.auraSpellIDsByAction) and state.actionSpellID ~= spellID then
         local filters = createAuraCandidateFilters(condition, spellID)
         container:SetAuraSlotCandidateFilters(rule.key, filters)
         if state.suppressionLayout then

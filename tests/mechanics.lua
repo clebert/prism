@@ -43,6 +43,9 @@ scenario("Spell selectors and aura identity", function(client)
     assert(shared.slots.shared.filter == "HARMFUL" and shared.slots.shared.candidateFilters.isFromPlayerOrPlayerPet == nil)
     assertIDs(shared.slots.shared.candidateFilters.includeSpellIDs, { [auraID] = true })
     assert(client.alpha(own) == 1, "The aura highlight requires a usable action.")
+    client.targetFriendly = true
+    client.event("PLAYER_TARGET_CHANGED")
+    assert(self.unit == "player" and client.alpha(self) == 1, "Target selection or usability changed the player-only aura.")
     client.baseSpellIDs[overrideID] = rankID
 
     for _, id in ipairs({ rankID, overrideID, spellID }) do
@@ -102,6 +105,9 @@ for _, mechanic in ipairs({ "aura", "aura-stacks" }) do
         client.refresh()
         assert(container.unit == "target" and #client.frames == frames)
         assertIDs(slot.candidateFilters.includeSpellIDs, { [spellID] = true, [auraID] = true })
+        client.helpfulSpells[spellID] = false
+        client.refresh()
+        assert(container.unit == "player", "A non-helpful spell selected another friendly unit.")
     end)
 end
 
@@ -348,7 +354,11 @@ for _, mechanic in ipairs({ "tanking", "target-cast" }) do
                                             client.threatStatus = nil
                                         end
                                         client.refresh()
-                                        assert((client.getSpellGlow() ~= nil) == (allowed and tanking and threat ~= false))
+                                        local glow = client.getSpellGlow()
+                                        assert((glow ~= nil) == (allowed and tanking and threat ~= false))
+                                        if glow and requireUsable then
+                                            assert(glow.parent.booleanInput and glow.parent.parent.booleanInput, "Tanking and usability share one alpha condition.")
+                                        end
                                     end
                                 end
                             end
@@ -386,5 +396,94 @@ for _, requireUsable in ipairs({ false, true }) do
         end
     end)
 end
+
+for _, mechanic in ipairs({ "aura", "aura-stacks" }) do
+    for _, ownAura in ipairs({ false, true }) do
+        scenario(mechanic .. " rank filters with ownership " .. tostring(ownAura), function(client)
+            local lowerID, middleID, higherID = 999313, 999301, 999307
+            local lowerAuraID, higherAuraID, override = 999314, 999308, 999399
+            local definitions = {}
+            assert(loadfile("Rules.lua"))("Prism", definitions)
+            local Rules = definitions.Rules
+            local ranks = {
+                { spellID = lowerID, auraSpellIDs = { [lowerID] = true, [lowerAuraID] = true } },
+                middleID,
+                { spellID = higherID, auraSpellIDs = { [higherID] = true, [higherAuraID] = true } },
+            }
+            local buffRule = Rules.RankedAura("buff", ranks, { unit = "player", filter = "HELPFUL" })
+            local rankedRule = Rules.RankedAura("ranked", ranks, {
+                unit = "target", filter = "HARMFUL", ownAura = ownAura,
+                applications = mechanic == "aura-stacks" and 5 or nil,
+            })
+            local familyIDs = rankedRule.action.spellIDs
+            client.addActionButton("ActionButton1", 1)
+            client.actions[1] = { spellID = middleID, isUsable = false }
+            client.baseSpellIDs[override] = middleID
+            client.startRules({
+                buffRule,
+                rankedRule,
+                {
+                    key = "raw", action = { spellIDs = familyIDs }, visual = "highlight",
+                    condition = { mechanic = "aura", unit = "target", filter = "HARMFUL", auraSpellIDs = familyIDs },
+                },
+            })
+            client.refresh()
+            local buff = client.getContainer("player", "buff")
+            local ranked = client.getContainer("target", "ranked")
+            local raw = client.getContainer("target", "raw")
+            local frames = #client.frames
+            for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+                client.event(event)
+                for _, id in ipairs({ higherID, middleID, lowerID, override }) do
+                    client.actions[1].spellID = id
+                    client.refresh()
+                    local expected = Rules.Union(rankedRule.condition.auraSpellIDsByAction[id == override and middleID or id])
+                    expected[id] = true
+                    assertIDs(buff.slots.buff.candidateFilters.includeSpellIDs, expected)
+                    assertIDs(ranked.slots.ranked.candidateFilters.includeSpellIDs, expected)
+                    assertIDs(raw.slots.raw.candidateFilters.includeSpellIDs, familyIDs)
+                    assert(ranked.slots.ranked.candidateFilters.isFromPlayerOrPlayerPet == (ownAura or nil))
+                    if mechanic == "aura-stacks" then
+                        assert(ranked.slots.ranked.applicationOptions.minApplications == 5)
+                        assert(ranked.slots.ranked.applicationOptions.maxApplications == 5)
+                    end
+                    local changes = ranked.filterChangeCount
+                    client.refresh()
+                    assert(ranked.filterChangeCount == changes and #client.frames == frames)
+                    assert(client.alpha(ranked) == 1, "Action usability changed the rank highlight.")
+                end
+            end
+            assert(not rankedRule.condition.auraSpellIDsByAction[middleID][override], "The core changed the declared aura map.")
+            client.actions[1].spellID = 999401
+            client.refresh()
+            assert(not buff.enabled and not ranked.enabled and not raw.enabled, "An undeclared action kept a rank highlight.")
+        end)
+    end
+end
+
+scenario("Indirect rank maps refresh without action aura IDs", function(client)
+    local definitions = {}
+    assert(loadfile("Rules.lua"))("Prism", definitions)
+    local rule = definitions.Rules.RankedAura("indirect", {
+        { spellID = spellID, auraSpellIDs = { [auraID] = true } },
+        { spellID = rankID, auraSpellIDs = { [999105] = true } },
+    }, { unit = "player", filter = "HELPFUL" })
+    assert(not rule.condition.includeActionSpellID)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.baseSpellIDs[overrideID] = rankID
+    client.startRules({ rule })
+    client.refresh()
+    local container = client.getContainer("player", "indirect")
+    local frames = #client.frames
+    for _, id in ipairs({ spellID, rankID, overrideID, spellID }) do
+        client.actions[1].spellID = id
+        client.refresh()
+        assertIDs(container.slots.indirect.candidateFilters.includeSpellIDs, rule.condition.auraSpellIDsByAction[id == overrideID and rankID or id])
+        local changes = container.filterChangeCount
+        client.refresh()
+        assert(container.filterChangeCount == changes and #client.frames == frames)
+    end
+end)
 
 suite.finish("Mechanic")

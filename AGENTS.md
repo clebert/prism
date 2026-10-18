@@ -32,15 +32,30 @@ Distinguish the action spell from its activation aura, teaching spell, and relat
 
 ## Validation
 
-Run `luac -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua` with a compatible Lua parser.
+Run `luac -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua tests/PrismTest/PrismTest.lua` with a compatible Lua parser.
 
 Use `luac5.1` when the Lua 5.1 parser has that name.
 
-Run `tests/rules.lua`, `tests/mechanics.lua`, `tests/composition.lua`, and `tests/runtime.lua` with Lua 5.1.
+Run `tests/rules.lua`, `tests/mechanics.lua`, `tests/composition.lua`, `tests/runtime.lua`, and `tests/probe.lua` with Lua 5.1.
 
-Test mechanics and their combinations with synthetic IDs. Validate every class declaration through the generic rule tests.
+Test mechanics and distinct interactions with synthetic IDs and rule declarations.
 
-A spell that uses tested mechanics needs no spell-specific behavior test. A mechanic change needs core tests.
+Load real class declarations only in the generic rule-selection and validation tests.
+
+Do not keep class-specific, spell-specific, or racial-specific automated behavior tests in the repository.
+
+Do not duplicate production spell lists, rank lists, or class support policies in tests.
+
+A declaration that uses tested mechanics needs no new behavior test.
+
+Extend existing mechanic or helper tests when coverage is incomplete. Do not add another scenario for covered behavior.
+
+Keep a persistent regression test only when it adds missing mechanic or helper coverage with synthetic data.
+
+Use a temporary test outside the repository to reproduce a declaration-only bug.
+It must fail before the fix and pass after it. Remove it after validation.
+
+Verify spell data against exact client data. Check concrete spell behavior in the client.
 
 Run `bash tests/install.sh` to test the installation.
 

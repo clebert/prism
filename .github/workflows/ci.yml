@@ -18,11 +18,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes lua5.1
-          luac5.1 -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua
+          luac5.1 -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua tests/PrismTest/PrismTest.lua
           lua5.1 tests/rules.lua
           lua5.1 tests/mechanics.lua
           lua5.1 tests/composition.lua
           lua5.1 tests/runtime.lua
+          lua5.1 tests/probe.lua
           bash -n install.sh
           bash -n tests/install.sh
           bash tests/install.sh

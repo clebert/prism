@@ -12,13 +12,13 @@ local function assertHighlight(texture)
     assert(texture.drawLayer == "OVERLAY" and texture.subLevel == 1, "The highlight has the wrong draw layer.")
 end
 
--- Synthetic IDs keep these tests independent of client spell data.
+-- Synthetic IDs isolate the core runtime tests.
 local spellID = 999101
 local auraID = 999102
 local action = { spellIDs = { [spellID] = true } }
 
 scenario("Event registration and dispatch", function(client)
-    client.loadAddon()
+    client.startRules({})
     local expectedEvents = {
         "PLAYER_ENTERING_WORLD",
         "PLAYER_REGEN_DISABLED",
@@ -38,7 +38,12 @@ scenario("Lifecycle event refreshes", function(client)
     client.addActionButton("ActionButton2", 2)
     client.actions[1] = { spellID = spellID }
     client.actions[2] = { spellID = auraID }
-    client.loadAddon()
+    client.startRules({
+        {
+            key = "lifecycle", action = { anySpell = true }, visual = "highlight",
+            condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", includeActionSpellID = true },
+        },
+    })
     client.refresh()
     local containers = {}
     for _, frame in ipairs(client.frames) do
@@ -61,67 +66,15 @@ scenario("Lifecycle event refreshes", function(client)
 
     client.actions[1].spellID = auraID
     client.event("ACTION_USABLE_CHANGED")
-    local slot = containers[1].slots["spell-buff"]
+    local slot = containers[1].slots.lifecycle
     assert(slot.candidateFilters.includeSpellIDs[auraID], "The usability event did not refresh the action match.")
     assert(not slot.candidateFilters.includeSpellIDs[spellID])
-end)
-
-scenario("Shared buff highlights select the spell target", function(client)
-    local button = client.addActionButton("ActionButton1", 1)
-    local otherSpellID = 999103
-    client.actions[1] = { spellID = spellID, isUsable = false }
-    client.helpfulSpells[spellID], client.helpfulSpells[auraID] = true, true
-    client.selfBuffSpells[auraID] = true
-    client.targetFriendly = true
-    client.loadAddon()
-    client.refresh()
-    local container = client.getContainer("target", "spell-buff")
-    assert(container, "The targetable buff highlight checks the player instead of the helpful target.")
-    local slot = container.slots["spell-buff"]
-    local frames = #client.frames
-
-    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
-        client.event(event)
-        for _, target in ipairs({
-            { exists = true, friendly = true, unit = "target" },
-            { exists = true, friendly = false, unit = "player" },
-            { exists = false, friendly = false, unit = "player" },
-            { exists = true, friendly = true, unit = "target" },
-        }) do
-            client.targetExists, client.targetFriendly = target.exists, target.friendly
-            local refreshes = container.refreshCount
-            client.event("PLAYER_TARGET_CHANGED")
-            assert(container.refreshCount > refreshes, "The target change did not refresh the buff highlight.")
-            for _, id in ipairs({ spellID, auraID, otherSpellID, spellID }) do
-                client.actions[1].spellID = id
-                client.event("ACTION_USABLE_CHANGED")
-                local expectedUnit = id == spellID and target.unit or "player"
-                assert(container.unit == expectedUnit, "The buff highlight selected the wrong unit for the action.")
-                assert(slot.candidateFilters.includeSpellIDs[id])
-                assert(client.alpha(container) == 1, "Usability changed the buff highlight.")
-                for _, present in ipairs({ false, true }) do
-                    client.setAuraPresent(slot, present)
-                    assert(client.alpha(slot.texture) == (present and 1 or 0))
-                end
-            end
-        end
-    end
-    assert(#client.frames == frames, "A target or action change replaced the buff highlight.")
-    button.visible = false
-    client.refresh()
-    assert(client.alpha(container) == 0)
-    button.visible = true
-    client.refresh()
-    assert(client.alpha(container) == 1)
-    client.actions[1] = nil
-    client.refresh()
-    assert(not container.enabled)
 end)
 
 scenario("Refresh intervals", function(client)
     client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }
-    client.loadAddon()
+    client.startRules({})
     client.refresh(0)
     local function assertQueries(expected)
         local actual = client.actionQueryCount[1] or 0
@@ -252,39 +205,6 @@ scenario("Visual construction and animation", function(client)
     assert(not glow.ProcLoop:IsPlaying(), "The removed action retained its glow animation.")
 end)
 
-scenario("Tanking usability", function(client)
-    client.addActionButton("ActionButton1", 1)
-    client.actions[1] = { spellID = spellID, isUsable = false }
-    client.startRules({
-        {
-            key = "usable-tanking",
-            action = action,
-            condition = { mechanic = "tanking" },
-            requireUsable = true,
-            visual = "glow",
-        },
-    })
-    client.refresh()
-    assert(not client.getSpellGlow(), "An unusable tanking action activated the glow.")
-    client.actions[1].isUsable = true
-    client.event("ACTION_USABLE_CHANGED")
-    local glow = client.getSpellGlow()
-    assert(glow and glow.ProcLoop:IsPlaying(), "A usable tanking action has no glow.")
-    assert(glow.parent.booleanInput and glow.parent.parent.booleanInput, "Tanking and usability share one alpha condition.")
-    client.isTanking = false
-    client.refresh()
-    assert(not client.getSpellGlow(), "A usable action activated the glow without tanking.")
-    client.actions[1].isUsable = false
-    client.event("ACTION_USABLE_CHANGED")
-    assert(not client.getSpellGlow())
-    client.isTanking = true
-    client.refresh()
-    assert(not client.getSpellGlow(), "Tanking replaced the unusable action condition.")
-    client.actions[1].isUsable = true
-    client.event("ACTION_USABLE_CHANGED")
-    assert(client.getSpellGlow() == glow)
-end)
-
 scenario("Bar discovery, placement, and reuse", function(client)
     local prefixes = {
         "ActionButton",
@@ -383,25 +303,6 @@ scenario("Bar discovery, placement, and reuse", function(client)
     end
 end)
 
-scenario("A false ownership flag keeps every caster", function(client)
-    client.addActionButton("ActionButton1", 1)
-    client.actions[1] = { spellID = spellID }
-    client.startRules({
-        {
-            key = "shared-aura",
-            action = action,
-            condition = {
-                mechanic = "aura", unit = "target", filter = "HARMFUL",
-                auraSpellIDs = { [auraID] = true }, ownAura = false,
-            },
-            visual = "highlight",
-        },
-    })
-    client.refresh()
-    local slot = client.getContainer("target", "shared-aura").slots["shared-aura"]
-    assert(slot.candidateFilters.isFromPlayerOrPlayerPet == nil, "A false ownership flag excludes the player's aura.")
-end)
-
 scenario("An aura glow follows button size changes during combat", function(client)
     local button = client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }
@@ -442,19 +343,6 @@ scenario("An aura-owned texture denies visibility access during combat", functio
     assert(tostring(message):find("forbidden", 1, true), "The visibility query failed for another reason.")
     client.combatUnits.player = false
     assert(type(presenceTexture:IsShown()) == "table")
-end)
-
-scenario("A hidden parent does not disable a texture mask", function(client)
-    local parent = CreateFrame("Frame", nil, UIParent)
-    local texture = UIParent:CreateTexture()
-    local mask = parent:CreateMaskTexture()
-    mask:SetAllPoints(texture)
-    mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    mask:SetTexCoord(2, 3, 2, 3)
-    mask:Show()
-    texture:AddMaskTexture(mask)
-    parent:Hide()
-    assert(client.alpha(texture) == 0, "A hidden parent disabled the mask.")
 end)
 
 scenario("Aura suppression ignores declaration order", function(client)

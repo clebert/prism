@@ -3,8 +3,8 @@ local _, Prism = ...
 local Rules = {}
 Prism.Rules = Rules
 
-local auraFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, includeActionSpellID = true, ownAura = true }
-local stackFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, includeActionSpellID = true, ownAura = true, applications = true }
+local auraFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, ownAura = true }
+local stackFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, ownAura = true, applications = true }
 local unitFields = { mechanic = true, unit = true }
 local mechanicFields = {
     aura = auraFields,
@@ -27,6 +27,8 @@ local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true,
 local actionFields = { anySpell = true, spellIDs = true, itemIDs = true, itemClassID = true, itemSubClassID = true }
 local ruleFields = { key = true, action = true, condition = true, visual = true, requireUsable = true, suppressGlow = true }
 local debuffOptions = { ownAura = true, includeActionSpellID = true, applications = true }
+local rankedAuraOptions = { unit = true, filter = true, ownAura = true, applications = true, visual = true, requireUsable = true, suppressGlow = true }
+local rankFields = { spellID = true, auraSpellIDs = true }
 
 local function check(value, message, context)
     assert(value, "Prism rule " .. context .. ": " .. message)
@@ -106,10 +108,23 @@ local function checkCondition(condition, action, context)
             checkBoolean(condition.includeActionSpellID, context .. ".includeActionSpellID")
             local hasPlayerFilter = condition.filter == "HELPFUL|PLAYER" or condition.filter == "HARMFUL|PLAYER"
             check(hasPlayerFilter == (condition.ownAura == true), "The ownership checks must agree.", context)
-            check(condition.auraSpellIDs ~= nil or condition.includeActionSpellID == true, "An aura needs declared IDs or the action spell ID.", context)
+            check(condition.auraSpellIDs ~= nil or condition.auraSpellIDsByAction ~= nil or condition.includeActionSpellID == true, "An aura needs declared IDs or the action spell ID.", context)
 
             if condition.auraSpellIDs ~= nil then
                 checkIDs(condition.auraSpellIDs, context .. ".auraSpellIDs")
+            end
+
+            if condition.auraSpellIDsByAction ~= nil then
+                check(condition.auraSpellIDs == nil, "An aura must use one ID selector.", context)
+                check(action.spellIDs ~= nil, "Action-specific aura IDs require a spell ID selector.", context)
+                check(type(condition.auraSpellIDsByAction) == "table", "Expected action-specific aura IDs.", context)
+                for spellID, auraSpellIDs in pairs(condition.auraSpellIDsByAction) do
+                    check(action.spellIDs[spellID], "The aura map includes an undeclared action.", context)
+                    checkIDs(auraSpellIDs, context .. ".auraSpellIDsByAction")
+                end
+                for spellID in pairs(action.spellIDs) do
+                    check(condition.auraSpellIDsByAction[spellID] ~= nil, "The aura map must cover every action.", context)
+                end
             end
 
             if condition.includeActionSpellID then
@@ -160,6 +175,76 @@ function Rules.Union(...)
     end
 
     return ids
+end
+
+function Rules.RankedAura(key, ranks, options)
+    local context = tostring(key)
+    check(type(key) == "string" and key ~= "", "A non-empty key is required.", context)
+    check(type(ranks) == "table", "Expected an ordered rank list.", context)
+    options = options or {}
+    checkFields(options, rankedAuraOptions, context)
+    check(options.filter == "HELPFUL" or options.filter == "HARMFUL", "A ranked aura needs HELPFUL or HARMFUL.", context)
+    checkBoolean(options.ownAura, context)
+    checkBoolean(options.requireUsable, context)
+    check(options.visual == nil or visuals[options.visual], "Unknown visual.", context)
+    check(options.suppressGlow == nil or (type(options.suppressGlow) == "string" and options.suppressGlow ~= ""), "Expected a glow key.", context)
+
+    local count = 0
+    for index in pairs(ranks) do
+        check(isInteger(index, 1), "A rank list must use integer indices.", context)
+        count = count + 1
+    end
+    check(count > 0, "A rank list must not be empty.", context)
+    local normalized = {}
+    local spellIDs = {}
+    local seenAuraIDs = {}
+    local includeActionSpellID = true
+    for index = 1, count do
+        local rank = ranks[index]
+        check(rank ~= nil, "A rank list must be dense.", context)
+        if type(rank) == "table" then
+            checkFields(rank, rankFields, context)
+        else
+            check(isInteger(rank, 1), "A spell ID must be positive.", context)
+            rank = { spellID = rank, auraSpellIDs = { [rank] = true } }
+        end
+        check(isInteger(rank.spellID, 1) and not spellIDs[rank.spellID], "An action ID must be positive and unique.", context)
+        checkIDs(rank.auraSpellIDs, context)
+        spellIDs[rank.spellID] = true
+        for auraSpellID in pairs(rank.auraSpellIDs) do
+            check(not seenAuraIDs[auraSpellID], "An aura ID must belong to one rank.", context)
+            seenAuraIDs[auraSpellID] = true
+        end
+        if not rank.auraSpellIDs[rank.spellID] then
+            includeActionSpellID = false
+        end
+        normalized[index] = rank
+    end
+
+    local byAction = {}
+    local auraSpellIDs = {}
+    for index = count, 1, -1 do
+        local rank = normalized[index]
+        for auraSpellID in pairs(rank.auraSpellIDs) do
+            auraSpellIDs[auraSpellID] = true
+        end
+        byAction[rank.spellID] = Rules.Union(auraSpellIDs)
+    end
+    local action = { spellIDs = spellIDs }
+    local condition = {
+        mechanic = options.applications and "aura-stacks" or "aura",
+        unit = options.unit,
+        filter = options.filter .. (options.ownAura and "|PLAYER" or ""),
+        ownAura = options.ownAura,
+        applications = options.applications,
+        auraSpellIDsByAction = byAction,
+        includeActionSpellID = includeActionSpellID or nil,
+    }
+    checkCondition(condition, action, context)
+    return {
+        key = key, action = action, condition = condition,
+        visual = options.visual or "highlight", requireUsable = options.requireUsable, suppressGlow = options.suppressGlow,
+    }
 end
 
 function Rules.TargetDebuff(auraSpellIDs, options)
