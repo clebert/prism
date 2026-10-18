@@ -172,6 +172,55 @@ scenario("Independent aura rules keep separate usability", function(client)
     end
 end)
 
+scenario("Target debuff highlights and cast glows stay independent", function(client)
+    local button = client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.startRules({
+        {
+            key = "debuff", action = action, visual = "highlight",
+            condition = { mechanic = "aura", unit = "target", filter = "HARMFUL", auraSpellIDs = { [auraID] = true } },
+        },
+        {
+            key = "interrupt", action = action, visual = "glow", requireUsable = true,
+            condition = { mechanic = "target-cast" },
+        },
+    })
+    client.refresh()
+    local container = client.getContainer("target", "debuff")
+    local slot = container.slots.debuff
+    local frames = #client.frames
+    assert(slot.filter == "HARMFUL" and slot.candidateFilters.isFromPlayerOrPlayerPet == nil)
+
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        for _, present in ipairs({ false, true }) do
+            client.setAuraPresent(slot, present)
+            for _, usable in ipairs({ false, true }) do
+                client.actions[1].isUsable = usable
+                client.event("ACTION_USABLE_CHANGED")
+                for _, cast in ipairs({ "none", "cast", "channel" }) do
+                    client.targetCasting, client.targetChanneling = cast == "cast", cast == "channel"
+                    client.refresh()
+                    assert(client.alpha(slot.texture) == (present and 1 or 0), "The cast glow changed the debuff highlight.")
+                    assert((client.getSpellGlow() ~= nil) == (usable and cast ~= "none"), "The debuff highlight changed the cast glow.")
+                    assert(slot.enabled and container.enabled)
+                end
+            end
+        end
+    end
+    assert(#client.frames == frames, "The condition changes replaced the frames.")
+    assert(client.alpha(slot.texture) == 1 and client.getSpellGlow())
+    button.visible = false
+    client.refresh()
+    assert(client.alpha(slot.texture) == 0 and not client.getSpellGlow())
+    button.visible = true
+    client.refresh()
+    assert(client.alpha(slot.texture) == 1 and client.getSpellGlow())
+    client.actions[1] = nil
+    client.refresh()
+    assert(not slot.enabled and not container.enabled and not client.getSpellGlow())
+end)
+
 scenario("Missing self buff with secure layout suppression", function(client)
     local button = client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID, isUsable = false }

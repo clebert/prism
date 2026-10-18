@@ -40,7 +40,9 @@ The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 ### Druid
 
 - _Own target debuffs:_ **Moonfire** — Highlights while the target has the player's matching debuff.
-- _Shared target debuffs:_ **Entangling Roots** — Highlights while the target has the matching debuff from any caster, including Nature's Grasp.
+- _Shared target debuffs:_ **Entangling Roots**, **Bash**, **Demoralizing Roar** — Highlights while the target has the matching debuff from any caster. Entangling Roots also matches the auras from Nature's Grasp. Action usability does not affect these highlights.
+- _Tanking:_ **Growl** — Highlights while the player tanks a living hostile target. Action usability does not affect the highlight.
+- _Interrupts:_ **Bash** — Glows during a hostile target cast or channel while the spell is usable.
 - _Self buffs:_ **Mark of the Wild**, **Thorns** — Each spell glows while the player lacks every rank of its buff and the heal target is the player. Another assistable target disables the glow. Any caster's matching buff suppresses the glow. Action usability does not affect the glow.
 
 ## Installation
@@ -168,7 +170,7 @@ bash tests/install.sh
 | --- | --- |
 | `tests/rules.lua` | Tests helpers and validation, then checks shared rules with every declared class. |
 | `tests/mechanics.lua` | Tests mechanics, action selectors, aura filters, item data, and unit changes with synthetic IDs. |
-| `tests/composition.lua` | Tests independent feedback, usability gates, pet combat, and secure aura suppression with synthetic IDs. |
+| `tests/composition.lua` | Tests independent highlights and cast glows, usability gates, pet combat, and secure aura suppression with synthetic IDs. |
 | `tests/runtime.lua` | Tests visuals, animation, events, refresh intervals, bar discovery, placement, and reuse. |
 | `tests/probe.lua` | Tests the standalone test addon, combat steps, report persistence, and controls. |
 
@@ -197,7 +199,7 @@ The checks must produce no Lua error or blocked-action error.
 | Buff highlights | Apply and remove a matching buff separately on the player and an assistable target. Change targets with targetable buffs and self-only buffs. | Targetable helpful buffs follow the heal target. Self-only buffs keep the player. Only the selected unit's matching buff activates the highlight. |
 | Druid self buffs | Apply and remove different Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Each spell glows only without any rank of its buff on the player, when the heal target is the player. Action usability does not affect the glow. |
 | Own target debuffs | Compare the player's Rend, Serpent Sting, or Moonfire with another caster's copy. | Only the player's debuff activates the highlight. |
-| Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test Entangling Roots from direct casts and Nature's Grasp, with different casters. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight. |
+| Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test Entangling Roots from direct casts and Nature's Grasp, with different casters. Test Bash and Demoralizing Roar from different druids. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight. |
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target. | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it. |
 | Aura stacks | Change Sunder Armor from four stacks to five stacks, then back to four stacks. | The highlight appears only at five stacks. |
 | Fear warning | Apply and remove Rend or Deep Wound from different casters. Change Intimidating Shout usability and target hostility. | The warning blinks red only with a matching hostile target debuff and a usable action. |
@@ -207,7 +209,8 @@ The checks must produce no Lua error or blocked-action error.
 | Pet feeding | Test each happiness state with and without the Feed Pet Effect buff. Dismiss, replace, or kill the pet. Change Feed Pet usability. Change pet combat separately from player combat. | Happy or the active buff activates the highlight, regardless of usability or pet combat. The active buff suppresses the glow. Without the buff, the glow requires a living pet below Happy and out of combat, with a usable action. |
 | Pet revival | Test a living pet with full or partial health. Dismiss, replace, or kill the pet. Make Revive Pet unusable. | Only a living pet activates the Revive Pet highlight. Pet health and action usability do not affect the highlight. |
 | Usable attacks | Change the usability of each declared usable attack. | The glow appears only while the action is usable. |
-| Interrupts | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Shield Bash usability. | Only a usable Shield Bash glows for a living hostile target cast or channel. |
-| Warrior tanking | Gain and lose target threat. Select a friendly target, a dead target, or no target. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
+| Interrupts | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Bash and Shield Bash usability. | Each spell glows only for a living hostile target cast or channel while usable. |
+| Bash feedback | Make Bash unusable while the target has another druid's Bash. Remove the stun and test hostile casts and channels with a usable Bash. | The stun activates the highlight regardless of usability. A hostile cast or channel activates the glow only while Bash is usable. Neither visual requires the other. |
+| Tanking | Gain and lose target threat with Growl and the Warrior taunts. Select a friendly target, a dead target, or no target. Change action usability. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
 | Threat reduction | Gain and lose target threat. Change Disengage usability. Select a friendly target, a dead target, or no target. | Disengage glows only while the action is usable and the player tanks a living hostile target. |
 | Placement | Test every supported bar. Change UI scale, button size, bar visibility, action pages, and spell placement. | Each visual stays aligned with its button. Hidden bars and replaced actions leave no stale visual. |

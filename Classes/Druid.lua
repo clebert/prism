@@ -1,6 +1,18 @@
 local _, Prism = ...
 local Rules = Prism.Rules
 
+local bashSpellIDs = {
+    [5211] = true,
+    [6798] = true,
+    [8983] = true,
+}
+local demoralizingRoarSpellIDs = {
+    [99] = true,
+    [1735] = true,
+    [9490] = true,
+    [9747] = true,
+    [9898] = true,
+}
 local entanglingRootsSpellIDs = {
     [339] = true,
     [1062] = true,
@@ -8,6 +20,9 @@ local entanglingRootsSpellIDs = {
     [5196] = true,
     [9852] = true,
     [9853] = true,
+}
+local growlSpellIDs = {
+    [6795] = true,
 }
 local markOfTheWildSpellIDs = {
     [1126] = true,
@@ -60,6 +75,31 @@ Prism.classRules.DRUID = {
         action = { spellIDs = entanglingRootsSpellIDs },
         condition = Rules.TargetDebuff(entanglingRootsAuraSpellIDs, { includeActionSpellID = true }),
         visual = "highlight",
+    },
+    {
+        key = "bash",
+        action = { spellIDs = bashSpellIDs },
+        condition = Rules.TargetDebuff(bashSpellIDs, { includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
+        key = "demoralizing-roar",
+        action = { spellIDs = demoralizingRoarSpellIDs },
+        condition = Rules.TargetDebuff(demoralizingRoarSpellIDs, { includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
+        key = "growl",
+        action = { spellIDs = growlSpellIDs },
+        condition = { mechanic = "tanking" },
+        visual = "highlight",
+    },
+    {
+        key = "bash-interrupt",
+        action = { spellIDs = bashSpellIDs },
+        condition = { mechanic = "target-cast" },
+        requireUsable = true,
+        visual = "glow",
     },
     {
         key = "mark-of-the-wild-missing",
