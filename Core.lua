@@ -60,7 +60,7 @@ local function createVisual(parent, visual)
     end
 
     if visual == "glow" then
-        local glowFrame = CreateFrame("Frame", nil, parent, "ActionButtonSpellAlertTemplate")
+        local glowFrame = CreateFrame("Frame", nil, parent, "ActionButtonSpellAlertTemplate,DisableUntrustedLayoutScriptsTemplate")
         glowFrame:SetPoint("CENTER")
         glowFrame:EnableMouse(false)
         return glowFrame, glowFrame.ProcLoop
@@ -120,21 +120,33 @@ local function createAuraCandidateFilters(condition, actionSpellID)
     return filters
 end
 
-local function createGlowSuppression(auraButton, glowFrame)
-    local region = CreateFrame("Frame", nil, glowFrame:GetParent())
-    region:EnableMouse(false)
-    region:SetAllPoints()
-    region:Show()
-    glowFrame:SetParent(region)
-
-    -- The client controls the secret shown flag. No texture asset is necessary.
-    local presenceTexture = auraButton:CreateTexture()
-    presenceTexture:Hide()
-    auraButton:AddDispelTypeTexture(presenceTexture, {
-        showAlways = true,
-        style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,
+local function createGlowSuppression(overlay, rule, spellID)
+    local suppressedState = overlay.states[rule.suppressGlow]
+    assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
+    local condition = rule.condition
+    local width = UIParent:GetWidth() * 2
+    local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
+    container:EnableMouse(false)
+    container:SetUnit(resolveUnit(condition.unit))
+    container:AddAuraGroup(rule.key, condition.filter, {
+        maxFrameCount = 1,
+        candidateFilters = createAuraCandidateFilters(condition, spellID),
+        -- Two viewport widths move an active glow outside the viewport.
+        layout = { elementWidth = width, elementHeight = 1 },
+        initializeFrame = function(marker)
+            marker:EnableMouse(false)
+        end,
     })
-    return presenceTexture, region
+
+    local previous = suppressedState.glowSuppressionAnchor
+    -- Subtract the width of an empty flow layout from each anchor.
+    container:SetPoint("TOPLEFT", previous or suppressedState.glowParent, previous and "TOPRIGHT" or "CENTER", -1, 0)
+    suppressedState.glowFrame:ClearAllPoints()
+    suppressedState.glowFrame:SetPoint("CENTER", container, "TOPRIGHT")
+    suppressedState.glowSuppressionAnchor = container
+    container:Show()
+    container:SetEnabled(true)
+    return container, width
 end
 
 local function createRuleState(overlay, rule, spellID)
@@ -166,6 +178,7 @@ local function createRuleState(overlay, rule, spellID)
 
         if rule.visual == "glow" then
             state.glowFrame = state.visualRegion
+            state.glowParent = visualParent
         end
 
         return state
@@ -184,12 +197,6 @@ local function createRuleState(overlay, rule, spellID)
         initializeFrame = function(auraButton)
             auraButton:EnableMouse(false)
             auraButton:SetAllPoints()
-
-            if rule.suppressGlow then
-                local suppressedState = overlay.states[rule.suppressGlow]
-                assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
-                state.presenceTexture, state.suppressionRegion = createGlowSuppression(auraButton, suppressedState.glowFrame)
-            end
 
             local visualParent = auraButton
 
@@ -212,12 +219,21 @@ local function createRuleState(overlay, rule, spellID)
             end
 
             if rule.visual == "glow" then
-                -- Store only the glow for size updates. The aura slot remains restricted.
+                -- Resize a public anchor instead of the aura-owned glow.
+                local bounds = CreateFrame("Frame", nil, overlay.frame)
+                bounds:EnableMouse(false)
+                bounds:SetPoint("CENTER")
+                region:ClearAllPoints()
+                region:SetAllPoints(bounds)
                 state.glowFrame = region
+                state.glowBounds = bounds
                 region:Show()
             end
         end,
     })
+    if rule.suppressGlow then
+        state.suppressionLayout, state.suppressionWidth = createGlowSuppression(overlay, rule, spellID)
+    end
     container:Show()
     container:SetEnabled(true)
     return state
@@ -244,10 +260,12 @@ local function setRuleStateActive(state, active)
         state.auraContainer:SetEnabled(active)
     end
 
+    if state.suppressionLayout then
+        -- Keep the container enabled so a disabled group can collapse.
+        state.suppressionLayout:SetAuraGroupEnabled(state.rule.key, active)
+    end
+
     if not active then
-        if state.suppressionRegion then
-            state.suppressionRegion:SetAlpha(1)
-        end
         hideRuleVisual(state)
     end
 end
@@ -381,11 +399,18 @@ local function updateRuleState(state, spellID, actionSlotID)
 
     if state.unit ~= unit then
         container:SetUnit(unit)
+        if state.suppressionLayout then
+            state.suppressionLayout:SetUnit(unit)
+        end
         state.unit = unit
     end
 
     if condition.includeActionSpellID and state.actionSpellID ~= spellID then
-        container:SetAuraSlotCandidateFilters(rule.key, createAuraCandidateFilters(condition, spellID))
+        local filters = createAuraCandidateFilters(condition, spellID)
+        container:SetAuraSlotCandidateFilters(rule.key, filters)
+        if state.suppressionLayout then
+            state.suppressionLayout:SetAuraGroupCandidateFilters(rule.key, filters)
+        end
         state.actionSpellID = spellID
     end
 
@@ -395,8 +420,12 @@ local function updateRuleState(state, spellID, actionSlotID)
         container:SetAlpha(1)
     end
 
-    if state.presenceTexture then
-        state.suppressionRegion:SetAlphaFromBoolean(state.presenceTexture:IsShown(), 0, booleanTrueAlpha)
+    if state.suppressionLayout then
+        local width = UIParent:GetWidth() * 2
+        if state.suppressionWidth ~= width then
+            state.suppressionLayout:SetAuraGroupLayout(rule.key, { elementWidth = width, elementHeight = 1 })
+            state.suppressionWidth = width
+        end
     end
 end
 
@@ -505,7 +534,7 @@ local function placeActionButtonOverlay(overlay, actionButton)
         end
 
         if state.glowFrame then
-            placeGlow(state.glowFrame, state, scaledWidth, scaledHeight)
+            placeGlow(state.glowBounds or state.glowFrame, state, scaledWidth, scaledHeight)
         end
     end
 end
@@ -614,6 +643,9 @@ local function refreshAuraStates()
         for _, state in ipairs(overlay.activeStates) do
             if state.auraContainer then
                 state.auraContainer:UpdateAllAuras()
+            end
+            if state.suppressionLayout then
+                state.suppressionLayout:UpdateAllAuras()
             end
         end
     end

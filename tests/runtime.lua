@@ -157,11 +157,12 @@ scenario("Visual construction and animation", function(client)
                     blink = frame
                 end
             end
-        elseif rawget(frame, "template") == "ActionButtonSpellAlertTemplate" then
-            assert(frame.point[1] == "CENTER", "The glow is not centered.")
+        elseif rawget(frame, "template") and frame.template:find("ActionButtonSpellAlertTemplate", 1, true) then
+            assert(frame.allPoints or (frame.point and frame.point[1] == "CENTER"), "The glow is not centered.")
             assert(frame.mouseEnabled == false, "The glow intercepts mouse input.")
-            assertClose(frame.width, 50.4, "The glow has the wrong width.")
-            assertClose(frame.height, 50.4, "The glow has the wrong height.")
+            local _, _, width, height = client.rectangle(frame)
+            assertClose(width, 50.4, "The glow has the wrong width.")
+            assertClose(height, 50.4, "The glow has the wrong height.")
             if frame.parent.frameType ~= "AuraButton" then
                 glow = frame
             end
@@ -278,7 +279,7 @@ scenario("Bar discovery, placement, and reuse", function(client)
     for _, frame in ipairs(client.frames) do
         if frame.frameType == "AuraContainer" then
             containers[#containers + 1] = frame
-        elseif rawget(frame, "template") == "ActionButtonSpellAlertTemplate" then
+        elseif rawget(frame, "template") and frame.template:find("ActionButtonSpellAlertTemplate", 1, true) then
             glows[#glows + 1] = frame
         end
     end
@@ -347,6 +348,48 @@ scenario("A false ownership flag keeps every caster", function(client)
     client.refresh()
     local slot = client.getContainer("target", "shared-aura").slots["shared-aura"]
     assert(slot.candidateFilters.isFromPlayerOrPlayerPet == nil, "A false ownership flag excludes the player's aura.")
+end)
+
+scenario("An aura glow follows button size changes during combat", function(client)
+    local button = client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.startRules({
+        {
+            key = "aura-glow", action = action, visual = "glow",
+            condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [auraID] = true } },
+        },
+    })
+    client.refresh()
+    local glow = client.getSpellGlow()
+    assert(glow)
+    client.event("PLAYER_REGEN_DISABLED")
+    button.scale = 1.5
+    client.refresh()
+    local _, _, width, height = client.rectangle(glow)
+    assertClose(width, 75.6, "The aura glow did not resize during combat.")
+    assertClose(height, 75.6, "The aura glow has an incorrect height.")
+    assert(client.getSpellGlow() == glow)
+end)
+
+scenario("An aura-owned texture denies visibility access during combat", function(client)
+    local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
+    local presenceTexture
+    container:AddAuraSlot("presence", "HELPFUL", {
+        initializeFrame = function(auraButton)
+            presenceTexture = auraButton:CreateTexture()
+            auraButton:AddDispelTypeTexture(presenceTexture, {
+                showAlways = true,
+                style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,
+            })
+        end,
+    })
+    assert(type(presenceTexture:IsShown()) == "table")
+    client.combatUnits.player = true
+    local ok, message = pcall(function() return presenceTexture:IsShown() end)
+    assert(not ok, "The mock allowed visibility access to an aura-owned texture during combat.")
+    assert(tostring(message):find("forbidden", 1, true), "The visibility query failed for another reason.")
+    client.combatUnits.player = false
+    assert(type(presenceTexture:IsShown()) == "table")
 end)
 
 scenario("A hidden parent does not disable a texture mask", function(client)

@@ -22,6 +22,19 @@ local client = {
 local frameMethods = {}
 local animationMethods = {}
 
+local function updateLayout(container)
+    local width, height = 1, 1
+    for _, group in pairs(container.groups) do
+        local active = group.enabled and group.auraPresent and container.enabled ~= false
+        group.frame.visible = active
+        if active then
+            width = math.max(width, group.layout.elementWidth)
+            height = math.max(height, group.layout.elementHeight)
+        end
+    end
+    container.width, container.height = width, height
+end
+
 local function newFrame(frameType, name, parent, template)
     local frame = {
         frameType = frameType,
@@ -36,6 +49,7 @@ local function newFrame(frameType, name, parent, template)
         width = 36,
         height = 36,
         slots = {},
+        groups = {},
         textures = {},
         animationGroups = {},
         scripts = {},
@@ -47,6 +61,11 @@ local function newFrame(frameType, name, parent, template)
     setmetatable(frame, {
         __index = function(self, key)
             assert(not rawget(self, "restricted"), "Addon code accessed a restricted aura frame.")
+            local owner = rawget(self, "auraOwner") or rawget(self, "parent")
+            while client.combatUnits.player and owner do
+                assert(not rawget(owner, "restricted"), "Addon code accessed a forbidden aura-owned object during combat.")
+                owner = rawget(owner, "parent")
+            end
             return frameMethods[key]
         end,
     })
@@ -70,6 +89,18 @@ function frameMethods:SetTexture(texture, horizontalWrap, verticalWrap)
     self.texture = texture
     self.horizontalWrap = horizontalWrap
     self.verticalWrap = verticalWrap
+end
+
+function frameMethods:SetColorTexture(red, green, blue, alpha)
+    self.color = { red, green, blue, alpha }
+end
+
+function frameMethods:SetText(text)
+    self.text = text
+end
+
+function frameMethods:SetJustifyH(justification)
+    self.justification = justification
 end
 
 function frameMethods:SetTexCoord(left, right, bottom, top)
@@ -166,10 +197,16 @@ function frameMethods:GetBottom()
 end
 
 function frameMethods:GetWidth()
+    if self.secureLayout then
+        self.layoutQueryCount = (self.layoutQueryCount or 0) + 1
+    end
     return self.width
 end
 
 function frameMethods:GetHeight()
+    if self.secureLayout then
+        self.layoutQueryCount = (self.layoutQueryCount or 0) + 1
+    end
     return self.height
 end
 
@@ -182,6 +219,10 @@ function frameMethods:SetFrameLevel(level)
 end
 
 function frameMethods:SetPoint(...)
+    local relative = select(2, ...)
+    if type(relative) == "table" and rawget(relative, "secureLayout") then
+        assert(self.secureLayout or (self.template and self.template:find("DisableUntrustedLayoutScriptsTemplate", 1, true)), "The secure layout anchor requires its template.")
+    end
     self.point = { ... }
 end
 
@@ -197,6 +238,12 @@ end
 
 function frameMethods:SetScript(script, callback)
     self.scripts[script] = callback
+end
+
+function frameMethods:CreateFontString(name, layer, template)
+    local label = newFrame("FontString", name, self, template)
+    label.drawLayer = layer
+    return label
 end
 
 function frameMethods:CreateTexture(name, layer, template, subLevel)
@@ -230,6 +277,7 @@ function frameMethods:AddDispelTypeTexture(texture, options)
     assert(options.showAlways and options.style == Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset)
     assert(texture.parent == self and not texture.texture, "The presence texture must have no asset.")
     texture.secretShown = true
+    texture.auraOwner = self
     self.presenceTexture = texture
 end
 
@@ -244,10 +292,52 @@ end
 
 function frameMethods:SetEnabled(enabled)
     self.enabled = enabled
+    if self.secureLayout then
+        updateLayout(self)
+    end
 end
 
 function frameMethods:UpdateAllAuras()
     self.refreshCount = self.refreshCount + 1
+end
+
+function frameMethods:AddAuraGroup(key, filter, options)
+    assert(not self.groups[key], "The aura group already exists.")
+    local marker = newFrame("AuraButton", nil, self)
+    if options.initializeFrame then
+        options.initializeFrame(marker)
+    end
+    marker.restricted = true
+    self.groups[key] = {
+        key = key,
+        container = self,
+        frame = marker,
+        filter = filter,
+        candidateFilters = options.candidateFilters,
+        maxFrameCount = options.maxFrameCount,
+        layout = options.layout,
+        enabled = true,
+        auraPresent = true,
+    }
+    self.secureLayout = true
+    updateLayout(self)
+end
+
+function frameMethods:SetAuraGroupLayout(key, layout)
+    self.groups[key].layout = layout
+    self.layoutChangeCount = (self.layoutChangeCount or 0) + 1
+    updateLayout(self)
+end
+
+function frameMethods:SetAuraGroupEnabled(key, enabled)
+    self.groups[key].enabled = enabled
+    self.groupChangeCount = (self.groupChangeCount or 0) + 1
+    updateLayout(self)
+end
+
+function frameMethods:SetAuraGroupCandidateFilters(key, filters)
+    self.groups[key].candidateFilters = filters
+    self.filterChangeCount = self.filterChangeCount + 1
 end
 
 function frameMethods:AddAuraSlot(key, filter, options)
@@ -262,6 +352,8 @@ function frameMethods:AddAuraSlot(key, filter, options)
         end
     end
     self.slots[key] = {
+        key = key,
+        container = self,
         frame = auraFrame,
         filter = filter,
         candidateFilters = options.candidateFilters,
@@ -324,7 +416,7 @@ end
 
 function CreateFrame(frameType, name, parent, template)
     local frame = newFrame(frameType, name, parent, template)
-    if template == "ActionButtonSpellAlertTemplate" then
+    if template and template:find("ActionButtonSpellAlertTemplate", 1, true) then
         frame.ProcLoop = newAnimationGroup()
         -- Template regions are not addon-created frames.
         for _, key in ipairs({ "ProcStartFlipbook", "ProcLoopFlipbook", "ProcAltGlow" }) do
@@ -342,6 +434,7 @@ function CreateFrame(frameType, name, parent, template)
 end
 
 UIParent = newFrame("Frame", "UIParent")
+UIParent.left, UIParent.bottom, UIParent.width, UIParent.height = 0, 0, 1920, 1080
 Enum = {
     CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 },
     LuaCurveType = { Step = 1 },
@@ -489,9 +582,18 @@ end
 
 function client.setAuraPresent(slot, present)
     slot.auraPresent = present
-    slot.frame.visible = present and slot.enabled
+    if slot.frame then
+        slot.frame.visible = present and slot.enabled
+    end
     if slot.presenceTexture then
         slot.presenceTexture.visible = present and slot.enabled
+    end
+    for _, container in ipairs(client.frames) do
+        local group = container.groups[slot.key]
+        if group and container.unit == slot.container.unit then
+            group.auraPresent = present
+            updateLayout(container)
+        end
     end
 end
 
@@ -510,6 +612,11 @@ end
 
 function client.event(event)
     assert(client.controller.events[event], "The controller did not register " .. event .. ".")
+    if event == "PLAYER_REGEN_DISABLED" then
+        client.combatUnits.player = true
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        client.combatUnits.player = false
+    end
     client.controller.scripts.OnEvent(client.controller, event)
 end
 
@@ -520,6 +627,44 @@ function client.getContainer(unit, slotKey)
             return frame
         end
     end
+end
+
+function client.getLayout(unit, key)
+    for index = #client.frames, 1, -1 do
+        local frame = client.frames[index]
+        if frame.frameType == "AuraContainer" and frame.unit == unit and frame.groups[key] then
+            return frame
+        end
+    end
+end
+
+local function anchorOffset(anchor, width, height)
+    local x = anchor:find("LEFT", 1, true) and 0 or (anchor:find("RIGHT", 1, true) and width or width / 2)
+    local y = anchor:find("BOTTOM", 1, true) and 0 or (anchor:find("TOP", 1, true) and height or height / 2)
+    return x, y
+end
+
+function client.rectangle(frame)
+    if frame == UIParent then
+        return 0, 0, frame.width, frame.height
+    end
+    local allPoints = rawget(frame, "allPoints")
+    if allPoints then
+        return client.rectangle(allPoints)
+    end
+    local width, height = frame.width, frame.height
+    local point = rawget(frame, "point")
+    if not point then
+        return frame.left or 0, frame.bottom or 0, width, height
+    end
+    local relative, relativeAnchor, offsetX, offsetY = point[2], point[3], point[4] or 0, point[5] or 0
+    if type(relative) ~= "table" then
+        relative, relativeAnchor, offsetX, offsetY = frame.parent, point[1], point[2] or 0, point[3] or 0
+    end
+    local left, bottom, relativeWidth, relativeHeight = client.rectangle(relative)
+    local relativeX, relativeY = anchorOffset(relativeAnchor, relativeWidth, relativeHeight)
+    local anchorX, anchorY = anchorOffset(point[1], width, height)
+    return left + relativeX + offsetX - anchorX, bottom + relativeY + offsetY - anchorY, width, height
 end
 
 function client.alpha(frame)
@@ -550,8 +695,12 @@ end
 function client.getSpellGlow()
     for index = #client.frames, 1, -1 do
         local frame = client.frames[index]
-        if rawget(frame, "template") == "ActionButtonSpellAlertTemplate" and client.alpha(frame.ProcLoopFlipbook) > 0 then
-            return frame
+        local template = rawget(frame, "template")
+        if template and template:find("ActionButtonSpellAlertTemplate", 1, true) and client.alpha(frame.ProcLoopFlipbook) > 0 then
+            local left, bottom, width, height = client.rectangle(frame)
+            if left + width > 0 and left < UIParent.width and bottom + height > 0 and bottom < UIParent.height then
+                return frame
+            end
         end
     end
 end

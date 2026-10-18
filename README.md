@@ -100,10 +100,12 @@ Dispel conditions require `HARMFUL` and a declared `dispelType`.
 
 Set `suppressGlow` on a plain `aura` rule to reference a non-aura glow rule.
 The glow selector must cover every action that the aura rule selects.
-Rule order does not affect this dependency. The secure aura container controls a child texture's secret shown flag.
-The child texture has no asset. The core passes the flag to `SetAlphaFromBoolean` with reversed alpha values.
-Each suppressor has a separate alpha frame. An inactive suppressor releases its alpha frame.
+Rule order does not affect this dependency. Each suppressor uses a separate secure aura group with one layout element.
+The client moves the glow outside the viewport while a matching aura is active.
+An empty or disabled group contributes no displacement. The core chains group anchors for multiple suppressors.
+Addon Lua does not read aura-owned objects or secure layout geometry.
 The suppression follows aura presence, not an application count.
+Public size anchors resize aura-driven glows without calls on aura-owned frames.
 
 The visuals are `highlight`, `red-blink`, and `glow`. A suppressor can use `none` to omit its visible feedback.
 The core keeps condition alpha separate from animation alpha.
@@ -145,11 +147,12 @@ It returns the rules in dependency order without changes to the declarations.
 Use Lua 5.1 for the syntax checks and tests.
 
 ```bash
-luac5.1 -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua
+luac5.1 -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua tests/PrismTest/PrismTest.lua
 lua5.1 tests/rules.lua
 lua5.1 tests/mechanics.lua
 lua5.1 tests/composition.lua
 lua5.1 tests/runtime.lua
+lua5.1 tests/probe.lua
 bash -n install.sh
 bash -n tests/install.sh
 bash tests/install.sh
@@ -161,6 +164,7 @@ bash tests/install.sh
 | `tests/mechanics.lua` | Tests mechanics, action selectors, aura filters, item data, and unit changes with synthetic IDs. |
 | `tests/composition.lua` | Tests independent feedback, usability gates, pet combat, and secure aura suppression with synthetic IDs. |
 | `tests/runtime.lua` | Tests visuals, animation, events, refresh intervals, bar discovery, placement, and reuse. |
+| `tests/probe.lua` | Tests the standalone test addon, combat steps, report persistence, and controls. |
 
 A spell that uses tested mechanics needs no spell-specific behavior test.
 Add a core test for each mechanic change or untested combination. Add helper tests when a reusable declaration pattern needs code.
@@ -171,6 +175,9 @@ Configuration validation cannot prove that a spell ID or mechanic expresses the 
 Verify spell IDs against client data and test the affected behavior in the client.
 
 #### Client checks
+
+Use [Prism Test](tests/PrismTest/README.md) for the isolated secure layout experiment.
+Install it with `bash tests/install-probe.sh`.
 
 Before release, verify the declared spell IDs in version-matched `SpellName` and `SpellEffect` data.
 This verification must use the exact Forever client build.

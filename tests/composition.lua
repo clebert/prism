@@ -31,10 +31,14 @@ scenario("Happiness, usability, combat, and aura suppression", function(client)
     local glow = client.getSpellGlow()
     local highlight = client.getHighlight()
     assert(glow and highlight and glow.ProcLoop:IsPlaying())
-    assert(glow.parent.parent.booleanInput, "The glow has no separate usability condition.")
+    assert(glow.parent.booleanInput, "The glow has no separate usability condition.")
     assert(slot.candidateFilters.includeSpellIDs[auraID] and not slot.candidateFilters.includeSpellIDs[spellID])
-    assert(slot.presenceTexture and not slot.presenceTexture.texture)
-    assert(type(glow.parent.booleanInput) == "table", "The presence flag bypassed the alpha API.")
+    local layout = client.getLayout("pet", "active-aura")
+    assert(layout and layout.groups["active-aura"].maxFrameCount == 1)
+    assert(rawget(layout.groups["active-aura"].frame, "mouseEnabled") == false, "A layout marker can intercept mouse input.")
+    assert(not slot.presenceTexture, "The suppressor still uses an aura-owned indicator.")
+    assert(glow.point[2] == layout and glow.point[3] == "TOPRIGHT")
+    assert(not layout.layoutQueryCount, "The core queried secure layout geometry.")
     for _, key in ipairs({ "ProcStartFlipbook", "ProcLoopFlipbook", "ProcAltGlow" }) do
         assert(not glow[key].masks, "The glow still uses a mask.")
     end
@@ -70,7 +74,7 @@ scenario("Happiness, usability, combat, and aura suppression", function(client)
     local frames = #client.frames
     client.setAuraPresent(slot, true)
     client.refresh()
-    assert(not client.getSpellGlow() and client.alpha(glow) == 0)
+    assert(not client.getSpellGlow() and client.alpha(glow) == 1)
     assert(client.alpha(slot.texture) == 1)
     client.setAuraPresent(slot, false)
     client.refresh()
@@ -168,7 +172,7 @@ scenario("Independent aura rules keep separate usability", function(client)
     end
 end)
 
-scenario("Missing self buff with a secret presence flag", function(client)
+scenario("Missing self buff with secure layout suppression", function(client)
     local button = client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID, isUsable = false }
     client.startRules({
@@ -267,6 +271,52 @@ scenario("Independent suppressors reset when their action no longer matches", fu
     client.setAuraPresent(second, false)
     client.refresh()
     assert(client.getSpellGlow(), "The restored suppressors did not release the glow.")
+end)
+
+scenario("Suppression starts during combat and updates its layout and filters", function(client)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.combatUnits.player = true
+    client.startRules({
+        { key = "glow", action = { anySpell = true }, condition = { mechanic = "usable" }, visual = "glow" },
+        {
+            key = "suppressor", action = { anySpell = true }, visual = "none", suppressGlow = "glow",
+            condition = { mechanic = "aura", unit = "heal-target", filter = "HELPFUL", includeActionSpellID = true },
+        },
+    })
+    client.refresh()
+    local container = client.getContainer("player", "suppressor")
+    local slot = container.slots.suppressor
+    local layout = client.getLayout("player", "suppressor")
+    assert(layout, "The suppression has no secure layout.")
+    client.setAuraPresent(slot, false)
+    client.refresh()
+    local glow = client.getSpellGlow()
+    assert(glow, "A missing buff has no glow during combat.")
+    client.setAuraPresent(slot, true)
+    client.refresh()
+    assert(not client.getSpellGlow())
+    local updates = layout.layoutChangeCount or 0
+    local filters = layout.filterChangeCount
+    client.refresh()
+    assert((layout.layoutChangeCount or 0) == updates and layout.filterChangeCount == filters)
+    UIParent:SetSize(2400, 1200)
+    client.refresh()
+    assert(layout.groups.suppressor.layout.elementWidth == 4800)
+    assert(layout.layoutChangeCount == updates + 1)
+    client.actions[1].spellID = overrideID
+    client.refresh()
+    assert(layout.groups.suppressor.candidateFilters.includeSpellIDs[overrideID])
+    assert(not layout.groups.suppressor.candidateFilters.includeSpellIDs[spellID])
+    assert(layout.filterChangeCount == filters + 1)
+    client.targetFriendly = true
+    local refreshes = layout.refreshCount
+    client.event("PLAYER_TARGET_CHANGED")
+    assert(container.unit == "target" and layout.unit == "target" and layout.refreshCount > refreshes)
+    assert(not layout.layoutQueryCount)
+    client.setAuraPresent(slot, false)
+    client.refresh()
+    assert(client.getSpellGlow() == glow)
 end)
 
 suite.finish("Composition")

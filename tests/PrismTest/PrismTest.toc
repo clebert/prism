@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Prism Test
+## Notes: Tests secure aura layout without aura queries.
+## Version: 1
+## RequiredDeps: Blizzard_AuraContainer, Blizzard_ActionBar
+## SavedVariables: PrismTestResults
+
+PrismTest.lua
