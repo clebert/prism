@@ -1,10 +1,21 @@
 local _, Prism = ...
 local Rules = Prism.Rules
 
+local abolishPoisonSpellIDs = {
+    [2893] = true,
+}
 local bashSpellIDs = {
     [5211] = true,
     [6798] = true,
     [8983] = true,
+}
+local challengingRoarSpellIDs = {
+    [5209] = true,
+}
+local cowerSpellIDs = {
+    [8998] = true,
+    [9000] = true,
+    [9892] = true,
 }
 local demoralizingRoarSpellIDs = {
     [99] = true,
@@ -21,8 +32,19 @@ local entanglingRootsSpellIDs = {
     [9852] = true,
     [9853] = true,
 }
+local faerieFireSpellIDs = {
+    [770] = true,
+    [778] = true,
+    [9749] = true,
+    [9907] = true,
+}
 local growlSpellIDs = {
     [6795] = true,
+}
+local hibernateSpellIDs = {
+    [2637] = true,
+    [18657] = true,
+    [18658] = true,
 }
 local markOfTheWildSpellIDs = {
     [1126] = true,
@@ -44,6 +66,28 @@ local moonfireSpellIDs = {
     [9833] = true,
     [9834] = true,
     [9835] = true,
+}
+local rakeSpellIDs = {
+    [1822] = true,
+    [1823] = true,
+    [1824] = true,
+    [9904] = true,
+}
+local removeCurseSpellIDs = {
+    [2782] = true,
+}
+local ripSpellIDs = {
+    [1079] = true,
+    [9492] = true,
+    [9493] = true,
+    [9752] = true,
+    [9894] = true,
+    [9896] = true,
+}
+local sootheAnimalSpellIDs = {
+    [2908] = true,
+    [8955] = true,
+    [9901] = true,
 }
 local thornsSpellIDs = {
     [467] = true,
@@ -71,6 +115,18 @@ Prism.classRules.DRUID = {
         visual = "highlight",
     },
     {
+        key = "own-rip",
+        action = { spellIDs = ripSpellIDs },
+        condition = Rules.TargetDebuff(ripSpellIDs, { ownAura = true, includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
+        key = "own-rake",
+        action = { spellIDs = rakeSpellIDs },
+        condition = Rules.TargetDebuff(rakeSpellIDs, { ownAura = true, includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
         key = "entangling-roots",
         action = { spellIDs = entanglingRootsSpellIDs },
         condition = Rules.TargetDebuff(entanglingRootsAuraSpellIDs, { includeActionSpellID = true }),
@@ -89,15 +145,70 @@ Prism.classRules.DRUID = {
         visual = "highlight",
     },
     {
+        key = "faerie-fire",
+        action = { spellIDs = faerieFireSpellIDs },
+        condition = Rules.TargetDebuff(faerieFireSpellIDs, { includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
+        key = "hibernate",
+        action = { spellIDs = hibernateSpellIDs },
+        condition = Rules.TargetDebuff(hibernateSpellIDs, { includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
+        key = "soothe-animal",
+        action = { spellIDs = sootheAnimalSpellIDs },
+        condition = Rules.TargetDebuff(sootheAnimalSpellIDs, { includeActionSpellID = true }),
+        visual = "highlight",
+    },
+    {
         key = "growl",
         action = { spellIDs = growlSpellIDs },
         condition = { mechanic = "tanking" },
         visual = "highlight",
     },
     {
+        key = "challenging-roar",
+        action = { spellIDs = challengingRoarSpellIDs },
+        condition = { mechanic = "tanking" },
+        visual = "highlight",
+    },
+    {
+        key = "cower",
+        action = { spellIDs = cowerSpellIDs },
+        condition = { mechanic = "tanking" },
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
         key = "bash-interrupt",
         action = { spellIDs = bashSpellIDs },
         condition = { mechanic = "target-cast" },
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
+        key = "remove-curse",
+        action = { spellIDs = removeCurseSpellIDs },
+        condition = {
+            mechanic = "dispel-type",
+            unit = "heal-target",
+            filter = "HARMFUL",
+            dispelType = "Curse",
+        },
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
+        key = "abolish-poison",
+        action = { spellIDs = abolishPoisonSpellIDs },
+        condition = {
+            mechanic = "dispel-type",
+            unit = "heal-target",
+            filter = "HARMFUL",
+            dispelType = "Poison",
+        },
         requireUsable = true,
         visual = "glow",
     },

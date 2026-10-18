@@ -420,4 +420,74 @@ scenario("Suppression starts during combat and updates its layout and filters", 
     assert(client.getSpellGlow() == glow)
 end)
 
+for _, dispelType in ipairs({ "Curse", "Poison" }) do
+    scenario("Spell cleansing and buff highlights with " .. dispelType, function(client)
+        local button = client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        client.helpfulSpells[spellID], client.helpfulSpells[overrideID] = true, true
+        client.startRules({
+            {
+                key = "buff", action = { anySpell = true }, visual = "highlight",
+                condition = { mechanic = "aura", unit = "buff-target", filter = "HELPFUL", includeActionSpellID = true },
+            },
+            {
+                key = "cleanse", action = action, visual = "glow", requireUsable = true,
+                condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType },
+            },
+        })
+        client.refresh()
+        local frames = #client.frames
+
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for _, target in ipairs({
+                { exists = false, friendly = false, unit = "player" },
+                { exists = true, friendly = true, unit = "target" },
+                { exists = true, friendly = false, unit = "player" },
+            }) do
+                client.targetExists, client.targetFriendly = target.exists, target.friendly
+                client.event("PLAYER_TARGET_CHANGED")
+                local buff = client.getContainer(target.unit, "buff")
+                local cleanse = client.getContainer(target.unit, "cleanse")
+                assert(buff and cleanse and buff ~= cleanse)
+                local buffSlot, cleanseSlot = buff.slots.buff, cleanse.slots.cleanse
+                assert(buffSlot.filter == "HELPFUL" and buffSlot.candidateFilters.includeSpellIDs[spellID])
+                assert(cleanseSlot.filter == "HARMFUL" and cleanseSlot.candidateFilters.includeDispelTypes[dispelType])
+                assert(not cleanseSlot.candidateFilters.includeSpellIDs)
+                assert(not cleanseSlot.candidateFilters.isFromPlayerOrPlayerPet)
+
+                for _, buffPresent in ipairs({ false, true }) do
+                    client.setAuraPresent(buffSlot, buffPresent)
+                    for _, debuffPresent in ipairs({ false, true }) do
+                        client.setAuraPresent(cleanseSlot, debuffPresent)
+                        for _, usable in ipairs({ false, true }) do
+                            client.actions[1].isUsable = usable
+                            client.event("ACTION_USABLE_CHANGED")
+                            client.refresh()
+                            assert(client.alpha(buffSlot.texture) == (buffPresent and 1 or 0), "Cleansing changed the buff highlight.")
+                            assert((client.getSpellGlow() ~= nil) == (debuffPresent and usable), "The cleansing glow has an incorrect condition.")
+                            assert(buffSlot.enabled and cleanseSlot.enabled)
+                        end
+                    end
+                end
+            end
+        end
+        assert(#client.frames == frames, "The condition changes replaced the frames.")
+        client.baseSpellIDs[overrideID] = spellID
+        client.actions[1].spellID = overrideID
+        client.refresh()
+        local buff = client.getContainer("player", "buff")
+        local cleanse = client.getContainer("player", "cleanse")
+        assert(buff.slots.buff.candidateFilters.includeSpellIDs[overrideID] and cleanse.enabled)
+        assert(client.getSpellGlow())
+        button.visible = false
+        client.refresh()
+        assert(client.alpha(buff) == 0 and not client.getSpellGlow())
+        button.visible = true
+        client.actions[1].spellID = auraID
+        client.refresh()
+        assert(not cleanse.enabled and not client.getSpellGlow(), "An unrelated spell kept the cleansing glow.")
+    end)
+end
+
 suite.finish("Composition")
