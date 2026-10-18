@@ -39,7 +39,7 @@ The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 
 ### Druid
 
-- _Self buff:_ **Mark of the Wild** — Glows while the player lacks every Mark rank and the heal target is the player. Another assistable target disables the glow. Any caster's Mark suppresses the glow. Action usability does not affect the glow.
+- _Self buffs:_ **Mark of the Wild**, **Thorns** — Each spell glows while the player lacks every rank of its buff and the heal target is the player. Another assistable target disables the glow. Any caster's matching buff suppresses the glow. Action usability does not affect the glow.
 
 ## Installation
 
@@ -193,7 +193,7 @@ The checks must produce no Lua error or blocked-action error.
 | Feature | Check | Expected result |
 | --- | --- | --- |
 | Buff highlights | Apply and remove a matching buff separately on the player and an assistable target. Change targets with targetable buffs and self-only buffs. | Targetable helpful buffs follow the heal target. Self-only buffs keep the player. Only the selected unit's matching buff activates the highlight. |
-| Druid self buff | Apply and remove different Mark ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Mark glows only without any Mark rank on the player, when the heal target is the player. Action usability does not affect the glow. |
+| Druid self buffs | Apply and remove different Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. | Each spell glows only without any rank of its buff on the player, when the heal target is the player. Action usability does not affect the glow. |
 | Own target debuffs | Compare the player's Rend or Serpent Sting with another caster's copy. | Only the player's debuff activates the highlight. |
 | Shared target debuffs | Compare Viper Sting and Scorpid Sting from different hunters. Test the other declared shared debuffs. | Each caster's matching debuff activates the highlight. |
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target. | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it. |

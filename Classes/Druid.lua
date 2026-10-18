@@ -10,6 +10,15 @@ local markOfTheWildSpellIDs = {
     [9885] = true,
 }
 
+local thornsSpellIDs = {
+    [467] = true,
+    [782] = true,
+    [1075] = true,
+    [8914] = true,
+    [9756] = true,
+    [9910] = true,
+}
+
 Prism.classRules.DRUID = {
     {
         key = "mark-of-the-wild-missing",
@@ -28,5 +37,23 @@ Prism.classRules.DRUID = {
         },
         visual = "none",
         suppressGlow = "mark-of-the-wild-missing",
+    },
+    {
+        key = "thorns-missing",
+        action = { spellIDs = thornsSpellIDs },
+        condition = { mechanic = "self-target" },
+        visual = "glow",
+    },
+    {
+        key = "thorns-active",
+        action = { spellIDs = thornsSpellIDs },
+        condition = {
+            mechanic = "aura",
+            unit = "player",
+            filter = "HELPFUL",
+            auraSpellIDs = thornsSpellIDs,
+        },
+        visual = "none",
+        suppressGlow = "thorns-missing",
     },
 }
