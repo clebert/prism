@@ -76,6 +76,7 @@ Prism.classRules.DRUID = {
     abolishPoisonBuff,
     Rules.RankedAura("enrage", { 5229 }, playerBuff),
     Rules.RankedAura("natures-grasp", { 16689, 16810, 16811, 16812, 16813, 17329 }, playerBuff),
+    Rules.RankedAura("prowl", { 5215, 6783, 9913 }, playerBuff),
     {
         key = "growl",
         action = { spellIDs = growlSpellIDs },

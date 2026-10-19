@@ -53,7 +53,7 @@ Different spell families remain separate, even when their effects are similar.
 
 - _Buff highlights:_ **Mark of the Wild**, **Thorns**, **Regrowth**, **Rejuvenation**, **Abolish Poison**.
   Each spell highlights while the heal target has an equal or stronger rank from any caster.
-- _Player-only buffs:_ **Enrage**, **Nature's Grasp** — Highlights while the matching buff is active on the player.
+- _Player-only buffs:_ **Enrage**, **Nature's Grasp**, **Prowl** — Each button highlights while its matching buff is active on the player.
   Target selection and action usability do not affect these highlights.
 - _Own target debuffs:_ **Moonfire**, **Rip**, **Rake** — Highlights while the target has the player's matching debuff.
 - _Shared target debuffs:_ **Entangling Roots**, **Bash**, **Demoralizing Roar**, **Faerie Fire**, **Hibernate**, **Soothe Animal**.
@@ -265,7 +265,7 @@ The checks must produce no Lua error or blocked-action error.
 | Feature | Check | Expected result |
 | --- | --- | --- |
 | Druid buff highlights | Test the declared targetable Druid buffs on the player and another assistable target. Apply and remove equal and stronger ranks. | Each declared targetable buff follows the heal target. Only the selected unit's equal or stronger rank activates the highlight. |
-| Druid player-only buffs | Test Enrage and each Nature's Grasp rank on the player. Trigger Nature's Grasp against an enemy. Change targets and action usability. | Only the player buff activates the highlight. Equal or stronger Nature's Grasp ranks count. The triggered root does not keep the Nature's Grasp highlight active. |
+| Druid player-only buffs | Apply and remove Enrage, Nature's Grasp, and Prowl on the player. Test every declared rank. Trigger Nature's Grasp against an enemy. Change targets and action usability. | Only the matching player buff activates each highlight. Equal or stronger Nature's Grasp and Prowl ranks count. The triggered root does not keep the Nature's Grasp highlight active. |
 | Racial buffs | Apply and remove each supported racial on characters from different classes. Change target selection and action usability. | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it. |
 | Druid self buffs | Apply and remove weaker, equal, and stronger Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. Change action usability. Test flight and player death. | Each usable spell glows when the player lacks an equal or stronger buff and is the heal target. A weaker buff activates the glow. An unusable spell does not glow. |
 | Explicit buff scope | Test undeclared Druid spells and buffs on Warrior, Hunter, and unsupported classes. | No automatic buff highlight appears. Existing explicit mechanics continue. |
