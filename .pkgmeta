@@ -6,5 +6,5 @@ ignore:
   - AGENTS.md
   - install.sh
   - README.md
-  - prism.jpg
+  - prism.png
   - tests
