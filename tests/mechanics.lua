@@ -300,6 +300,53 @@ for _, mechanic in ipairs({ "full-health", "full-mana" }) do
     end)
 end
 
+for _, condition in ipairs({
+    { points = 2, requireUsable = false },
+    { points = 5, requireUsable = true },
+}) do
+    scenario("Target-bound combo points with usability " .. tostring(condition.requireUsable), function(client)
+        local button = client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        client.startRules({
+            {
+                key = "finisher", action = action, visual = "glow", requireUsable = condition.requireUsable,
+                condition = { mechanic = "combo-points", points = condition.points },
+            },
+        })
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for points = 0, 6 do
+                client.comboPoints = points
+                for _, usable in ipairs({ false, true }) do
+                    client.actions[1].isUsable = usable
+                    client.event("ACTION_USABLE_CHANGED")
+                    assert((client.getSpellGlow() ~= nil) == (points == condition.points and (not condition.requireUsable or usable)), "The glow ignored the exact count or usability.")
+                end
+            end
+        end
+        client.comboPoints = condition.points
+        client.refresh()
+        local glow = client.getSpellGlow()
+        assert(glow and glow.ProcLoop:IsPlaying())
+        local frames = #client.frames
+        for _, points in ipairs({ 0, condition.points, { secret = true }, condition.points }) do
+            client.comboPoints = points
+            client.event("PLAYER_TARGET_CHANGED")
+            assert((client.getSpellGlow() ~= nil) == (points == condition.points), "A target change kept stale combo points.")
+        end
+        assert(#client.frames == frames and client.getSpellGlow() == glow)
+        button.visible = false
+        client.refresh()
+        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying())
+        button.visible = true
+        client.refresh()
+        assert(client.getSpellGlow() == glow)
+        client.actions[1] = nil
+        client.refresh()
+        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying())
+    end)
+end
+
 scenario("Exact item selectors and dispel types", function(client)
     client.addActionButton("ActionButton1", 1)
     local rules = {}

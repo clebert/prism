@@ -347,6 +347,17 @@ local mechanicHandlers = {
         showRuleVisual(state)
         state.region:SetAlpha(UnitPowerPercent(unit, Enum.PowerType.Mana, false, fullResourceCurve))
     end,
+    ["combo-points"] = function(state)
+        local points = GetComboPoints("player", "target")
+
+        if issecretvalue(points) or points ~= state.rule.condition.points then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(1)
+    end,
     ["pet-happiness"] = function(state)
         if not UnitExists("pet") or UnitIsDeadOrGhost("pet") then
             hideRuleVisual(state)

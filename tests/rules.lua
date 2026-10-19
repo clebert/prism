@@ -139,6 +139,8 @@ assert(maskRules[1] == usableGlow and maskRules[2] == maskOnly)
 
 for _, condition in ipairs({
     { mechanic = "hostile-target" },
+    { mechanic = "combo-points", points = 2 },
+    { mechanic = "combo-points", points = 5 },
     { mechanic = "tanking", invert = false, grouped = false },
     { mechanic = "tanking", invert = true, grouped = true },
 }) do
@@ -226,6 +228,10 @@ local invalidCases = {
     { "helpful dispel", function(rules)
         rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HELPFUL", dispelType = "Poison" }
     end },
+    { "missing combo points", function(rules) rules[1].condition = { mechanic = "combo-points" } end },
+    { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },
+    { "fractional combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 1.5 } end },
+    { "string combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = "5" } end },
     { "invalid happiness", function(rules) rules[1].condition = { mechanic = "pet-happiness", happiness = 4 } end },
     { "invalid below flag", function(rules)
         rules[1].condition = { mechanic = "pet-happiness", happiness = 3, below = 1 }

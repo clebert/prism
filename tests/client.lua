@@ -20,6 +20,7 @@ local client = {
     healthQueryCount = {},
     fullManaUnits = {},
     manaQueryCount = {},
+    comboPoints = 0,
     threatStatus = 3,
     isTanking = true,
 }
@@ -558,6 +559,15 @@ function UnitPowerPercent(unit, powerType, unmodified, curve)
     assert(curve.points[1][1] == 0 and curve.points[1][2] == 0)
     assert(curve.points[2][1] == 1 and curve.points[2][2] == 1)
     return { manaUnit = unit, alpha = client.fullManaUnits[unit] and 1 or 0 }
+end
+
+function GetComboPoints(unit, target)
+    assert(unit == "player" and target == "target", "The combo-point check requires the current target.")
+    return client.comboPoints
+end
+
+function issecretvalue(value)
+    return type(value) == "table" and value.secret == true
 end
 
 function UnitCastingInfo()
