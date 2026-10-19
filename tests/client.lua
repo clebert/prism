@@ -572,12 +572,18 @@ function UnitChannelInfo()
     end
 end
 
+function IsInGroup()
+    return client.groupType ~= nil
+end
+
 function UnitThreatSituation()
     return client.threatStatus
 end
 
 function UnitDetailedThreatSituation()
-    return { boolean = client.isTanking }
+    if client.threatStatus ~= nil then
+        return { boolean = client.isTanking }
+    end
 end
 
 function client.addActionButton(name, action)

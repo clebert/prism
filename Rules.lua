@@ -17,7 +17,8 @@ local mechanicFields = {
     usable = { mechanic = true },
     ["self-target"] = { mechanic = true },
     ["target-cast"] = { mechanic = true },
-    tanking = { mechanic = true },
+    ["hostile-target"] = { mechanic = true },
+    tanking = { mechanic = true, invert = true, grouped = true },
 }
 local auraMechanics = { aura = true, ["aura-stacks"] = true, ["dispel-type"] = true }
 local units = { player = true, pet = true, target = true, ["heal-target"] = true, ["buff-target"] = true }
@@ -139,6 +140,9 @@ local function checkCondition(condition, action, context)
         check(isInteger(condition.happiness, 1) and condition.happiness <= 3, "The happiness state must be 1, 2, or 3.", context)
         checkBoolean(condition.below, context .. ".below")
         checkBoolean(condition.outOfCombat, context .. ".outOfCombat")
+    elseif mechanic == "tanking" then
+        checkBoolean(condition.invert, context .. ".invert")
+        checkBoolean(condition.grouped, context .. ".grouped")
     end
 end
 

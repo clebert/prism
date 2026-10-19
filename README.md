@@ -60,6 +60,10 @@ Different spell families remain separate, even when their effects are similar.
   Each button highlights while the target has the matching debuff from any caster.
   Entangling Roots also matches the auras from Nature's Grasp. Action usability does not affect these highlights.
 - _Tanking:_ **Growl**, **Challenging Roar** — Highlights while the player tanks a living hostile target. Action usability does not affect the highlight.
+- _Taunt glow:_ **Growl** — Glows in a party or raid while the player does not tank a living hostile target.
+  The action must be usable. A target without threat data also activates the glow.
+- _Missing target debuff:_ **Faerie Fire** — Glows while the action is usable and a living hostile target lacks an equal or stronger debuff.
+  Any caster's equal or stronger rank suppresses the glow. The debuff highlight remains independent of action usability.
 - _Threat reduction:_ **Cower** — Glows while the action is usable and the player tanks a living hostile target.
 - _Interrupts:_ **Bash** — Glows during a hostile target cast or channel while the spell is usable.
 - _Healing:_ **Healing Touch**, **Regrowth**, **Rejuvenation** — Highlights while the heal target is alive and has full health.
@@ -125,7 +129,8 @@ The client selects active auras through secure filters. Addon Lua does not read 
 | `usable` | The action is usable. |
 | `self-target` | The heal target is the player. |
 | `target-cast` | A living hostile target casts or channels. |
-| `tanking` | The player tanks the living hostile target. |
+| `hostile-target` | The target exists, is hostile, and is alive. |
+| `tanking` | The player tanks the living hostile target, unless `invert` is true. |
 
 The unit can be `player`, `pet`, `target`, `heal-target`, or `buff-target`.
 The heal target is an assistable current target, or the player if no assistable target exists.
@@ -136,6 +141,9 @@ Use `buff-target` only for helpful aura conditions with a spell selector.
 
 Set `requireUsable` on a rule to require a usable action. This modifier also applies to `target-cast` rules.
 Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
+Set `invert` on a `tanking` condition to require that the player does not tank the living hostile target.
+A target without threat data satisfies this inverted condition.
+Set `grouped` on a `tanking` condition to require a party or raid. This modifier applies with or without `invert`.
 
 Aura filters support `HELPFUL`, `HARMFUL`, `HELPFUL|PLAYER`, and `HARMFUL|PLAYER`.
 A raw aura condition must pair the `PLAYER` filter with `ownAura = true`.
@@ -224,8 +232,8 @@ bash tests/install.sh
 | Test file | Coverage |
 | --- | --- |
 | `tests/rules.lua` | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC. |
-| `tests/mechanics.lua` | Tests mechanics, action selectors, rank filters, aura filters, item data, unit changes, and player-only resource highlights with synthetic IDs. |
-| `tests/composition.lua` | Tests independent visuals, health, rank-aware glows, cleansing, usability, pet combat, and secure aura suppression with synthetic IDs. |
+| `tests/mechanics.lua` | Tests mechanics, threat inversion, group requirements, selectors, rank filters, aura filters, item data, unit changes, and resource highlights with synthetic IDs. |
+| `tests/composition.lua` | Tests independent visuals, health, rank-aware buff and debuff glows, cleansing, usability, pet combat, and secure aura suppression with synthetic IDs. |
 | `tests/runtime.lua` | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards. |
 | `tests/probe.lua` | Tests the standalone test addon, combat steps, report persistence, and controls. |
 
@@ -279,5 +287,7 @@ The checks must produce no Lua error or blocked-action error.
 | Interrupts | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Bash and Shield Bash usability. | Each spell glows only for a living hostile target cast or channel while usable. |
 | Bash feedback | Make Bash unusable while the target has another druid's Bash. Remove the stun and test hostile casts and channels with a usable Bash. | An equal or stronger stun rank activates the highlight regardless of usability. A hostile cast or channel activates the glow only while Bash is usable. Neither visual requires the other. |
 | Tanking | Gain and lose target threat with Growl, Challenging Roar, and the Warrior taunts. Select a friendly target, a dead target, or no target. Change action usability. | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight. |
+| Growl glow | Gain and lose target threat while solo, in a party, and in a raid. Select an idle enemy without threat data. Change action usability. Test a friendly target, a dead target, and no target. | A usable Growl glows only while grouped and not tanking a living hostile target. No threat data also permits the glow. The tanking highlight remains independent of usability. |
+| Faerie Fire glow | Apply and remove weaker, equal, and stronger ranks from different casters. Change action usability and targets. Test a friendly target, a dead target, and no target. | A usable action glows only for a living hostile target without an equal or stronger debuff from any caster. A weaker rank permits the glow. The existing debuff highlight remains independent of usability. |
 | Threat reduction | Gain and lose target threat. Change Disengage and Cower usability. Test every declared rank. Select a friendly target, a dead target, or no target. | Each spell glows only while the action is usable and the player tanks a living hostile target. |
 | Placement | Test every supported bar. Change UI scale, button size, bar visibility, action pages, and spell placement. | Each visual stays aligned with its button. Hidden bars and replaced actions leave no stale visual. |

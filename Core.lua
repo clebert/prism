@@ -392,15 +392,39 @@ local mechanicHandlers = {
         showRuleVisual(state)
         state.region:SetAlpha(1)
     end,
-    tanking = function(state)
-        if not isLivingHostileTarget() or UnitThreatSituation("player", "target") == nil then
+    ["hostile-target"] = function(state)
+        if not isLivingHostileTarget() then
             hideRuleVisual(state)
             return
         end
 
         showRuleVisual(state)
-        local isTanking = UnitDetailedThreatSituation("player", "target")
-        state.region:SetAlphaFromBoolean(isTanking, booleanTrueAlpha, 0)
+        state.region:SetAlpha(1)
+    end,
+    tanking = function(state)
+        local condition = state.rule.condition
+
+        if not isLivingHostileTarget() or (condition.grouped and not IsInGroup()) then
+            hideRuleVisual(state)
+            return
+        end
+
+        local isTanking = false
+
+        if UnitThreatSituation("player", "target") ~= nil then
+            isTanking = UnitDetailedThreatSituation("player", "target")
+        elseif not condition.invert then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+
+        if condition.invert then
+            state.region:SetAlphaFromBoolean(isTanking, 0, booleanTrueAlpha)
+        else
+            state.region:SetAlphaFromBoolean(isTanking, booleanTrueAlpha, 0)
+        end
     end,
 }
 

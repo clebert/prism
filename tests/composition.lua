@@ -334,67 +334,92 @@ scenario("Missing self buff with secure layout suppression", function(client)
     assert(not client.getSpellGlow(), "The restored suppressor did not hide the glow.")
 end)
 
-scenario("Ranked buff highlights and self-only upgrade glows", function(client)
-    local definitions = {}
-    assert(loadfile("Rules.lua"))("Prism", definitions)
-    local Rules = definitions.Rules
-    local ranks = { spellID, auraID, overrideID }
-    local highlightRule = Rules.RankedAura("buff-highlight", ranks, { unit = "heal-target", filter = "HELPFUL" })
-    local suppressor = Rules.RankedAura("buff-present", ranks, {
-        unit = "player", filter = "HELPFUL", visual = "none", suppressGlow = "buff-missing",
-    })
-    client.addActionButton("ActionButton1", 1)
-    client.actions[1] = { spellID = auraID, isUsable = false }
-    client.startRules({
-        highlightRule,
-        suppressor,
-        { key = "buff-missing", action = highlightRule.action, condition = { mechanic = "self-target" }, visual = "glow" },
-    })
-    client.refresh()
-    local highlight = client.getContainer("player", "buff-highlight")
-    local highlightSlot = highlight.slots["buff-highlight"]
-    local selfBuff = client.getContainer("player", "buff-present")
-    local selfSlot = selfBuff.slots["buff-present"]
-    local layout = client.getLayout("player", "buff-present")
+for _, context in ipairs({
+    { filter = "HELPFUL", unit = "heal-target", suppressorUnit = "player", mechanic = "self-target" },
+    { filter = "HARMFUL", unit = "target", suppressorUnit = "target", mechanic = "hostile-target" },
+}) do
+    scenario("Ranked " .. context.filter .. " highlights and missing-aura glows", function(client)
+        local definitions = {}
+        assert(loadfile("Rules.lua"))("Prism", definitions)
+        local Rules = definitions.Rules
+        local ranks = { spellID, auraID, overrideID }
+        local highlightRule = Rules.RankedAura("aura-highlight", ranks, { unit = context.unit, filter = context.filter })
+        local suppressor = Rules.RankedAura("aura-present", ranks, {
+            unit = context.suppressorUnit, filter = context.filter, visual = "none", suppressGlow = "aura-missing",
+        })
+        client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = auraID, isUsable = false }
+        client.startRules({
+            highlightRule,
+            suppressor,
+            {
+                key = "aura-missing", action = highlightRule.action, condition = { mechanic = context.mechanic },
+                visual = "glow", requireUsable = true,
+            },
+        })
+        client.refresh()
+        local highlight = client.getContainer(context.unit == "target" and "target" or "player", "aura-highlight")
+        local highlightSlot = highlight.slots["aura-highlight"]
+        local present = client.getContainer(context.suppressorUnit, "aura-present")
+        local presentSlot = present.slots["aura-present"]
+        local layout = client.getLayout(context.suppressorUnit, "aura-present")
+        assert(not presentSlot.candidateFilters.isFromPlayerOrPlayerPet, "The suppressor restricts the aura caster.")
 
-    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
-        client.event(event)
-        for _, target in ipairs({
-            { exists = true, friendly = true, unit = "target", glow = false },
-            { exists = true, friendly = false, unit = "player", glow = true },
-            { exists = false, friendly = false, unit = "player", glow = true },
-        }) do
-            client.targetExists, client.targetFriendly = target.exists, target.friendly
-            client.event("PLAYER_TARGET_CHANGED")
-            assert(highlight.unit == target.unit and selfBuff.unit == "player" and layout.unit == "player")
-            for _, playerBuff in ipairs({ false, spellID, auraID, overrideID }) do
-                for _, targetBuff in ipairs({ false, spellID, auraID, overrideID }) do
-                    local hasPlayerBuff = playerBuff == auraID or playerBuff == overrideID
-                    local selectedBuff = playerBuff
-                    if target.unit == "target" then
-                        selectedBuff = targetBuff
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for _, target in ipairs({
+                { exists = true, friendly = true, hostile = false, dead = false },
+                { exists = true, friendly = false, hostile = true, dead = false },
+                { exists = false, friendly = false, hostile = false, dead = false },
+                { exists = true, friendly = false, hostile = true, dead = true },
+            }) do
+                client.targetExists, client.targetFriendly, client.targetHostile = target.exists, target.friendly, target.hostile
+                client.deadUnits.target = target.dead
+                client.event("PLAYER_TARGET_CHANGED")
+                local highlightUnit = context.unit == "target" and "target" or (target.exists and target.friendly and "target" or "player")
+                local targetAllowed = not (target.exists and target.friendly)
+                if context.mechanic == "hostile-target" then
+                    targetAllowed = target.exists and target.hostile and not target.dead
+                end
+                assert(highlight.unit == highlightUnit and present.unit == context.suppressorUnit and layout.unit == context.suppressorUnit)
+                for _, playerAura in ipairs({ false, spellID, auraID, overrideID }) do
+                    for _, targetAura in ipairs({ false, spellID, auraID, overrideID }) do
+                        local selectedAura = playerAura
+                        if highlightUnit == "target" then
+                            selectedAura = targetAura
+                        end
+                        local suppressingAura = playerAura
+                        if context.suppressorUnit == "target" then
+                            suppressingAura = targetAura
+                        end
+                        local highlighted = selectedAura == auraID or selectedAura == overrideID
+                        local suppressed = suppressingAura == auraID or suppressingAura == overrideID
+                        client.setAuraPresent(presentSlot, presentSlot.candidateFilters.includeSpellIDs[suppressingAura] == true)
+                        client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[selectedAura] == true)
+                        for _, usable in ipairs({ false, true }) do
+                            client.actions[1].isUsable = usable
+                            client.event("ACTION_USABLE_CHANGED")
+                            client.refresh()
+                            assert(client.alpha(highlightSlot.texture) == (highlighted and 1 or 0))
+                            assert((client.getSpellGlow() ~= nil) == (targetAllowed and usable and not suppressed))
+                        end
                     end
-                    local highlighted = selectedBuff == auraID or selectedBuff == overrideID
-                    client.setAuraPresent(selfSlot, selfSlot.candidateFilters.includeSpellIDs[playerBuff] == true)
-                    client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[selectedBuff] == true)
-                    client.refresh()
-                    assert(client.alpha(highlightSlot.texture) == (highlighted and 1 or 0))
-                    assert((client.getSpellGlow() ~= nil) == (target.glow and not hasPlayerBuff))
                 end
             end
         end
-    end
-    client.actions[1].spellID = overrideID
-    client.refresh()
-    local slotIDs = selfSlot.candidateFilters.includeSpellIDs
-    local groupIDs = layout.groups["buff-present"].candidateFilters.includeSpellIDs
-    assert(slotIDs[overrideID] and not slotIDs[auraID] and not slotIDs[spellID])
-    assert(groupIDs[overrideID] and not groupIDs[auraID] and not groupIDs[spellID], "The glow suppressor kept the previous rank filter.")
-    client.setAuraPresent(selfSlot, groupIDs[auraID] == true)
-    client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[auraID] == true)
-    client.refresh()
-    assert(client.getSpellGlow() and client.alpha(highlightSlot.texture) == 0, "A weaker buff suppressed the upgrade glow.")
-end)
+        client.targetExists, client.targetFriendly, client.targetHostile, client.deadUnits.target = true, false, true, false
+        client.actions[1].spellID = overrideID
+        client.event("PLAYER_TARGET_CHANGED")
+        local slotIDs = presentSlot.candidateFilters.includeSpellIDs
+        local groupIDs = layout.groups["aura-present"].candidateFilters.includeSpellIDs
+        assert(slotIDs[overrideID] and not slotIDs[auraID] and not slotIDs[spellID])
+        assert(groupIDs[overrideID] and not groupIDs[auraID] and not groupIDs[spellID], "The glow suppressor kept the previous rank filter.")
+        client.setAuraPresent(presentSlot, groupIDs[auraID] == true)
+        client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[auraID] == true)
+        client.refresh()
+        assert(client.getSpellGlow() and client.alpha(highlightSlot.texture) == 0, "A weaker aura suppressed the upgrade glow.")
+    end)
+end
 
 scenario("Independent suppressors reset when their action no longer matches", function(client)
     client.addActionButton("ActionButton1", 1)

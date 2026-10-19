@@ -137,6 +137,16 @@ maskOnly.visual, maskOnly.suppressGlow = "none", usableGlow.key
 local maskRules = Rules.Prepare({ maskOnly, usableGlow })
 assert(maskRules[1] == usableGlow and maskRules[2] == maskOnly)
 
+for _, condition in ipairs({
+    { mechanic = "hostile-target" },
+    { mechanic = "tanking", invert = false, grouped = false },
+    { mechanic = "tanking", invert = true, grouped = true },
+}) do
+    local rule = auraRule()
+    rule.condition = condition
+    Rules.Prepare({ rule })
+end
+
 local invalidCases = {
     { "duplicate key", function(rules) rules[2] = auraRule() end },
     { "sparse list", function(rules) rules[3] = Rules.UsableGlow("glow", ids) end },
@@ -222,6 +232,12 @@ local invalidCases = {
     end },
     { "invalid combat flag", function(rules)
         rules[1].condition = { mechanic = "pet-happiness", happiness = 3, outOfCombat = "pet" }
+    end },
+    { "invalid threat inversion", function(rules)
+        rules[1].condition = { mechanic = "tanking", invert = 1 }
+    end },
+    { "invalid group flag", function(rules)
+        rules[1].condition = { mechanic = "tanking", grouped = "party" }
     end },
     { "missing dependency", function(rules) rules[1].suppressGlow = "missing" end },
     { "non-glow dependency", function(rules)

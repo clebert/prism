@@ -325,39 +325,58 @@ scenario("Exact item selectors and dispel types", function(client)
     assert(not client.getSpellGlow())
 end)
 
-for _, mechanic in ipairs({ "tanking", "target-cast" }) do
+for _, condition in ipairs({
+    { mechanic = "tanking" },
+    { mechanic = "tanking", invert = true },
+    { mechanic = "tanking", grouped = true },
+    { mechanic = "tanking", invert = true, grouped = true },
+    { mechanic = "target-cast" },
+    { mechanic = "hostile-target" },
+}) do
     for _, requireUsable in ipairs({ false, true }) do
-        scenario(mechanic .. " with usability " .. tostring(requireUsable), function(client)
+        local name = condition.mechanic .. " inverted " .. tostring(condition.invert == true) .. " grouped " .. tostring(condition.grouped == true)
+        scenario(name .. " with usability " .. tostring(requireUsable), function(client)
             client.addActionButton("ActionButton1", 1)
             client.actions[1] = { spellID = spellID }
             client.startRules({
-                { key = "target", action = action, condition = { mechanic = mechanic }, requireUsable = requireUsable, visual = "glow" },
+                { key = "target", action = action, condition = condition, requireUsable = requireUsable, visual = "glow" },
             })
-            for _, exists in ipairs({ false, true }) do
-                for _, hostile in ipairs({ false, true }) do
-                    for _, dead in ipairs({ false, true }) do
-                        for _, usable in ipairs({ false, true }) do
-                            client.targetExists, client.targetHostile, client.deadUnits.target = exists, hostile, dead
-                            client.actions[1].isUsable = usable
-                            local allowed = exists and hostile and not dead and (not requireUsable or usable)
-                            if mechanic == "target-cast" then
-                                for _, cast in ipairs({ "none", "cast", "channel" }) do
-                                    client.targetCasting, client.targetChanneling = cast == "cast", cast == "channel"
-                                    client.refresh()
-                                    assert((client.getSpellGlow() ~= nil) == (allowed and cast ~= "none"))
-                                end
-                            else
-                                for _, tanking in ipairs({ false, true }) do
-                                    for _, threat in ipairs({ false, 0, 3 }) do
-                                        client.isTanking, client.threatStatus = tanking, threat
-                                        if threat == false then
-                                            client.threatStatus = nil
-                                        end
+            for _, group in ipairs({ false, "party", "raid" }) do
+                client.groupType = group or nil
+                for _, exists in ipairs({ false, true }) do
+                    for _, hostile in ipairs({ false, true }) do
+                        for _, dead in ipairs({ false, true }) do
+                            for _, usable in ipairs({ false, true }) do
+                                client.targetExists, client.targetHostile, client.deadUnits.target = exists, hostile, dead
+                                client.actions[1].isUsable = usable
+                                local allowed = exists and hostile and not dead and (not requireUsable or usable)
+                                if condition.mechanic == "target-cast" then
+                                    for _, cast in ipairs({ "none", "cast", "channel" }) do
+                                        client.targetCasting, client.targetChanneling = cast == "cast", cast == "channel"
                                         client.refresh()
-                                        local glow = client.getSpellGlow()
-                                        assert((glow ~= nil) == (allowed and tanking and threat ~= false))
-                                        if glow and requireUsable then
-                                            assert(glow.parent.booleanInput and glow.parent.parent.booleanInput, "Tanking and usability share one alpha condition.")
+                                        assert((client.getSpellGlow() ~= nil) == (allowed and cast ~= "none"))
+                                    end
+                                elseif condition.mechanic == "hostile-target" then
+                                    client.refresh()
+                                    assert((client.getSpellGlow() ~= nil) == allowed)
+                                else
+                                    for _, tanking in ipairs({ false, true }) do
+                                        for _, threat in ipairs({ false, 0, 3 }) do
+                                            client.isTanking, client.threatStatus = tanking, threat
+                                            if threat == false then
+                                                client.threatStatus = nil
+                                            end
+                                            client.refresh()
+                                            local glow = client.getSpellGlow()
+                                            local matchesThreat = tanking and threat ~= false
+                                            if condition.invert then
+                                                matchesThreat = not matchesThreat
+                                            end
+                                            local matchesGroup = not condition.grouped or group ~= false
+                                            assert((glow ~= nil) == (allowed and matchesThreat and matchesGroup), "The threat glow has an incorrect condition.")
+                                            if glow and requireUsable and threat ~= false then
+                                                assert(type(glow.parent.booleanInput) == "table" and type(glow.parent.parent.booleanInput) == "table", "Tanking and usability share one alpha condition.")
+                                            end
                                         end
                                     end
                                 end
