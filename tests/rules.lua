@@ -141,8 +141,11 @@ for _, condition in ipairs({
     { mechanic = "hostile-target" },
     { mechanic = "combo-points", points = 2 },
     { mechanic = "combo-points", points = 5 },
+    { mechanic = "full-power", powerType = Enum.PowerType.Energy },
+    { mechanic = "full-power", powerType = Enum.PowerType.Mana },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
-    { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17 },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17, excludeFull = false },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = true },
     { mechanic = "tanking", invert = false, grouped = false },
     { mechanic = "tanking", invert = true, grouped = true },
 }) do
@@ -234,6 +237,15 @@ local invalidCases = {
     { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },
     { "fractional combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 1.5 } end },
     { "string combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = "5" } end },
+    { "missing full-power type", function(rules)
+        rules[1].condition = { mechanic = "full-power" }
+    end },
+    { "invalid full-power type", function(rules)
+        rules[1].condition = { mechanic = "full-power", powerType = -1 }
+    end },
+    { "fractional full-power type", function(rules)
+        rules[1].condition = { mechanic = "full-power", powerType = 0.5 }
+    end },
     { "missing power type", function(rules)
         rules[1].condition = { mechanic = "power-overflow", amount = 25 }
     end },
@@ -254,6 +266,9 @@ local invalidCases = {
     end },
     { "string power amount", function(rules)
         rules[1].condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = "25" }
+    end },
+    { "invalid full-power exclusion", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = 1 }
     end },
     { "invalid happiness", function(rules) rules[1].condition = { mechanic = "pet-happiness", happiness = 4 } end },
     { "invalid below flag", function(rules)

@@ -44,6 +44,9 @@ local healingTouchSpellIDs = {
 local removeCurseSpellIDs = {
     [2782] = true,
 }
+local shiftingPowerSpellIDs = {
+    [1322605] = true,
+}
 
 Prism.classRules.DRUID = {
     Rules.RankedAura("own-moonfire", { 8921, 8924, 8925, 8926, 8927, 8928, 8929, 9833, 9834, 9835 }, ownTargetDebuff),
@@ -56,9 +59,15 @@ Prism.classRules.DRUID = {
         visual = "glow",
     },
     {
+        key = "shifting-power-full-energy",
+        action = { spellIDs = shiftingPowerSpellIDs },
+        condition = { mechanic = "full-power", powerType = Enum.PowerType.Energy },
+        visual = "highlight",
+    },
+    {
         key = "shifting-power-overflow",
-        action = { spellIDs = { [1322605] = true } },
-        condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 40 },
+        action = { spellIDs = shiftingPowerSpellIDs },
+        condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 40, excludeFull = true },
         requireUsable = true,
         visual = "red-blink",
     },

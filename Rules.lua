@@ -13,7 +13,8 @@ local mechanicFields = {
     alive = unitFields,
     ["full-health"] = unitFields,
     ["full-mana"] = unitFields,
-    ["power-overflow"] = { mechanic = true, powerType = true, amount = true },
+    ["full-power"] = { mechanic = true, powerType = true },
+    ["power-overflow"] = { mechanic = true, powerType = true, amount = true, excludeFull = true },
     ["combo-points"] = { mechanic = true, points = true },
     ["pet-happiness"] = { mechanic = true, happiness = true, below = true, outOfCombat = true },
     usable = { mechanic = true },
@@ -140,9 +141,12 @@ local function checkCondition(condition, action, context)
         check(isInteger(condition.applications, 1), "The application count must be a positive integer.", context)
     elseif mechanic == "combo-points" then
         check(isInteger(condition.points, 1), "The combo-point count must be a positive integer.", context)
-    elseif mechanic == "power-overflow" then
+    elseif mechanic == "full-power" or mechanic == "power-overflow" then
         check(isInteger(condition.powerType, 0), "The power type must be a non-negative integer.", context)
-        check(isInteger(condition.amount, 1), "The power amount must be a positive integer.", context)
+        if mechanic == "power-overflow" then
+            check(isInteger(condition.amount, 1), "The power amount must be a positive integer.", context)
+            checkBoolean(condition.excludeFull, context .. ".excludeFull")
+        end
     elseif mechanic == "pet-happiness" then
         check(isInteger(condition.happiness, 1) and condition.happiness <= 3, "The happiness state must be 1, 2, or 3.", context)
         checkBoolean(condition.below, context .. ".below")

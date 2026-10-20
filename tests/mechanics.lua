@@ -302,14 +302,21 @@ end
 
 for _, condition in ipairs({
     { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17 },
-    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = false },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17, excludeFull = true },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = true },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 1, excludeFull = true },
 }) do
-    scenario("Power overflow for type " .. condition.powerType, function(client)
+    scenario("Power overflow " .. condition.powerType .. ", amount " .. condition.amount .. ", exclude full " .. tostring(condition.excludeFull), function(client)
         local button = client.addActionButton("ActionButton1", 1)
         local powerType, amount = condition.powerType, condition.amount
         client.actions[1] = { spellID = spellID }
         client.maxPowers[powerType], client.powers[powerType] = 100, { secret = true, value = 0 }
         client.startRules({
+            {
+                key = "full", action = action, visual = "highlight",
+                condition = { mechanic = "full-power", powerType = powerType },
+            },
             {
                 key = "overflow", action = action, visual = "red-blink", requireUsable = true,
                 condition = condition,
@@ -318,19 +325,28 @@ for _, condition in ipairs({
         client.refresh()
         local warning = client.getHighlight()
         assert(warning and client.alpha(warning) == 0)
+        local highlight
+        for _, frame in ipairs(client.frames) do
+            if frame.frameType == "Texture" and frame.texture == warning.texture and not frame.color then
+                highlight = frame
+            end
+        end
+        assert(highlight and client.alpha(highlight) == 0)
         local frames = #client.frames
         local curves = #client.curves
         for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
             client.event(event)
-            for _, maximum in ipairs({ 100, 120, amount, amount - 5 }) do
+            for _, maximum in ipairs({ 100, 120, amount, math.max(1, amount - 5) }) do
                 client.maxPowers[powerType] = maximum
                 for power = 0, maximum do
                     client.powers[powerType].value = power
                     for _, usable in ipairs({ false, true }) do
                         client.actions[1].isUsable = usable
                         client.event("ACTION_USABLE_CHANGED")
-                        local overflows = power + amount > maximum
-                        assert(client.alpha(warning) == ((overflows and usable) and 1 or 0), "The warning ignored overflow or usability.")
+                        local overflows = power + amount > maximum and (not condition.excludeFull or power < maximum)
+                        assert(client.alpha(warning) == ((overflows and usable) and 1 or 0), "The warning ignored overflow, full power, or usability.")
+                        assert(client.alpha(highlight) == (power == maximum and 1 or 0), "The full-power highlight checked usability or the wrong threshold.")
+                        assert(type(highlight.parent.alpha) == "table", "The full-power result bypassed the alpha API.")
                         assert(type(warning.parent.parent.alpha) == "table", "The resource result bypassed the alpha API.")
                         assert(type(warning.parent.booleanInput) == "table", "The warning has no separate usability condition.")
                     end
@@ -342,29 +358,30 @@ for _, condition in ipairs({
         for _, maximum in ipairs({ 0, { secret = true } }) do
             client.maxPowers[powerType] = maximum
             client.refresh()
-            assert(client.alpha(warning) == 0 and client.powerQueryCount[powerType] == queries)
+            assert(client.alpha(warning) == 0 and client.alpha(highlight) == 0 and client.powerQueryCount[powerType] == queries)
         end
         client.maxPowers[powerType] = 100
         client.powers[powerType].value = 100
         client.targetExists, client.targetFriendly = false, true
         client.event("PLAYER_TARGET_CHANGED")
-        assert(client.alpha(warning) == 1, "Target selection changed the player warning.")
+        local warningAlpha = condition.excludeFull and 0 or 1
+        assert(client.alpha(warning) == warningAlpha and client.alpha(highlight) == 1, "Target selection changed the player feedback.")
         queries = client.powerMaxQueryCount[powerType]
         client.deadUnits.player = true
         client.refresh()
-        assert(client.alpha(warning) == 0 and client.powerMaxQueryCount[powerType] == queries)
+        assert(client.alpha(warning) == 0 and client.alpha(highlight) == 0 and client.powerMaxQueryCount[powerType] == queries)
         client.deadUnits.player = false
         client.refresh()
-        assert(client.alpha(warning) == 1)
+        assert(client.alpha(warning) == warningAlpha and client.alpha(highlight) == 1)
         button.visible = false
         client.refresh()
-        assert(client.alpha(warning) == 0 and not warning.animationGroups[1]:IsPlaying())
+        assert(client.alpha(warning) == 0 and client.alpha(highlight) == 0 and not warning.animationGroups[1]:IsPlaying())
         button.visible = true
         client.refresh()
-        assert(client.alpha(warning) == 1 and warning.animationGroups[1]:IsPlaying())
+        assert(client.alpha(warning) == warningAlpha and client.alpha(highlight) == 1 and warning.animationGroups[1]:IsPlaying())
         client.actions[1] = nil
         client.refresh()
-        assert(client.alpha(warning) == 0 and not warning.animationGroups[1]:IsPlaying())
+        assert(client.alpha(warning) == 0 and client.alpha(highlight) == 0 and not warning.animationGroups[1]:IsPlaying())
     end)
 end
 

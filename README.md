@@ -58,8 +58,9 @@ Different spell families remain separate, even when their effects are similar.
 - _Own target debuffs:_ **Moonfire**, **Rip**, **Rake** — Highlights while the target has the player's matching debuff.
 - _Finisher glow:_ **Rip** — Glows at exactly five combo points on the current target while the action is usable.
   The debuff highlight remains independent of the glow.
-- _Energy overflow warning:_ **Shifting Power** — Blinks red while usable if its 40-energy gain exceeds the player's missing energy.
-  The threshold follows the player's maximum energy.
+- _Energy feedback:_ **Shifting Power** — Highlights while the living player has full energy, regardless of action usability.
+  Below full energy, a usable action blinks red if its 40-energy gain exceeds the player's missing energy.
+  Both conditions follow the player's maximum energy.
 - _Shared target debuffs:_ **Entangling Roots**, **Bash**, **Demoralizing Roar**, **Faerie Fire**, **Hibernate**, **Soothe Animal**.
   Each button highlights while the target has the matching debuff from any caster.
   Entangling Roots also matches the auras from Nature's Grasp. Action usability does not affect these highlights.
@@ -129,7 +130,8 @@ The client selects active auras through secure filters. Addon Lua does not read 
 | `alive`          | The selected unit exists and is alive.                                                      |
 | `full-health`    | The selected unit exists, is alive, and has full health.                                    |
 | `full-mana`      | The selected unit exists, is alive, and has full mana, regardless of its active power type. |
-| `power-overflow` | The declared power amount exceeds the living player's missing power.                       |
+| `full-power`     | The living player has full power of the declared type.                                     |
+| `power-overflow` | The declared power amount exceeds the living player's missing power, unless `excludeFull` excludes full power. |
 | `combo-points`   | The player has exactly the declared combo-point count on the current target.                |
 | `pet-happiness`  | The living pet matches the declared happiness state or is below it when `below` is true.    |
 | `usable`         | The action is usable.                                                                       |
@@ -148,8 +150,11 @@ Use `buff-target` only for helpful aura conditions with a spell selector.
 Set `requireUsable` on a rule to require a usable action. This modifier also applies to `target-cast` rules.
 Set `points` on a `combo-points` condition to require an exact positive count on the current target.
 Restricted combo-point counts do not activate the visual.
+Set `powerType` on a `full-power` condition to test the living player's declared power resource.
+The maximum must be positive and unrestricted.
 Set `powerType` and a positive integer `amount` on a `power-overflow` condition to test player power waste.
 The threshold follows maximum power. Restricted maximum power values do not activate the visual.
+Set `excludeFull` to prevent a `power-overflow` visual at full power.
 Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
 Set `invert` on a `tanking` condition to require that the player does not tank the living hostile target.
 A target without threat data satisfies this inverted condition.
@@ -242,7 +247,7 @@ bash tests/install.sh
 | Test file               | Coverage                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
-| `tests/mechanics.lua`   | Tests resource overflow, combo points, threat, groups, selectors, rank filters, aura filters, item data, unit changes, and resource highlights with synthetic IDs.                 |
+| `tests/mechanics.lua`   | Tests resource overflow, full-power exclusion, combo points, threat, groups, selectors, rank filters, and aura filters. Also tests item data, unit changes, and resource highlights. All tests use synthetic IDs. |
 | `tests/composition.lua` | Tests independent visuals, health, rank-aware buff and debuff glows, cleansing, usability, pet combat, and secure aura suppression with synthetic IDs.                           |
 | `tests/runtime.lua`     | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
@@ -294,7 +299,7 @@ The checks must produce no Lua error or blocked-action error.
 | Pet feeding               | Test each happiness state with and without the Feed Pet Effect buff. Dismiss, replace, or kill the pet. Change Feed Pet usability. Change pet combat separately from player combat.                                                                                                                                                                     | Happy or the active buff activates the highlight, regardless of usability or pet combat. The active buff suppresses the glow. Without the buff, the glow requires a living pet below Happy and out of combat, with a usable action. |
 | Pet revival               | Test a living pet with full or partial health. Dismiss, replace, or kill the pet. Make Revive Pet unusable.                                                                                                                                                                                                                                             | Only a living pet activates the Revive Pet highlight. Pet health and action usability do not affect the highlight.                                                                                                                  |
 | Usable attacks            | Change the usability of each declared usable attack.                                                                                                                                                                                                                                                                                                    | The glow appears only while the action is usable.                                                                                                                                                                                   |
-| Energy overflow           | Test Shifting Power at 60, 61, and 70 energy with a 100-energy maximum. Change action usability, Druid forms, and maximum energy.                                                                                                                                                                                                                          | A usable action blinks red only when its energy gain exceeds missing energy. At a 100-energy maximum, 60 energy gives no warning. The warning starts at 61 energy.                                                                    |
+| Energy feedback           | Test Shifting Power at 60, 61, 70, 99, and 100 energy with a 100-energy maximum. Change action usability, Druid forms, and maximum energy. Test player death. | At a 100-energy maximum, a usable action blinks red from 61 to 99 energy. Full energy activates only the normal highlight, regardless of usability. At 60 energy or less, neither visual appears. Player death hides both visuals. |
 | Rip glow                  | Build and spend combo points on an enemy. Change targets and action usability. Apply and remove Rip. Test every declared rank.                                                                                                                                                                                                                          | A usable Rip glows only at exactly five combo points on the current target. The debuff highlight remains independent of the count and usability.                                                                                    |
 | Interrupts                | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Bash and Shield Bash usability.                                                                                                                                                                                                                             | Each spell glows only for a living hostile target cast or channel while usable.                                                                                                                                                     |
 | Bash feedback             | Make Bash unusable while the target has another druid's Bash. Remove the stun and test hostile casts and channels with a usable Bash.                                                                                                                                                                                                                   | An equal or stronger stun rank activates the highlight regardless of usability. A hostile cast or channel activates the glow only while Bash is usable. Neither visual requires the other.                                          |

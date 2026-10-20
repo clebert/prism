@@ -347,6 +347,23 @@ local mechanicHandlers = {
         showRuleVisual(state)
         state.region:SetAlpha(UnitPowerPercent(unit, Enum.PowerType.Mana, false, fullResourceCurve))
     end,
+    ["full-power"] = function(state)
+        if UnitIsDeadOrGhost("player") then
+            hideRuleVisual(state)
+            return
+        end
+
+        local powerType = state.rule.condition.powerType
+        local maximum = UnitPowerMax("player", powerType, false)
+
+        if issecretvalue(maximum) or maximum <= 0 then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(UnitPowerPercent("player", powerType, false, fullResourceCurve))
+    end,
     ["power-overflow"] = function(state)
         if UnitIsDeadOrGhost("player") then
             hideRuleVisual(state)
@@ -373,7 +390,12 @@ local mechanicHandlers = {
             if firstOverflow > 0 then
                 state.powerCurve:AddPoint(0, 0)
             end
-            state.powerCurve:AddPoint(math.max(0, firstOverflow / maximum), 1)
+            if not condition.excludeFull or firstOverflow < maximum then
+                state.powerCurve:AddPoint(math.max(0, firstOverflow / maximum), 1)
+            end
+            if condition.excludeFull then
+                state.powerCurve:AddPoint(1, 0)
+            end
             state.maxPower = maximum
         end
 
