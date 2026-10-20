@@ -98,6 +98,7 @@ Prism.classRules.DRUID = {
     regrowth,
     rejuvenation,
     abolishPoisonBuff,
+    Rules.RankedAura("dash", { 1850, 9821 }, playerBuff),
     Rules.RankedAura("enrage", { 5229 }, playerBuff),
     Rules.RankedAura("natures-grasp", { 16689, 16810, 16811, 16812, 16813, 17329 }, playerBuff),
     Rules.RankedAura("prowl", { 5215, 6783, 9913 }, playerBuff),
