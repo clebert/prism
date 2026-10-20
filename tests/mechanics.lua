@@ -301,6 +301,74 @@ for _, mechanic in ipairs({ "full-health", "full-mana" }) do
 end
 
 for _, condition in ipairs({
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17 },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
+}) do
+    scenario("Power overflow for type " .. condition.powerType, function(client)
+        local button = client.addActionButton("ActionButton1", 1)
+        local powerType, amount = condition.powerType, condition.amount
+        client.actions[1] = { spellID = spellID }
+        client.maxPowers[powerType], client.powers[powerType] = 100, { secret = true, value = 0 }
+        client.startRules({
+            {
+                key = "overflow", action = action, visual = "red-blink", requireUsable = true,
+                condition = condition,
+            },
+        })
+        client.refresh()
+        local warning = client.getHighlight()
+        assert(warning and client.alpha(warning) == 0)
+        local frames = #client.frames
+        local curves = #client.curves
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for _, maximum in ipairs({ 100, 120, amount, amount - 5 }) do
+                client.maxPowers[powerType] = maximum
+                for power = 0, maximum do
+                    client.powers[powerType].value = power
+                    for _, usable in ipairs({ false, true }) do
+                        client.actions[1].isUsable = usable
+                        client.event("ACTION_USABLE_CHANGED")
+                        local overflows = power + amount > maximum
+                        assert(client.alpha(warning) == ((overflows and usable) and 1 or 0), "The warning ignored overflow or usability.")
+                        assert(type(warning.parent.parent.alpha) == "table", "The resource result bypassed the alpha API.")
+                        assert(type(warning.parent.booleanInput) == "table", "The warning has no separate usability condition.")
+                    end
+                end
+            end
+        end
+        assert(#client.frames == frames and #client.curves == curves, "Resource changes replaced frames or curves.")
+        local queries = client.powerQueryCount[powerType]
+        for _, maximum in ipairs({ 0, { secret = true } }) do
+            client.maxPowers[powerType] = maximum
+            client.refresh()
+            assert(client.alpha(warning) == 0 and client.powerQueryCount[powerType] == queries)
+        end
+        client.maxPowers[powerType] = 100
+        client.powers[powerType].value = 100
+        client.targetExists, client.targetFriendly = false, true
+        client.event("PLAYER_TARGET_CHANGED")
+        assert(client.alpha(warning) == 1, "Target selection changed the player warning.")
+        queries = client.powerMaxQueryCount[powerType]
+        client.deadUnits.player = true
+        client.refresh()
+        assert(client.alpha(warning) == 0 and client.powerMaxQueryCount[powerType] == queries)
+        client.deadUnits.player = false
+        client.refresh()
+        assert(client.alpha(warning) == 1)
+        button.visible = false
+        client.refresh()
+        assert(client.alpha(warning) == 0 and not warning.animationGroups[1]:IsPlaying())
+        button.visible = true
+        client.refresh()
+        assert(client.alpha(warning) == 1 and warning.animationGroups[1]:IsPlaying())
+        client.actions[1] = nil
+        client.refresh()
+        assert(client.alpha(warning) == 0 and not warning.animationGroups[1]:IsPlaying())
+    end)
+end
+
+for _, condition in ipairs({
     { points = 2, requireUsable = false },
     { points = 5, requireUsable = true },
 }) do

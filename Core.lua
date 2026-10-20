@@ -347,6 +347,39 @@ local mechanicHandlers = {
         showRuleVisual(state)
         state.region:SetAlpha(UnitPowerPercent(unit, Enum.PowerType.Mana, false, fullResourceCurve))
     end,
+    ["power-overflow"] = function(state)
+        if UnitIsDeadOrGhost("player") then
+            hideRuleVisual(state)
+            return
+        end
+
+        local condition = state.rule.condition
+        local maximum = UnitPowerMax("player", condition.powerType, false)
+
+        if issecretvalue(maximum) or maximum <= 0 then
+            hideRuleVisual(state)
+            return
+        end
+
+        if not state.powerCurve then
+            state.powerCurve = C_CurveUtil.CreateCurve()
+            state.powerCurve:SetType(Enum.LuaCurveType.Step)
+        end
+
+        if state.maxPower ~= maximum then
+            state.powerCurve:ClearPoints()
+            -- Power uses whole units. One unit above the safe limit causes overflow.
+            local firstOverflow = maximum - condition.amount + 1
+            if firstOverflow > 0 then
+                state.powerCurve:AddPoint(0, 0)
+            end
+            state.powerCurve:AddPoint(math.max(0, firstOverflow / maximum), 1)
+            state.maxPower = maximum
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(UnitPowerPercent("player", condition.powerType, false, state.powerCurve))
+    end,
     ["combo-points"] = function(state)
         local points = GetComboPoints("player", "target")
 

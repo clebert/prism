@@ -20,6 +20,11 @@ local client = {
     healthQueryCount = {},
     fullManaUnits = {},
     manaQueryCount = {},
+    powers = {},
+    maxPowers = {},
+    powerQueryCount = {},
+    powerMaxQueryCount = {},
+    curves = {},
     comboPoints = 0,
     threatStatus = 3,
     isTanking = true,
@@ -445,7 +450,7 @@ Enum = {
     LuaCurveType = { Step = 1 },
     ItemClass = { Consumable = 0 },
     ItemConsumableSubclass = { Bandage = 7 },
-    PowerType = { Mana = 0 },
+    PowerType = { Mana = 0, Energy = 3 },
 }
 C_CurveUtil = {
     CreateCurve = function()
@@ -456,6 +461,10 @@ C_CurveUtil = {
         function curve:AddPoint(x, y)
             self.points[#self.points + 1] = { x, y }
         end
+        function curve:ClearPoints()
+            self.points = {}
+        end
+        client.curves[#client.curves + 1] = curve
         return curve
     end,
 }
@@ -551,7 +560,31 @@ function UnitHealthPercent(unit, usePredicted, curve)
     return { healthUnit = unit, alpha = client.fullHealthUnits[unit] and 1 or 0 }
 end
 
+function UnitPowerMax(unit, powerType, unmodified)
+    assert(unit == "player" and unmodified == false)
+    client.powerMaxQueryCount[powerType] = (client.powerMaxQueryCount[powerType] or 0) + 1
+    return client.maxPowers[powerType] or 0
+end
+
 function UnitPowerPercent(unit, powerType, unmodified, curve)
+    if client.maxPowers[powerType] ~= nil then
+        assert(unit == "player" and unmodified == false)
+        assert(curve.curveType == Enum.LuaCurveType.Step and #curve.points > 0)
+        client.powerQueryCount[powerType] = (client.powerQueryCount[powerType] or 0) + 1
+        local power = client.powers[powerType]
+        if type(power) == "table" then
+            power = power.value
+        end
+        local percent = power / client.maxPowers[powerType]
+        local alpha = curve.points[1][2]
+        for _, point in ipairs(curve.points) do
+            if percent >= point[1] then
+                alpha = point[2]
+            end
+        end
+        return { secret = true, powerType = powerType, alpha = alpha }
+    end
+
     client.manaQueryCount[unit] = (client.manaQueryCount[unit] or 0) + 1
     assert(powerType == Enum.PowerType.Mana, "The mana check used another power type.")
     assert(unmodified == false)

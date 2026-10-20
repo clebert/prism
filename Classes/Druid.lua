@@ -55,6 +55,13 @@ Prism.classRules.DRUID = {
         requireUsable = true,
         visual = "glow",
     },
+    {
+        key = "shifting-power-overflow",
+        action = { spellIDs = { [1322605] = true } },
+        condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 40 },
+        requireUsable = true,
+        visual = "red-blink",
+    },
     Rules.RankedAura("own-rake", { 1822, 1823, 1824, 9904 }, ownTargetDebuff),
     -- Nature's Grasp applies separate auras for each Entangling Roots rank.
     Rules.RankedAura("entangling-roots", {

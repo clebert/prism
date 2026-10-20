@@ -141,6 +141,8 @@ for _, condition in ipairs({
     { mechanic = "hostile-target" },
     { mechanic = "combo-points", points = 2 },
     { mechanic = "combo-points", points = 5 },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
+    { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17 },
     { mechanic = "tanking", invert = false, grouped = false },
     { mechanic = "tanking", invert = true, grouped = true },
 }) do
@@ -232,6 +234,27 @@ local invalidCases = {
     { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },
     { "fractional combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 1.5 } end },
     { "string combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = "5" } end },
+    { "missing power type", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", amount = 25 }
+    end },
+    { "invalid power type", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = -1, amount = 25 }
+    end },
+    { "fractional power type", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = 0.5, amount = 25 }
+    end },
+    { "missing power amount", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy }
+    end },
+    { "zero power amount", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 0 }
+    end },
+    { "fractional power amount", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 1.5 }
+    end },
+    { "string power amount", function(rules)
+        rules[1].condition = { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = "25" }
+    end },
     { "invalid happiness", function(rules) rules[1].condition = { mechanic = "pet-happiness", happiness = 4 } end },
     { "invalid below flag", function(rules)
         rules[1].condition = { mechanic = "pet-happiness", happiness = 3, below = 1 }
