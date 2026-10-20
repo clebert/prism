@@ -6,6 +6,7 @@ local spellID, auraID, rankID, overrideID = 999101, 999102, 999103, 999104
 local action = { spellIDs = { [spellID] = true, [rankID] = true } }
 
 local function assertIDs(actual, expected)
+    assert(type(actual) == "table", "The aura filter has no spell ID set.")
     for id in pairs(expected) do
         assert(actual[id], "The filter excludes a declared ID.")
     end
@@ -190,6 +191,95 @@ for _, mechanic in ipairs({ "alive", "full-health" }) do
         assert(client.alpha(texture) == 0)
     end)
 end
+
+scenario("Item use spells and aura identity", function(client)
+    client.addActionButton("ActionButton1", 1)
+    local itemID, unknownID, noSpellID = 999201, 999202, 999203
+    client.actions[1] = { itemID = itemID, spellID = auraID, isUsable = false }
+    client.startRules({
+        {
+            key = "item", action = { anyItem = true }, visual = "highlight", suppressGlow = "item-glow",
+            condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", includeItemSpellID = true },
+        },
+        {
+            key = "item-glow", action = { anyItem = true }, visual = "glow",
+            condition = { mechanic = "usable" },
+        },
+        {
+            key = "exception", action = { itemIDs = { [itemID] = true } }, visual = "highlight",
+            condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [overrideID] = true } },
+        },
+        {
+            key = "spell", action = { anySpell = true }, visual = "highlight",
+            condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", includeActionSpellID = true },
+        },
+    })
+    client.refresh()
+    local container = client.getContainer("player", "item")
+    local layout = client.getLayout("player", "item")
+    local exception = client.getContainer("player", "exception")
+    local function assertItemIDs(expected)
+        assertIDs(container.slots.item.candidateFilters.includeSpellIDs, expected)
+        assertIDs(layout.groups.item.candidateFilters.includeSpellIDs, expected)
+    end
+    assert(container and container.slots.item.filter == "HELPFUL")
+    assertItemIDs({})
+    assert(client.itemLoadRequests[itemID], "Missing item data did not trigger a load request.")
+    assert(not client.getContainer("player", "spell"), "An item matched a spell selector.")
+    local frames = #client.frames
+    client.items[itemID] = { classID = 0, subClassID = 7, spellID = spellID }
+    client.refresh()
+    assertItemIDs({ [spellID] = true })
+    assertIDs(exception.slots.exception.candidateFilters.includeSpellIDs, { [overrideID] = true })
+    assert(client.alpha(container) == 1, "The item buff requires a usable action.")
+    assert(#client.frames == frames, "Item data created duplicate aura frames.")
+    local changes, slotChanges = container.filterChangeCount, container.slotChangeCount
+    client.items[itemID] = nil
+    client.targetFriendly = true
+    client.event("PLAYER_TARGET_CHANGED")
+    assert(container.unit == "player")
+    assertItemIDs({ [spellID] = true })
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        client.refresh()
+        assert(container.filterChangeCount == changes and container.slotChangeCount == slotChanges)
+        assert(layout.filterChangeCount == changes)
+    end
+    client.items[itemID] = { spellID = rankID }
+    client.refresh()
+    assertItemIDs({ [rankID] = true })
+    assert(container.filterChangeCount == changes + 1)
+    assertIDs(exception.slots.exception.candidateFilters.includeSpellIDs, { [overrideID] = true })
+    client.actions[1] = { itemID = unknownID }
+    client.refresh()
+    assertItemIDs({})
+    assert(not exception.enabled, "An unrelated item kept an explicit aura mapping.")
+    client.items[unknownID] = { spellID = auraID }
+    client.refresh()
+    assertItemIDs({ [auraID] = true })
+    client.actions[1] = { itemID = noSpellID }
+    for _, item in ipairs({ {}, { spellID = 0 }, { spellID = -1 } }) do
+        client.items[noSpellID] = item
+        client.refresh()
+        assertItemIDs({})
+    end
+    assert(not client.itemLoadRequests[noSpellID], "An item without a use spell triggered a data request.")
+    client.actions[1] = { spellID = spellID }
+    client.refresh()
+    assert(not container.enabled and not container.slots.item.enabled)
+    assert(client.getContainer("player", "spell").enabled)
+    client.actions[1] = { itemID = unknownID }
+    client.refresh()
+    assert(container.enabled and container.slots.item.enabled)
+    assertItemIDs({ [auraID] = true })
+    client.addActionButton("ActionButton2", 2)
+    client.actions[2] = { itemID = unknownID }
+    client.refresh()
+    local second = client.getContainer("player", "item")
+    assert(second ~= container)
+    assertIDs(second.slots.item.candidateFilters.includeSpellIDs, { [auraID] = true })
+    assertIDs(client.getLayout("player", "item").groups.item.candidateFilters.includeSpellIDs, { [auraID] = true })
+end)
 
 scenario("Item categories, delayed data, and heal targets", function(client)
     client.addActionButton("ActionButton1", 1)

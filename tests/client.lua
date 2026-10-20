@@ -3,6 +3,7 @@ local client = {
     actions = {},
     actionQueryCount = {},
     items = {},
+    itemLoadRequests = {},
     baseSpellIDs = {},
     helpfulSpells = {},
     selfBuffSpells = {},
@@ -501,6 +502,18 @@ C_Item = {
         if item then
             return nil, nil, nil, nil, nil, item.classID, item.subClassID
         end
+    end,
+    GetItemSpell = function(itemID)
+        local item = client.items[itemID]
+        if item and item.spellID then
+            return "Item spell", item.spellID
+        end
+    end,
+    IsItemDataCachedByID = function(itemID)
+        return client.items[itemID] ~= nil
+    end,
+    RequestLoadItemDataByID = function(itemID)
+        client.itemLoadRequests[itemID] = (client.itemLoadRequests[itemID] or 0) + 1
     end,
 }
 C_UnitAuras = setmetatable({}, {

@@ -10,16 +10,19 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 - _Racial buffs:_ **Shadowmeld**, **Elune's Light** — Highlights while the player has the action's buff.
   Target selection and action usability do not affect the highlight.
+- _Item buffs:_ Highlights an item while the player has a helpful aura with the same ID as the item's use spell.
+  This includes **Night Watchman's Torch**. Target selection and action usability do not affect the highlight.
+  Different aura IDs and passive equipment buffs require explicit rules.
 - _Bandages:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
 - _Healing potions:_ Highlights **healing potions** while the player is alive and has full health. The current target and action usability do not affect the highlight.
 - _Mana potions:_ Highlights **mana potions** while the player is alive and has full mana. The current target and action usability do not affect the highlight.
 - _Poison cleansing:_ Glows **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom** while the item is usable and the heal target has a poison debuff.
 - _Disease cleansing:_ Glows **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice** while the item is usable and the heal target has a disease debuff.
 
-Spell aura feedback requires an explicit rule. Shared rules include the declared racial buffs.
+Spell actions require explicit aura rules. Shared aura rules cover the declared racial buffs and automatic item buff matching.
 Only Druid declarations use same-or-stronger rank matching.
-Warrior and Hunter retain their existing explicit mechanics and shared racial feedback.
-Undeclared spells receive no automatic buff highlight.
+Warrior and Hunter use their explicit mechanics and the shared rules.
+Undeclared spell actions receive no automatic buff highlight.
 
 ### Warrior
 
@@ -109,10 +112,16 @@ The TOC loads these files in that order. Add each class file after `Shared.lua` 
 Each rule defines a unique `key`, an `action` selector, a `condition`, and a `visual`.
 
 Action selectors match spell IDs, item IDs, or item categories. Spell selectors also match the base spell ID.
-Aura filters match only their declared IDs.
+`anySpell` matches all spell actions. `anyItem` matches all item actions.
+Aura filters use declared IDs or the spell IDs selected by the condition.
 
-Keep action IDs separate from aura IDs. Set `includeActionSpellID` only when the action can also identify the aura.
-This flag adds only the current action ID. It does not infer spell families or ranks.
+Keep action IDs separate from aura IDs. Set `includeActionSpellID` only when the spell action can also identify the aura.
+This flag requires a spell selector and adds only the current spell action ID.
+Set `includeItemSpellID` to add the item's use spell ID from `C_Item.GetItemSpell`. This flag requires an item selector.
+Neither flag infers triggered effects, spell families, or ranks.
+If item data is not cached, the core requests it and retries on later refreshes.
+A missing use spell produces an empty ID filter unless the condition declares other IDs. An empty ID filter admits no aura.
+Use `auraSpellIDs` without `includeItemSpellID` for an explicit item mapping.
 Several rules can apply to one action. Each aura rule uses a separate secure container for its filter and alpha.
 
 Set `auraSpellIDsByAction` to provide a separate aura ID set for each action ID.
@@ -124,8 +133,8 @@ The client selects active auras through secure filters. Addon Lua does not read 
 
 | Mechanic         | Condition                                                                                   |
 | ---------------- | ------------------------------------------------------------------------------------------- |
-| `aura`           | A declared buff or debuff is active on the selected unit.                                   |
-| `aura-stacks`    | A declared aura reaches the specified application count.                                    |
+| `aura`           | A matching buff or debuff is active on the selected unit.                                   |
+| `aura-stacks`    | A matching aura reaches the specified application count.                                    |
 | `dispel-type`    | A debuff with the specified dispel type is active on the selected unit.                     |
 | `alive`          | The selected unit exists and is alive.                                                      |
 | `full-health`    | The selected unit exists, is alive, and has full health.                                    |
@@ -247,7 +256,7 @@ bash tests/install.sh
 | Test file               | Coverage                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
-| `tests/mechanics.lua`   | Tests resource overflow, full-power exclusion, combo points, threat, groups, selectors, rank filters, and aura filters. Also tests item data, unit changes, and resource highlights. All tests use synthetic IDs. |
+| `tests/mechanics.lua`   | Tests resource overflow, full-power exclusion, combo points, threat, groups, selectors, rank filters, and aura filters. Also tests item use spells, delayed data, unit changes, and resource highlights. All tests use synthetic IDs. |
 | `tests/composition.lua` | Tests independent visuals, health, rank-aware buff and debuff glows, cleansing, usability, pet combat, and secure aura suppression with synthetic IDs.                           |
 | `tests/runtime.lua`     | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
@@ -282,6 +291,7 @@ The checks must produce no Lua error or blocked-action error.
 | Druid buff highlights     | Test the declared targetable Druid buffs on the player and another assistable target. Apply and remove equal and stronger ranks.                                                                                                                                                                                                                        | Each declared targetable buff follows the heal target. Only the selected unit's equal or stronger rank activates the highlight.                                                                                                     |
 | Druid player-only buffs   | Apply and remove Enrage, Nature's Grasp, and Prowl on the player. Test every declared rank. Trigger Nature's Grasp against an enemy. Change targets and action usability.                                                                                                                                                                               | Only the matching player buff activates each highlight. Equal or stronger Nature's Grasp and Prowl ranks count. The triggered root does not keep the Nature's Grasp highlight active.                                               |
 | Racial buffs              | Apply and remove each supported racial on characters from different classes. Change target selection and action usability.                                                                                                                                                                                                                              | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it.                                                                                                               |
+| Item buffs                | Apply and remove a buff whose aura ID matches the item use spell ID. Test Night Watchman's Torch. Change targets and action usability. Test an item without a use spell. Change action pages and item placement. | Only the matching player buff activates the item highlight. Other aura IDs and spell actions do not activate it. Target selection and usability do not affect it. |
 | Druid self buffs          | Apply and remove weaker, equal, and stronger Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. Change action usability. Test flight and player death.                                                                                                                                 | Each usable spell glows when the player lacks an equal or stronger buff and is the heal target. A weaker buff activates the glow. An unusable spell does not glow.                                                                  |
 | Explicit buff scope       | Test undeclared Druid spells and buffs on Warrior, Hunter, and unsupported classes.                                                                                                                                                                                                                                                                     | No automatic buff highlight appears. Existing explicit mechanics continue.                                                                                                                                                          |
 | Druid healing             | Test all three spells at full and partial health on the player and an assistable target. Test death, hostile targets, and no target. Apply and remove Regrowth and Rejuvenation. Change action usability.                                                                                                                                               | The full-health highlight requires a living heal target at full health. Buff highlights remain independent. Action usability does not affect either highlight.                                                                      |

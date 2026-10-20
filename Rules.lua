@@ -3,8 +3,8 @@ local _, Prism = ...
 local Rules = {}
 Prism.Rules = Rules
 
-local auraFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, ownAura = true }
-local stackFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, ownAura = true, applications = true }
+local auraFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, includeItemSpellID = true, ownAura = true }
+local stackFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, includeItemSpellID = true, ownAura = true, applications = true }
 local unitFields = { mechanic = true, unit = true }
 local mechanicFields = {
     aura = auraFields,
@@ -28,7 +28,7 @@ local units = { player = true, pet = true, target = true, ["heal-target"] = true
 local visuals = { highlight = true, ["red-blink"] = true, glow = true, none = true }
 local filters = { HELPFUL = true, HARMFUL = true, ["HELPFUL|PLAYER"] = true, ["HARMFUL|PLAYER"] = true }
 local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true, Bleed = true, None = true }
-local actionFields = { anySpell = true, spellIDs = true, itemIDs = true, itemClassID = true, itemSubClassID = true }
+local actionFields = { anySpell = true, anyItem = true, spellIDs = true, itemIDs = true, itemClassID = true, itemSubClassID = true }
 local ruleFields = { key = true, action = true, condition = true, visual = true, requireUsable = true, suppressGlow = true }
 local debuffOptions = { ownAura = true, includeActionSpellID = true, applications = true }
 local rankedAuraOptions = { unit = true, filter = true, ownAura = true, applications = true, visual = true, requireUsable = true, suppressGlow = true }
@@ -66,9 +66,11 @@ local function checkAction(action, context)
     checkFields(action, actionFields, context)
     local selectors = 0
 
-    if action.anySpell ~= nil then
-        check(action.anySpell == true, "anySpell must be true.", context)
-        selectors = selectors + 1
+    for _, field in ipairs({ "anySpell", "anyItem" }) do
+        if action[field] ~= nil then
+            check(action[field] == true, field .. " must be true.", context)
+            selectors = selectors + 1
+        end
     end
 
     for _, field in ipairs({ "spellIDs", "itemIDs" }) do
@@ -110,9 +112,10 @@ local function checkCondition(condition, action, context)
         else
             checkBoolean(condition.ownAura, context .. ".ownAura")
             checkBoolean(condition.includeActionSpellID, context .. ".includeActionSpellID")
+            checkBoolean(condition.includeItemSpellID, context .. ".includeItemSpellID")
             local hasPlayerFilter = condition.filter == "HELPFUL|PLAYER" or condition.filter == "HARMFUL|PLAYER"
             check(hasPlayerFilter == (condition.ownAura == true), "The ownership checks must agree.", context)
-            check(condition.auraSpellIDs ~= nil or condition.auraSpellIDsByAction ~= nil or condition.includeActionSpellID == true, "An aura needs declared IDs or the action spell ID.", context)
+            check(condition.auraSpellIDs ~= nil or condition.auraSpellIDsByAction ~= nil or condition.includeActionSpellID == true or condition.includeItemSpellID == true, "An aura needs declared IDs, the action spell ID, or the item use spell ID.", context)
 
             if condition.auraSpellIDs ~= nil then
                 checkIDs(condition.auraSpellIDs, context .. ".auraSpellIDs")
@@ -133,6 +136,10 @@ local function checkCondition(condition, action, context)
 
             if condition.includeActionSpellID then
                 check(action.anySpell or action.spellIDs, "The action spell ID requires a spell selector.", context)
+            end
+
+            if condition.includeItemSpellID then
+                check(action.anyItem or action.itemIDs or action.itemClassID ~= nil, "The item use spell ID requires an item selector.", context)
             end
         end
     end
@@ -160,6 +167,10 @@ end
 local function coversAction(cover, action)
     if cover.anySpell then
         return action.anySpell or action.spellIDs ~= nil
+    end
+
+    if cover.anyItem then
+        return action.anyItem or action.itemIDs ~= nil or action.itemClassID ~= nil
     end
 
     for _, field in ipairs({ "spellIDs", "itemIDs" }) do

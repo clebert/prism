@@ -65,6 +65,12 @@ Prism.sharedRules = {
         visual = "highlight",
     },
     {
+        key = "item-buff",
+        action = { anyItem = true },
+        condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", includeItemSpellID = true },
+        visual = "highlight",
+    },
+    {
         key = "bandage-full-health",
         action = bandageAction,
         condition = { mechanic = "full-health", unit = "heal-target" },

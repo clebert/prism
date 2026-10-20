@@ -104,10 +104,10 @@ local function resolveUnit(unit, spellID)
     return "player"
 end
 
-local function createAuraCandidateFilters(condition, actionSpellID)
+local function createAuraCandidateFilters(condition, actionSpellID, itemSpellID)
     local filters = { isFromPlayerOrPlayerPet = condition.ownAura or nil }
 
-    if condition.auraSpellIDs or condition.auraSpellIDsByAction or condition.includeActionSpellID then
+    if condition.auraSpellIDs or condition.auraSpellIDsByAction or condition.includeActionSpellID or condition.includeItemSpellID then
         local includeSpellIDs = {}
         local auraSpellIDs = condition.auraSpellIDs
 
@@ -123,6 +123,10 @@ local function createAuraCandidateFilters(condition, actionSpellID)
             includeSpellIDs[actionSpellID] = true
         end
 
+        if condition.includeItemSpellID and itemSpellID then
+            includeSpellIDs[itemSpellID] = true
+        end
+
         filters.includeSpellIDs = includeSpellIDs
     end
 
@@ -133,7 +137,7 @@ local function createAuraCandidateFilters(condition, actionSpellID)
     return filters
 end
 
-local function createGlowSuppression(overlay, rule, spellID)
+local function createGlowSuppression(overlay, rule, spellID, itemSpellID)
     local suppressedState = overlay.states[rule.suppressGlow]
     assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
     local condition = rule.condition
@@ -143,7 +147,7 @@ local function createGlowSuppression(overlay, rule, spellID)
     container:SetUnit(resolveUnit(condition.unit, spellID))
     container:AddAuraGroup(rule.key, condition.filter, {
         maxFrameCount = 1,
-        candidateFilters = createAuraCandidateFilters(condition, spellID),
+        candidateFilters = createAuraCandidateFilters(condition, spellID, itemSpellID),
         -- Two viewport widths move an active glow outside the viewport.
         layout = { elementWidth = width, elementHeight = 1 },
         initializeFrame = function(marker)
@@ -162,9 +166,9 @@ local function createGlowSuppression(overlay, rule, spellID)
     return container, width
 end
 
-local function createRuleState(overlay, rule, spellID)
+local function createRuleState(overlay, rule, spellID, itemSpellID)
     local condition = rule.condition
-    local state = { rule = rule, active = true, actionSpellID = spellID }
+    local state = { rule = rule, active = true, actionSpellID = spellID, itemSpellID = itemSpellID }
 
     if not auraMechanics[condition.mechanic] then
         -- Keep condition alpha separate from visual animation alpha.
@@ -206,7 +210,7 @@ local function createRuleState(overlay, rule, spellID)
     state.auraContainer = container
 
     container:AddAuraSlot(rule.key, condition.filter, {
-        candidateFilters = createAuraCandidateFilters(condition, spellID),
+        candidateFilters = createAuraCandidateFilters(condition, spellID, itemSpellID),
         initializeFrame = function(auraButton)
             auraButton:EnableMouse(false)
             auraButton:SetAllPoints()
@@ -245,7 +249,7 @@ local function createRuleState(overlay, rule, spellID)
         end,
     })
     if rule.suppressGlow then
-        state.suppressionLayout, state.suppressionWidth = createGlowSuppression(overlay, rule, spellID)
+        state.suppressionLayout, state.suppressionWidth = createGlowSuppression(overlay, rule, spellID, itemSpellID)
     end
     container:Show()
     container:SetEnabled(true)
@@ -494,7 +498,7 @@ local mechanicHandlers = {
     end,
 }
 
-local function updateRuleState(state, spellID, actionSlotID)
+local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
     local rule = state.rule
     local condition = rule.condition
     local container = state.auraContainer
@@ -519,13 +523,17 @@ local function updateRuleState(state, spellID, actionSlotID)
         state.unit = unit
     end
 
-    if (condition.includeActionSpellID or condition.auraSpellIDsByAction) and state.actionSpellID ~= spellID then
-        local filters = createAuraCandidateFilters(condition, spellID)
+    if
+        ((condition.includeActionSpellID or condition.auraSpellIDsByAction) and state.actionSpellID ~= spellID)
+        or (condition.includeItemSpellID and state.itemSpellID ~= itemSpellID)
+    then
+        local filters = createAuraCandidateFilters(condition, spellID, itemSpellID)
         container:SetAuraSlotCandidateFilters(rule.key, filters)
         if state.suppressionLayout then
             state.suppressionLayout:SetAuraGroupCandidateFilters(rule.key, filters)
         end
         state.actionSpellID = spellID
+        state.itemSpellID = itemSpellID
     end
 
     if rule.requireUsable then
@@ -548,6 +556,10 @@ local function matchesAction(action, spellID, baseSpellID, itemID, classID, subC
         return spellID ~= nil
     end
 
+    if action.anyItem then
+        return itemID ~= nil
+    end
+
     if action.spellIDs then
         return spellID ~= nil and (action.spellIDs[spellID] == true or action.spellIDs[baseSpellID] == true)
     end
@@ -559,7 +571,7 @@ local function matchesAction(action, spellID, baseSpellID, itemID, classID, subC
     return itemID ~= nil and classID == action.itemClassID and subClassID == action.itemSubClassID
 end
 
-local function updateActionRules(overlay, spellID, itemID, classID, subClassID)
+local function updateActionRules(overlay, spellID, itemID, classID, subClassID, itemSpellID)
     local baseSpellID = spellID and C_Spell.GetBaseSpell(spellID)
     local selectedRules = {}
     local activeStates = {}
@@ -570,7 +582,7 @@ local function updateActionRules(overlay, spellID, itemID, classID, subClassID)
             local state = overlay.states[rule.key]
 
             if not state then
-                state = createRuleState(overlay, rule, spellID)
+                state = createRuleState(overlay, rule, spellID, itemSpellID)
                 overlay.states[rule.key] = state
             else
                 setRuleStateActive(state, true)
@@ -589,6 +601,7 @@ local function updateActionRules(overlay, spellID, itemID, classID, subClassID)
     overlay.activeStates = activeStates
     overlay.spellID = spellID
     overlay.itemID = itemID
+    overlay.itemSpellID = itemSpellID
     overlay.itemClassID = classID
     overlay.itemSubClassID = subClassID
     overlay.hasActionMatch = true
@@ -669,14 +682,26 @@ local function getActionItem(actionSlotID, overlay)
     end
 
     local _, _, _, _, _, classID, subClassID = C_Item.GetItemInfoInstant(itemID)
+    local _, itemSpellID = C_Item.GetItemSpell(itemID)
 
-    -- Retain a known category while the client holds no data for the same item.
-    if not classID and overlay and overlay.itemID == itemID then
-        classID = overlay.itemClassID
-        subClassID = overlay.itemSubClassID
+    if itemSpellID and itemSpellID <= 0 then
+        itemSpellID = nil
     end
 
-    return itemID, classID, subClassID
+    -- Keep known item data through a temporary cache miss.
+    if overlay and overlay.itemID == itemID then
+        if not classID then
+            classID = overlay.itemClassID
+            subClassID = overlay.itemSubClassID
+        end
+        itemSpellID = itemSpellID or overlay.itemSpellID
+    end
+
+    if not itemSpellID and not C_Item.IsItemDataCachedByID(itemID) then
+        C_Item.RequestLoadItemDataByID(itemID)
+    end
+
+    return itemID, classID, subClassID, itemSpellID
 end
 
 local function createActionButtonOverlay()
@@ -691,11 +716,13 @@ local function updateActionButtonOverlay(actionButton)
     local actionButtonName = actionButton:GetName()
     local overlay = actionButtonOverlays[actionButtonName]
     local actionSlotID = actionButton.action
-    local spellID, itemID, classID, subClassID
+    local spellID, itemID, classID, subClassID, itemSpellID
 
     if actionSlotID and actionSlotID > 0 and C_ActionBar.HasAction(actionSlotID) then
-        spellID = getActionSpellID(actionSlotID)
-        itemID, classID, subClassID = getActionItem(actionSlotID, overlay)
+        itemID, classID, subClassID, itemSpellID = getActionItem(actionSlotID, overlay)
+        if not itemID then
+            spellID = getActionSpellID(actionSlotID)
+        end
     end
 
     if not overlay and not spellID and not itemID then
@@ -711,10 +738,11 @@ local function updateActionButtonOverlay(actionButton)
         not overlay.hasActionMatch
         or overlay.spellID ~= spellID
         or overlay.itemID ~= itemID
+        or overlay.itemSpellID ~= itemSpellID
         or overlay.itemClassID ~= classID
         or overlay.itemSubClassID ~= subClassID
     then
-        updateActionRules(overlay, spellID, itemID, classID, subClassID)
+        updateActionRules(overlay, spellID, itemID, classID, subClassID, itemSpellID)
     end
 
     overlay.lastRefreshGeneration = refreshGeneration
@@ -723,7 +751,7 @@ local function updateActionButtonOverlay(actionButton)
     placeActionButtonOverlay(overlay, actionButton)
 
     for _, state in ipairs(overlay.activeStates) do
-        updateRuleState(state, spellID, actionSlotID)
+        updateRuleState(state, spellID, itemSpellID, actionSlotID)
     end
 end
 

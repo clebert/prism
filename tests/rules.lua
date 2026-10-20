@@ -109,6 +109,18 @@ local function mappedAuraRule()
 end
 Rules.Prepare({ mappedAuraRule() })
 
+for _, selector in ipairs({ { anyItem = true }, { itemIDs = ids }, { itemClassID = 0, itemSubClassID = 7 } }) do
+    for _, mechanic in ipairs({ "aura", "aura-stacks" }) do
+        local rule = auraRule()
+        rule.action = selector
+        rule.condition = {
+            mechanic = mechanic, unit = "player", filter = "HELPFUL", includeItemSpellID = true,
+            applications = mechanic == "aura-stacks" and 3 or nil,
+        }
+        Rules.Prepare({ rule })
+    end
+end
+
 for _, own in ipairs({ false, true }) do
     for _, includeAction in ipairs({ false, true }) do
         local options = { ownAura = own, includeActionSpellID = includeAction }
@@ -169,6 +181,9 @@ local invalidCases = {
     { "two selectors", function(rules) rules[1].action.itemIDs = ids end },
     { "unknown selector", function(rules) rules[1].action.typo = ids end },
     { "false wildcard", function(rules) rules[1].action = { anySpell = false } end },
+    { "false item wildcard", function(rules) rules[1].action = { anyItem = false } end },
+    { "two wildcards", function(rules) rules[1].action = { anySpell = true, anyItem = true } end },
+    { "item wildcard and IDs", function(rules) rules[1].action = { anyItem = true, itemIDs = ids } end },
     { "incomplete category", function(rules) rules[1].action = { itemClassID = 0 } end },
     { "invalid category", function(rules) rules[1].action = { itemClassID = -1, itemSubClassID = 7 } end },
     { "empty ID set", function(rules) rules[1].action.spellIDs = {} end },
@@ -219,6 +234,11 @@ local invalidCases = {
     { "missing ownership", function(rules) rules[1].condition.filter = "HARMFUL|PLAYER" end },
     { "invalid ownership", function(rules) rules[1].condition.ownAura = "true" end },
     { "invalid action flag", function(rules) rules[1].condition.includeActionSpellID = 1 end },
+    { "invalid item flag", function(rules)
+        rules[1].action = { anyItem = true }
+        rules[1].condition.includeItemSpellID = 1
+    end },
+    { "spell item aura identity", function(rules) rules[1].condition.includeItemSpellID = true end },
     { "item aura identity", function(rules)
         rules[1].action = { itemIDs = ids }
         rules[1].condition.includeActionSpellID = true
@@ -319,7 +339,7 @@ for _, case in ipairs(invalidCases) do
     assert(tostring(message):find("Prism rule", 1, true), "The validator failed outside its checks: " .. tostring(message))
 end
 
-for _, selector in ipairs({ { spellIDs = ids }, { anySpell = true }, { itemIDs = ids }, { itemClassID = 0, itemSubClassID = 7 } }) do
+for _, selector in ipairs({ { spellIDs = ids }, { anySpell = true }, { anyItem = true }, { itemIDs = ids }, { itemClassID = 0, itemSubClassID = 7 } }) do
     local suppressor = auraRule()
     suppressor.action, suppressor.suppressGlow = selector, "glow"
     local glow = Rules.UsableGlow("glow", ids)
@@ -331,6 +351,16 @@ for _, selector in ipairs({ { spellIDs = ids }, { anySpell = true }, { itemIDs =
     local prepared = Rules.Prepare(input)
     assert(prepared[1] == glow and prepared[2] == suppressor)
     assert(input[1] == suppressor, "Dependency resolution changed the declarations.")
+end
+for _, selector in ipairs({ { anyItem = true }, { itemIDs = ids }, { itemClassID = 0, itemSubClassID = 7 } }) do
+    local suppressor = auraRule()
+    suppressor.action, suppressor.suppressGlow = selector, "glow"
+    local glow = {
+        key = "glow", action = { anyItem = true }, condition = { mechanic = "usable" }, visual = "glow",
+    }
+    Rules.Prepare({ suppressor, glow })
+    suppressor.action = { anySpell = true }
+    assert(not pcall(Rules.Prepare, { suppressor, glow }), "An item wildcard covers a spell selector.")
 end
 assert(#Rules.Prepare({}) == 0)
 assert(not pcall(Rules.Prepare, "invalid"))
