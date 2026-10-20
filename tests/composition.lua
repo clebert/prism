@@ -507,8 +507,8 @@ scenario("Suppression starts during combat and updates its layout and filters", 
     assert(client.getSpellGlow() == glow)
 end)
 
-for _, dispelType in ipairs({ "Curse", "Poison" }) do
-    scenario("Spell cleansing and buff highlights with " .. dispelType, function(client)
+for _, dispelType in ipairs({ "Curse", "Poison", "Disease" }) do
+    scenario("Cleansing and independent highlights with " .. dispelType, function(client)
         local button = client.addActionButton("ActionButton1", 1)
         client.actions[1] = { spellID = spellID }
         client.helpfulSpells[spellID], client.helpfulSpells[overrideID] = true, true
@@ -521,8 +521,14 @@ for _, dispelType in ipairs({ "Curse", "Poison" }) do
                 key = "cleanse", action = action, visual = "glow", requireUsable = true,
                 condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType },
             },
+            {
+                key = "no-debuff", action = action, visual = "highlight",
+                condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType, invert = true },
+            },
         })
         client.refresh()
+        local highlight = client.getHighlight()
+        assert(highlight, "The inverted dispel condition has no public visual.")
         local frames = #client.frames
 
         for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
@@ -542,11 +548,21 @@ for _, dispelType in ipairs({ "Curse", "Poison" }) do
                 assert(cleanseSlot.filter == "HARMFUL" and cleanseSlot.candidateFilters.includeDispelTypes[dispelType])
                 assert(not cleanseSlot.candidateFilters.includeSpellIDs)
                 assert(not cleanseSlot.candidateFilters.isFromPlayerOrPlayerPet)
+                local missing = client.getContainer(target.unit, "no-debuff")
+                local layout = client.getLayout(target.unit, "no-debuff")
+                assert(missing and layout and layout.groups["no-debuff"].maxFrameCount == 1)
+                assert(layout.groups["no-debuff"].candidateFilters.includeDispelTypes[dispelType])
+                assert(not layout.groups["no-debuff"].candidateFilters.includeSpellIDs)
+                local refreshes = layout.refreshCount
+                client.event("PLAYER_TARGET_CHANGED")
+                assert(layout.refreshCount > refreshes, "The inverted condition did not refresh on a target change.")
+                local filters = layout.filterChangeCount
 
                 for _, buffPresent in ipairs({ false, true }) do
                     client.setAuraPresent(buffSlot, buffPresent)
                     for _, debuffPresent in ipairs({ false, true }) do
                         client.setAuraPresent(cleanseSlot, debuffPresent)
+                        client.setAuraPresent(missing.slots["no-debuff"], debuffPresent)
                         for _, usable in ipairs({ false, true }) do
                             client.actions[1].isUsable = usable
                             client.event("ACTION_USABLE_CHANGED")
@@ -554,6 +570,15 @@ for _, dispelType in ipairs({ "Curse", "Poison" }) do
                             assert(client.alpha(buffSlot.texture) == (buffPresent and 1 or 0), "Cleansing changed the buff highlight.")
                             assert((client.getSpellGlow() ~= nil) == (debuffPresent and usable), "The cleansing glow has an incorrect condition.")
                             assert(buffSlot.enabled and cleanseSlot.enabled)
+                            assert(client.alpha(highlight) == 1, "Usability changed the independent highlight alpha.")
+                            local left, bottom, width, height = client.rectangle(highlight)
+                            local onScreen = left < UIParent.width and left + width > 0 and bottom < UIParent.height and bottom + height > 0
+                            assert(onScreen == not debuffPresent, "The highlight did not invert the matching debuff condition.")
+                            if onScreen then
+                                assert(left == button.left and bottom == button.bottom and width == button.width and height == button.height)
+                            end
+                            assert(not layout.layoutQueryCount, "The core queried secure layout geometry.")
+                            assert(layout.filterChangeCount == filters, "Usability or aura presence replaced the filters.")
                         end
                     end
                 end
@@ -569,11 +594,32 @@ for _, dispelType in ipairs({ "Curse", "Poison" }) do
         assert(client.getSpellGlow())
         button.visible = false
         client.refresh()
-        assert(client.alpha(buff) == 0 and not client.getSpellGlow())
+        assert(client.alpha(buff) == 0 and client.alpha(highlight) == 0 and not client.getSpellGlow())
         button.visible = true
+        client.refresh()
+        local missing = client.getContainer("player", "no-debuff")
+        local layout = client.getLayout("player", "no-debuff")
+        client.setAuraPresent(missing.slots["no-debuff"], false)
+        button.scale = 1.5
+        UIParent:SetSize(2400, 1200)
+        client.refresh()
+        local left, bottom, width, height = client.rectangle(highlight)
+        assert(left == button.left * 1.5 and bottom == button.bottom * 1.5)
+        assert(width == button.width * 1.5 and height == button.height * 1.5)
+        assert(layout.groups["no-debuff"].layout.elementWidth == 4800)
+        client.setAuraPresent(missing.slots["no-debuff"], true)
+        client.refresh()
+        assert(client.rectangle(highlight) > UIParent.width, "A resized viewport exposed the suppressed highlight.")
         client.actions[1].spellID = auraID
         client.refresh()
         assert(not cleanse.enabled and not client.getSpellGlow(), "An unrelated spell kept the cleansing glow.")
+        assert(not missing.enabled and not layout.groups["no-debuff"].enabled and client.alpha(highlight) == 0)
+        client.actions[1] = { spellID = spellID, isUsable = false }
+        client.refresh()
+        assert(missing.enabled and layout.groups["no-debuff"].enabled and client.alpha(highlight) == 1)
+        client.setAuraPresent(missing.slots["no-debuff"], false)
+        client.refresh()
+        assert(client.rectangle(highlight) < UIParent.width and not client.getSpellGlow())
     end)
 end
 

@@ -158,6 +158,9 @@ for _, condition in ipairs({
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17, excludeFull = false },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = true },
+    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Curse", invert = false },
+    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Poison", invert = true },
+    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Disease", invert = true },
     { mechanic = "tanking", invert = false, grouped = false },
     { mechanic = "tanking", invert = true, grouped = true },
 }) do
@@ -252,6 +255,13 @@ local invalidCases = {
     end },
     { "helpful dispel", function(rules)
         rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HELPFUL", dispelType = "Poison" }
+    end },
+    { "invalid dispel inversion", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "Poison", invert = 1 }
+    end },
+    { "inverted dispel glow", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "Poison", invert = true }
+        rules[1].visual = "glow"
     end },
     { "missing combo points", function(rules) rules[1].condition = { mechanic = "combo-points" } end },
     { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },

@@ -153,6 +153,18 @@ Prism.classRules.DRUID = {
         visual = "glow",
     },
     {
+        key = "remove-curse-no-debuff",
+        action = { spellIDs = removeCurseSpellIDs },
+        condition = {
+            mechanic = "dispel-type",
+            unit = "heal-target",
+            filter = "HARMFUL",
+            dispelType = "Curse",
+            invert = true,
+        },
+        visual = "highlight",
+    },
+    {
         key = "abolish-poison",
         action = abolishPoisonBuff.action,
         condition = {
@@ -163,6 +175,18 @@ Prism.classRules.DRUID = {
         },
         requireUsable = true,
         visual = "glow",
+    },
+    {
+        key = "abolish-poison-no-debuff",
+        action = abolishPoisonBuff.action,
+        condition = {
+            mechanic = "dispel-type",
+            unit = "heal-target",
+            filter = "HARMFUL",
+            dispelType = "Poison",
+            invert = true,
+        },
+        visual = "highlight",
     },
     {
         key = "mark-of-the-wild-missing",

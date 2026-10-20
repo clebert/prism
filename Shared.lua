@@ -113,6 +113,18 @@ Prism.sharedRules = {
         visual = "glow",
     },
     {
+        key = "anti-venom-no-debuff",
+        action = { itemIDs = antiVenomItemIDs },
+        condition = {
+            mechanic = "dispel-type",
+            unit = "heal-target",
+            filter = "HARMFUL",
+            dispelType = "Poison",
+            invert = true,
+        },
+        visual = "highlight",
+    },
+    {
         key = "poultice-disease",
         action = { itemIDs = poulticeItemIDs },
         condition = {
@@ -123,5 +135,17 @@ Prism.sharedRules = {
         },
         requireUsable = true,
         visual = "glow",
+    },
+    {
+        key = "poultice-no-debuff",
+        action = { itemIDs = poulticeItemIDs },
+        condition = {
+            mechanic = "dispel-type",
+            unit = "heal-target",
+            filter = "HARMFUL",
+            dispelType = "Disease",
+            invert = true,
+        },
+        visual = "highlight",
     },
 }

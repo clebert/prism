@@ -9,7 +9,7 @@ local unitFields = { mechanic = true, unit = true }
 local mechanicFields = {
     aura = auraFields,
     ["aura-stacks"] = stackFields,
-    ["dispel-type"] = { mechanic = true, unit = true, filter = true, dispelType = true },
+    ["dispel-type"] = { mechanic = true, unit = true, filter = true, dispelType = true, invert = true },
     alive = unitFields,
     ["full-health"] = unitFields,
     ["full-mana"] = unitFields,
@@ -109,6 +109,7 @@ local function checkCondition(condition, action, context)
         if mechanic == "dispel-type" then
             check(condition.filter == "HARMFUL", "A dispel condition requires HARMFUL.", context)
             check(dispelTypes[condition.dispelType], "Unknown dispel type.", context)
+            checkBoolean(condition.invert, context .. ".invert")
         else
             checkBoolean(condition.ownAura, context .. ".ownAura")
             checkBoolean(condition.includeActionSpellID, context .. ".includeActionSpellID")
@@ -318,6 +319,7 @@ function Rules.Prepare(rules)
         checkBoolean(rule.requireUsable, context .. ".requireUsable")
         checkAction(rule.action, context .. ".action")
         checkCondition(rule.condition, rule.action, context .. ".condition")
+        check(rule.condition.mechanic ~= "dispel-type" or not rule.condition.invert or rule.visual == "highlight", "An inverted dispel condition requires a highlight.", context)
         byKey[rule.key] = rule
     end
 

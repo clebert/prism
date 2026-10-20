@@ -137,9 +137,7 @@ local function createAuraCandidateFilters(condition, actionSpellID, itemSpellID)
     return filters
 end
 
-local function createGlowSuppression(overlay, rule, spellID, itemSpellID)
-    local suppressedState = overlay.states[rule.suppressGlow]
-    assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
+local function createAuraSuppression(rule, spellID, itemSpellID, visualFrame, visualParent, previous)
     local condition = rule.condition
     local width = UIParent:GetWidth() * 2
     local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
@@ -148,19 +146,17 @@ local function createGlowSuppression(overlay, rule, spellID, itemSpellID)
     container:AddAuraGroup(rule.key, condition.filter, {
         maxFrameCount = 1,
         candidateFilters = createAuraCandidateFilters(condition, spellID, itemSpellID),
-        -- Two viewport widths move an active glow outside the viewport.
+        -- Two viewport widths move the visual outside the viewport.
         layout = { elementWidth = width, elementHeight = 1 },
         initializeFrame = function(marker)
             marker:EnableMouse(false)
         end,
     })
 
-    local previous = suppressedState.glowSuppressionAnchor
     -- Subtract the width of an empty flow layout from each anchor.
-    container:SetPoint("TOPLEFT", previous or suppressedState.glowParent, previous and "TOPRIGHT" or "CENTER", -1, 0)
-    suppressedState.glowFrame:ClearAllPoints()
-    suppressedState.glowFrame:SetPoint("CENTER", container, "TOPRIGHT")
-    suppressedState.glowSuppressionAnchor = container
+    container:SetPoint("TOPLEFT", previous or visualParent, previous and "TOPRIGHT" or "CENTER", -1, 0)
+    visualFrame:ClearAllPoints()
+    visualFrame:SetPoint("CENTER", container, "TOPRIGHT")
     container:Show()
     container:SetEnabled(true)
     return container, width
@@ -215,6 +211,10 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
             auraButton:EnableMouse(false)
             auraButton:SetAllPoints()
 
+            if condition.invert then
+                return
+            end
+
             local visualParent = auraButton
 
             if condition.mechanic == "aura-stacks" then
@@ -248,8 +248,19 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
             end
         end,
     })
-    if rule.suppressGlow then
-        state.suppressionLayout, state.suppressionWidth = createGlowSuppression(overlay, rule, spellID, itemSpellID)
+    if condition.invert then
+        local highlightFrame = CreateFrame("Frame", nil, container, "DisableUntrustedLayoutScriptsTemplate")
+        highlightFrame:EnableMouse(false)
+        createHighlightTexture(highlightFrame)
+        state.inverseHighlight = highlightFrame
+        state.suppressionLayout, state.suppressionWidth = createAuraSuppression(rule, spellID, itemSpellID, highlightFrame, container)
+    elseif rule.suppressGlow then
+        local suppressedState = overlay.states[rule.suppressGlow]
+        assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
+        state.suppressionLayout, state.suppressionWidth = createAuraSuppression(
+            rule, spellID, itemSpellID, suppressedState.glowFrame, suppressedState.glowParent, suppressedState.glowSuppressionAnchor
+        )
+        suppressedState.glowSuppressionAnchor = state.suppressionLayout
     end
     container:Show()
     container:SetEnabled(true)
@@ -658,6 +669,10 @@ local function placeActionButtonOverlay(overlay, actionButton)
     for _, state in ipairs(overlay.activeStates) do
         if state.auraContainer then
             placeRegion(state.auraContainer, state, scaledLeft, scaledBottom, scaledWidth, scaledHeight, true)
+        end
+
+        if state.inverseHighlight then
+            state.inverseHighlight:SetSize(scaledWidth, scaledHeight)
         end
 
         if state.glowFrame then

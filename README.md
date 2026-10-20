@@ -13,11 +13,16 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 - _Item buffs:_ Highlights an item while the player has a helpful aura with the same ID as the item's use spell.
   This includes **Night Watchman's Torch**. Target selection and action usability do not affect the highlight.
   Different aura IDs and passive equipment buffs require explicit rules.
-- _Bandages:_ Highlights **bandages** while the heal target has full health. A usable bandage blinks red while the heal target has a poison debuff.
+- _Bandages:_ Highlights **bandages** while the heal target is alive and has full health.
+  A usable bandage blinks red while the heal target has a poison debuff.
 - _Healing potions:_ Highlights **healing potions** while the player is alive and has full health. The current target and action usability do not affect the highlight.
 - _Mana potions:_ Highlights **mana potions** while the player is alive and has full mana. The current target and action usability do not affect the highlight.
-- _Poison cleansing:_ Glows **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom** while the item is usable and the heal target has a poison debuff.
-- _Disease cleansing:_ Glows **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice** while the item is usable and the heal target has a disease debuff.
+- _Poison cleansing:_ **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom**.
+  Each item glows while usable and the heal target has a poison debuff.
+  Each item highlights while the heal target has no poison debuff, regardless of action usability.
+- _Disease cleansing:_ **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice**.
+  Each item glows while usable and the heal target has a disease debuff.
+  Each item highlights while the heal target has no disease debuff, regardless of action usability.
 
 Spell actions require explicit aura rules. Shared aura rules cover the declared racial buffs and automatic item buff matching.
 Only Druid declarations use same-or-stronger rank matching.
@@ -77,8 +82,10 @@ Different spell families remain separate, even when their effects are similar.
 - _Healing:_ **Healing Touch**, **Regrowth**, **Rejuvenation** — Highlights while the heal target is alive and has full health.
   Action usability does not affect the highlight. Regrowth and Rejuvenation keep their independent buff highlights.
 - _Curse cleansing:_ **Remove Curse** — Glows while the action is usable and the heal target has a curse debuff.
+  The button highlights while the heal target has no curse debuff, regardless of action usability.
 - _Poison cleansing:_ **Abolish Poison** — Glows while the action is usable and the heal target has a poison debuff.
-  The active buff also highlights the button.
+  The button highlights while the heal target has no poison debuff, regardless of action usability.
+  The active buff also keeps its independent highlight.
 - _Self-buff glow:_ **Mark of the Wild**, **Thorns** — Each spell requires a usable action.
   The spell glows when the player lacks an equal or stronger buff and is the heal target.
   Another assistable target disables the glow. A weaker buff activates the glow.
@@ -135,7 +142,7 @@ The client selects active auras through secure filters. Addon Lua does not read 
 | ---------------- | ------------------------------------------------------------------------------------------- |
 | `aura`           | A matching buff or debuff is active on the selected unit.                                   |
 | `aura-stacks`    | A matching aura reaches the specified application count.                                    |
-| `dispel-type`    | A debuff with the specified dispel type is active on the selected unit.                     |
+| `dispel-type`    | A matching debuff is active on the selected unit, or absent when `invert` is true.           |
 | `alive`          | The selected unit exists and is alive.                                                      |
 | `full-health`    | The selected unit exists, is alive, and has full health.                                    |
 | `full-mana`      | The selected unit exists, is alive, and has full mana, regardless of its active power type. |
@@ -173,6 +180,10 @@ Aura filters support `HELPFUL`, `HARMFUL`, `HELPFUL|PLAYER`, and `HARMFUL|PLAYER
 A raw aura condition must pair the `PLAYER` filter with `ownAura = true`.
 A false or absent `ownAura` flag keeps every caster.
 Dispel conditions require `HARMFUL` and a declared `dispelType`.
+Set `invert` on a `dispel-type` condition to highlight when the selected unit has no matching debuff.
+An inverted dispel condition requires the `highlight` visual.
+The client moves the highlight outside the viewport while a matching debuff is active.
+This uses the same secure layout path as glow suppression. Addon Lua does not read aura presence.
 
 Set `suppressGlow` on a plain `aura` rule to reference a non-aura glow rule.
 The glow selector must cover every action that the aura rule selects.
@@ -257,7 +268,7 @@ bash tests/install.sh
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
 | `tests/mechanics.lua`   | Tests resource overflow, full-power exclusion, combo points, threat, groups, selectors, rank filters, and aura filters. Also tests item use spells, delayed data, unit changes, and resource highlights. All tests use synthetic IDs. |
-| `tests/composition.lua` | Tests independent visuals, health, rank-aware buff and debuff glows, cleansing, usability, pet combat, and secure aura suppression with synthetic IDs.                           |
+| `tests/composition.lua` | Tests independent visuals, health, ranked aura glows, cleansing, inverted dispel highlights, usability, pet combat, and secure aura suppression with synthetic IDs.                           |
 | `tests/runtime.lua`     | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
 
@@ -300,8 +311,8 @@ The checks must produce no Lua error or blocked-action error.
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target.                                                                                                                                                                                                                                                            | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it.                                                                                  |
 | Aura stacks               | Change Sunder Armor from four stacks to five stacks, then back to four stacks.                                                                                                                                                                                                                                                                          | The highlight appears only at five stacks.                                                                                                                                                                                          |
 | Fear warning              | Apply and remove Rend or Deep Wound from different casters. Change Intimidating Shout usability and target hostility.                                                                                                                                                                                                                                   | The warning blinks red only with a matching hostile target debuff and a usable action.                                                                                                                                              |
-| Dispel feedback           | Test poison, disease, and curses on the player and an assistable target. Remove the debuff or make the action unusable.                                                                                                                                                                                                                                 | Bandages blink for poison. Cleansing items and spells glow for their declared dispel type. No debuff or an unusable action hides the visual.                                                                                        |
-| Druid cleansing           | Test Remove Curse with curses and Abolish Poison with poison on the player and another assistable target. Apply and remove the Abolish Poison buff separately from the poison debuff. Change action usability and targets.                                                                                                                              | Each usable spell glows only for its matching debuff on the heal target. The Abolish Poison buff highlight remains independent of the poison glow and action usability.                                                             |
+| Dispel feedback           | Test poison, disease, and curses on the player and an assistable target. Remove the debuff or make the action unusable.                                                                                                                                                                                                                                 | Usable bandages blink for poison. Usable cleansing actions glow for their declared dispel type. Cleansing actions highlight without a matching debuff, regardless of usability.                                                                                        |
+| Druid cleansing           | Test Remove Curse with curses and Abolish Poison with poison on the player and another assistable target. Apply and remove the Abolish Poison buff separately from the poison debuff. Change action usability and targets.                                                                                                                              | Each usable spell glows only for its matching debuff on the heal target. Each spell highlights without that debuff, regardless of usability. The Abolish Poison buff keeps its independent highlight.                                                             |
 | Bandage health            | Test full health, partial health, a dead friendly target, and no assistable target.                                                                                                                                                                                                                                                                     | Only a living heal target at full health activates the highlight. No assistable target selects the player.                                                                                                                          |
 | Healing potions           | Change player health. Select friendly targets with different health. Test no target, death, and an unusable potion.                                                                                                                                                                                                                                     | Only a living player at full health activates the highlight. The current target and action usability do not affect the highlight.                                                                                                   |
 | Mana potions              | Change player mana. Change druid forms. Select friendly targets with different mana. Test no target, death, and an unusable potion.                                                                                                                                                                                                                     | Only a living player at full mana activates the highlight. The current target, active power type, and action usability do not affect the highlight.                                                                                 |
