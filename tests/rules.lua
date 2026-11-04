@@ -101,6 +101,10 @@ local function auraRule()
     }
 end
 
+local limitedAura = auraRule()
+limitedAura.condition.comboPointsBelow = 3
+Rules.Prepare({ limitedAura })
+
 local function mappedAuraRule()
     local rule = auraRule()
     rule.condition.auraSpellIDs = nil
@@ -262,6 +266,17 @@ local invalidCases = {
     { "inverted dispel glow", function(rules)
         rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "Poison", invert = true }
         rules[1].visual = "glow"
+    end },
+    { "zero combo-point limit", function(rules) rules[1].condition.comboPointsBelow = 0 end },
+    { "negative combo-point limit", function(rules) rules[1].condition.comboPointsBelow = -1 end },
+    { "fractional combo-point limit", function(rules) rules[1].condition.comboPointsBelow = 1.5 end },
+    { "string combo-point limit", function(rules) rules[1].condition.comboPointsBelow = "3" end },
+    { "boolean combo-point limit", function(rules) rules[1].condition.comboPointsBelow = false end },
+    { "infinite combo-point limit", function(rules) rules[1].condition.comboPointsBelow = math.huge end },
+    { "combo-point-gated suppressor", function(rules)
+        rules[1].condition.comboPointsBelow = 3
+        rules[1].suppressGlow = "glow"
+        rules[2] = Rules.UsableGlow("glow", ids)
     end },
     { "missing combo points", function(rules) rules[1].condition = { mechanic = "combo-points" } end },
     { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },

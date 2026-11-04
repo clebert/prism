@@ -547,7 +547,15 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
         state.itemSpellID = itemSpellID
     end
 
-    if rule.requireUsable then
+    local belowComboPointLimit = true
+    if condition.comboPointsBelow then
+        local points = GetComboPoints("player", "target")
+        belowComboPointLimit = not issecretvalue(points) and points < condition.comboPointsBelow
+    end
+
+    if not belowComboPointLimit then
+        container:SetAlpha(0)
+    elseif rule.requireUsable then
         setUsableAlpha(container, actionSlotID)
     else
         container:SetAlpha(1)

@@ -3,7 +3,7 @@ local _, Prism = ...
 local Rules = {}
 Prism.Rules = Rules
 
-local auraFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, includeItemSpellID = true, ownAura = true }
+local auraFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, includeItemSpellID = true, ownAura = true, comboPointsBelow = true }
 local stackFields = { mechanic = true, unit = true, filter = true, auraSpellIDs = true, auraSpellIDsByAction = true, includeActionSpellID = true, includeItemSpellID = true, ownAura = true, applications = true }
 local unitFields = { mechanic = true, unit = true }
 local mechanicFields = {
@@ -143,6 +143,10 @@ local function checkCondition(condition, action, context)
                 check(action.anyItem or action.itemIDs or action.itemClassID ~= nil, "The item use spell ID requires an item selector.", context)
             end
         end
+    end
+
+    if condition.comboPointsBelow ~= nil then
+        check(isInteger(condition.comboPointsBelow, 1), "The combo-point limit must be a positive integer.", context)
     end
 
     if mechanic == "aura-stacks" then
@@ -327,6 +331,7 @@ function Rules.Prepare(rules)
         if rule.suppressGlow ~= nil then
             local glow = byKey[rule.suppressGlow]
             check(rule.condition.mechanic == "aura", "Only a plain aura condition can suppress a glow.", rule.key)
+            check(rule.condition.comboPointsBelow == nil, "A combo-point limit cannot gate glow suppression.", rule.key)
             check(glow and glow.visual == "glow" and not auraMechanics[glow.condition.mechanic], "The dependency must be a non-aura glow rule.", rule.key)
             check(coversAction(glow.action, rule.action), "The glow selector must cover the suppressor selector.", rule.key)
         end

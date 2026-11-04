@@ -151,7 +151,7 @@ scenario("Independent aura rules keep separate usability", function(client)
             key = "replacement", action = action, visual = "red-blink", requireUsable = true,
             condition = {
                 mechanic = "aura", unit = "target", filter = "HARMFUL|PLAYER", ownAura = true,
-                auraSpellIDs = { [overrideID] = true },
+                auraSpellIDs = { [overrideID] = true }, comboPointsBelow = 3,
             },
         },
     })
@@ -160,11 +160,19 @@ scenario("Independent aura rules keep separate usability", function(client)
     local replacement = client.getContainer("target", "replacement")
     assert(present ~= replacement)
     assert(replacement.slots.replacement.candidateFilters.isFromPlayerOrPlayerPet)
-    for _, usable in ipairs({ false, true }) do
-        client.actions[1].isUsable = usable
-        client.event("ACTION_USABLE_CHANGED")
-        assert(client.alpha(present) == 1 and client.alpha(replacement) == (usable and 1 or 0))
-        assert(present.slots.present.enabled and replacement.slots.replacement.enabled)
+    for _, count in ipairs({
+        { points = 0, below = true }, { points = 2, below = true },
+        { points = 3, below = false }, { points = { secret = true }, below = false },
+    }) do
+        client.comboPoints = count.points
+        client.event("PLAYER_TARGET_CHANGED")
+        for _, usable in ipairs({ false, true }) do
+            client.actions[1].isUsable = usable
+            client.event("ACTION_USABLE_CHANGED")
+            assert(client.alpha(present) == 1, "The combo-point limit changed the independent highlight.")
+            assert(client.alpha(replacement) == (usable and count.below and 1 or 0))
+            assert(present.slots.present.enabled and replacement.slots.replacement.enabled)
+        end
     end
 end)
 
@@ -337,8 +345,9 @@ end)
 for _, context in ipairs({
     { filter = "HELPFUL", unit = "heal-target", suppressorUnit = "player", mechanic = "self-target" },
     { filter = "HARMFUL", unit = "target", suppressorUnit = "target", mechanic = "hostile-target" },
+    { filter = "HELPFUL", unit = "player", suppressorUnit = "player", mechanic = "combo-points", points = 3 },
 }) do
-    scenario("Ranked " .. context.filter .. " highlights and missing-aura glows", function(client)
+    scenario("Ranked " .. context.filter .. " highlights and missing-aura glows with " .. context.mechanic, function(client)
         local definitions = {}
         assert(loadfile("Rules.lua"))("Prism", definitions)
         local Rules = definitions.Rules
@@ -353,7 +362,7 @@ for _, context in ipairs({
             highlightRule,
             suppressor,
             {
-                key = "aura-missing", action = highlightRule.action, condition = { mechanic = context.mechanic },
+                key = "aura-missing", action = highlightRule.action, condition = { mechanic = context.mechanic, points = context.points },
                 visual = "glow", requireUsable = true,
             },
         })
@@ -376,8 +385,8 @@ for _, context in ipairs({
                 client.targetExists, client.targetFriendly, client.targetHostile = target.exists, target.friendly, target.hostile
                 client.deadUnits.target = target.dead
                 client.event("PLAYER_TARGET_CHANGED")
-                local highlightUnit = context.unit == "target" and "target" or (target.exists and target.friendly and "target" or "player")
-                local targetAllowed = not (target.exists and target.friendly)
+                local highlightUnit = context.unit == "heal-target" and (target.exists and target.friendly and "target" or "player") or context.unit
+                local targetAllowed = context.mechanic ~= "self-target" or not (target.exists and target.friendly)
                 if context.mechanic == "hostile-target" then
                     targetAllowed = target.exists and target.hostile and not target.dead
                 end
@@ -396,18 +405,25 @@ for _, context in ipairs({
                         local suppressed = suppressingAura == auraID or suppressingAura == overrideID
                         client.setAuraPresent(presentSlot, presentSlot.candidateFilters.includeSpellIDs[suppressingAura] == true)
                         client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[selectedAura] == true)
-                        for _, usable in ipairs({ false, true }) do
-                            client.actions[1].isUsable = usable
-                            client.event("ACTION_USABLE_CHANGED")
-                            client.refresh()
-                            assert(client.alpha(highlightSlot.texture) == (highlighted and 1 or 0))
-                            assert((client.getSpellGlow() ~= nil) == (targetAllowed and usable and not suppressed))
+                        for _, count in ipairs(context.points and {
+                            { points = 0, matches = false }, { points = context.points, matches = true },
+                            { points = { secret = true }, matches = false },
+                        } or { { points = 0, matches = true } }) do
+                            client.comboPoints = count.points
+                            for _, usable in ipairs({ false, true }) do
+                                client.actions[1].isUsable = usable
+                                client.event("ACTION_USABLE_CHANGED")
+                                client.refresh()
+                                assert(client.alpha(highlightSlot.texture) == (highlighted and 1 or 0))
+                                assert((client.getSpellGlow() ~= nil) == (targetAllowed and count.matches and usable and not suppressed))
+                            end
                         end
                     end
                 end
             end
         end
         client.targetExists, client.targetFriendly, client.targetHostile, client.deadUnits.target = true, false, true, false
+        client.comboPoints = context.points or 0
         client.actions[1].spellID = overrideID
         client.event("PLAYER_TARGET_CHANGED")
         local slotIDs = presentSlot.candidateFilters.includeSpellIDs

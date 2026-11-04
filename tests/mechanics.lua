@@ -112,46 +112,72 @@ for _, mechanic in ipairs({ "aura", "aura-stacks" }) do
     end)
 end
 
-scenario("Secure aura usability and lifecycle", function(client)
-    local button = client.addActionButton("ActionButton1", 1)
-    client.actions[1] = { spellID = spellID }
-    client.startRules({
-        {
-            key = "warning", action = action, visual = "red-blink", requireUsable = true,
-            condition = { mechanic = "aura", unit = "target", filter = "HARMFUL", auraSpellIDs = { [auraID] = true } },
-        },
-    })
-    client.refresh()
-    local container = client.getContainer("target", "warning")
-    local slot = container.slots.warning
-    assert(container.template == "CustomAuraContainerTemplate" and slot.filter == "HARMFUL")
-    local changes, slotChanges = container.filterChangeCount, container.slotChangeCount
-    for _, usable in ipairs({ false, true }) do
-        client.actions[1].isUsable = usable
-        client.event("ACTION_USABLE_CHANGED")
-        assert(client.alpha(container) == (usable and 1 or 0))
-        assert(slot.enabled and container.enabled, "Usability disabled the secure slot.")
-        assert(container.filterChangeCount == changes and container.slotChangeCount == slotChanges)
-    end
-    for _, event in ipairs({ "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
-        local refreshes = container.refreshCount
-        client.event(event)
-        assert(container.refreshCount > refreshes)
-    end
-    button.visible = false
-    client.refresh()
-    assert(client.alpha(container) == 0)
-    button.visible = true
-    client.refresh()
-    assert(client.alpha(container) == 1)
-    local second = client.addActionButton("ActionButton2", 2)
-    second.left = 60
-    client.actions[1], client.actions[2] = nil, { spellID = spellID }
-    client.refresh()
-    local moved = client.getContainer("target", "warning")
-    assert(moved ~= container and moved.point[4] == 60 and client.alpha(moved) == 1)
-    assert(not slot.enabled and not container.enabled)
-end)
+for _, context in ipairs({
+    { visual = "red-blink", requireUsable = true },
+    { visual = "glow", requireUsable = true, comboPointsBelow = 3 },
+    { visual = "glow", requireUsable = false, comboPointsBelow = 3 },
+}) do
+    scenario("Secure aura lifecycle with " .. context.visual .. " and usability " .. tostring(context.requireUsable), function(client)
+        local button = client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        client.startRules({
+            {
+                key = "warning", action = action, visual = context.visual, requireUsable = context.requireUsable,
+                condition = {
+                    mechanic = "aura", unit = "target", filter = "HARMFUL", auraSpellIDs = { [auraID] = true },
+                    comboPointsBelow = context.comboPointsBelow,
+                },
+            },
+        })
+        client.refresh()
+        local container = client.getContainer("target", "warning")
+        local slot = container.slots.warning
+        assert(container.template == "CustomAuraContainerTemplate" and slot.filter == "HARMFUL")
+        local changes, slotChanges, frames = container.filterChangeCount, container.slotChangeCount, #client.frames
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PLAYER_TARGET_CHANGED" }) do
+            local refreshes = container.refreshCount
+            client.event(event)
+            assert(container.refreshCount > refreshes)
+            for _, count in ipairs({
+                { points = 0, below = true }, { points = 2, below = true },
+                { points = 3, below = false }, { points = 4, below = false },
+                { points = { secret = true }, below = false }, { points = 0, below = true },
+            }) do
+                client.comboPoints = count.points
+                client.event("PLAYER_TARGET_CHANGED")
+                for _, usable in ipairs({ false, true }) do
+                    client.actions[1].isUsable = usable
+                    client.event("ACTION_USABLE_CHANGED")
+                    local allowed = (not context.comboPointsBelow or count.below) and (not context.requireUsable or usable)
+                    assert(client.alpha(container) == (allowed and 1 or 0), "The aura ignored its combo-point limit or usability.")
+                    for _, present in ipairs({ false, true }) do
+                        client.setAuraPresent(slot, present)
+                        client.refresh()
+                        if context.visual == "glow" then
+                            assert((client.getSpellGlow() ~= nil) == (allowed and present), "The aura glow has an incorrect condition.")
+                        end
+                    end
+                    assert(slot.enabled and container.enabled, "A visual condition disabled the secure slot.")
+                    assert(container.filterChangeCount == changes and container.slotChangeCount == slotChanges)
+                end
+            end
+        end
+        assert(#client.frames == frames, "A condition change replaced the aura frames.")
+        button.visible = false
+        client.refresh()
+        assert(client.alpha(container) == 0)
+        button.visible = true
+        client.refresh()
+        assert(client.alpha(container) == 1)
+        local second = client.addActionButton("ActionButton2", 2)
+        second.left = 60
+        client.actions[1], client.actions[2] = nil, { spellID = spellID }
+        client.refresh()
+        local moved = client.getContainer("target", "warning")
+        assert(moved ~= container and moved.point[4] == 60 and client.alpha(moved) == 1)
+        assert(not slot.enabled and not container.enabled)
+    end)
+end
 
 for _, mechanic in ipairs({ "alive", "full-health" }) do
     scenario(mechanic .. " pet lifecycle", function(client)
