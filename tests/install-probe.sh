@@ -3,7 +3,7 @@
 set -e
 
 repository_directory="$(cd "$(dirname "$0")/.." && pwd)"
-addon_directory="${PRISM_ADDON_DIRECTORY:-/Applications/World of Warcraft/_classic_beta_/Interface/AddOns/Prism}"
+addon_directory="${PRISM_ADDON_DIRECTORY:-/Applications/World of Warcraft/_forever_/Interface/AddOns/Prism}"
 probe_directory="$(dirname "$addon_directory")/PrismTest"
 
 mkdir -p "$probe_directory"

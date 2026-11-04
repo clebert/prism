@@ -24,4 +24,19 @@ probe_directory="$temporary_directory/PrismTest"
 cmp "$repository_directory/tests/PrismTest/PrismTest.toc" "$probe_directory/PrismTest.toc"
 cmp "$repository_directory/tests/PrismTest/PrismTest.lua" "$probe_directory/PrismTest.lua"
 test ! -e "$probe_directory/tests"
+
+(
+    unset PRISM_ADDON_DIRECTORY
+    mkdir() { :; }
+    cp() { :; }
+    export -f mkdir cp
+
+    default_addon_directory="/Applications/World of Warcraft/_forever_/Interface/AddOns/Prism"
+    installation_output="$("$repository_directory/install.sh")"
+    test "$installation_output" = "Installed Prism in $default_addon_directory"
+
+    installation_output="$(bash "$repository_directory/tests/install-probe.sh")"
+    test "$installation_output" = "Installed Prism Test in ${default_addon_directory}Test"
+)
+
 echo "Installation tests passed."
