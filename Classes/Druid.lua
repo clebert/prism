@@ -13,7 +13,9 @@ local regrowth = Rules.RankedAura("regrowth", { 8936, 8938, 8939, 8940, 8941, 97
 local rejuvenation = Rules.RankedAura("rejuvenation", { 774, 1058, 1430, 2090, 2091, 3627, 8910, 9839, 9840, 9841, 25299 }, healTargetBuff)
 local abolishPoisonBuff = Rules.RankedAura("abolish-poison-buff", { 2893 }, healTargetBuff)
 local bash = Rules.RankedAura("bash", { 5211, 6798, 8983 }, targetDebuff)
-local rip = Rules.RankedAura("own-rip", { 1079, 9492, 9493, 9752, 9894, 9896 }, ownTargetDebuff)
+local rip = Rules.RankedAura("own-rip", { 1079, 9492, 9493, 9752, 9894, 9896 }, {
+    unit = "target", filter = "HARMFUL", ownAura = true, suppressGlow = "rip-finisher",
+})
 local faerieFire = Rules.RankedAura("faerie-fire", { 770, 778, 9749, 9907 }, {
     unit = "target", filter = "HARMFUL", suppressGlow = "faerie-fire-missing",
 })
