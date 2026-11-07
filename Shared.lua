@@ -109,7 +109,8 @@ Prism.sharedRules = {
             filter = "HARMFUL",
             dispelType = "Poison",
         },
-        requireUsable = true,
+        -- The client reports Anti-Venom as unusable even when the item is usable.
+        requireUsable = false,
         visual = "glow",
     },
     {

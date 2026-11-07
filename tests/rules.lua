@@ -155,6 +155,9 @@ assert(maskRules[1] == usableGlow and maskRules[2] == maskOnly)
 
 for _, condition in ipairs({
     { mechanic = "hostile-target" },
+    { mechanic = "low-health", percent = 1 },
+    { mechanic = "low-health", percent = 37 },
+    { mechanic = "low-health", percent = 100 },
     { mechanic = "combo-points", points = 2 },
     { mechanic = "combo-points", points = 5 },
     { mechanic = "full-power", powerType = Enum.PowerType.Energy },
@@ -278,6 +281,14 @@ local invalidCases = {
         rules[1].suppressGlow = "glow"
         rules[2] = Rules.UsableGlow("glow", ids)
     end },
+    { "missing health percent", function(rules) rules[1].condition = { mechanic = "low-health" } end },
+    { "zero health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = 0 } end },
+    { "negative health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = -1 } end },
+    { "fractional health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = 1.5 } end },
+    { "high health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = 101 } end },
+    { "string health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = "37" } end },
+    { "boolean health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = true } end },
+    { "infinite health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = math.huge } end },
     { "missing combo points", function(rules) rules[1].condition = { mechanic = "combo-points" } end },
     { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },
     { "fractional combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 1.5 } end },

@@ -417,6 +417,80 @@ for _, mechanic in ipairs({ "full-health", "full-mana" }) do
 end
 
 for _, condition in ipairs({
+    { percent = 25, requireUsable = true },
+    { percent = 37, requireUsable = false },
+    { percent = 100, requireUsable = true },
+}) do
+    scenario("Player low-health threshold " .. condition.percent .. " with usability " .. tostring(condition.requireUsable), function(client)
+        local button = client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        client.maxHealthUnits.player = 100
+        client.healthUnits.player = { secret = true, value = 1 }
+        client.startRules({
+            {
+                key = "low", action = action, visual = "glow", requireUsable = condition.requireUsable,
+                condition = { mechanic = "low-health", percent = condition.percent },
+            },
+        })
+        client.refresh()
+        local glow = assert(client.getSpellGlow(), "The low-health condition has no glow.")
+        local frames, curves = #client.frames, #client.curves
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for _, maximum in ipairs({ 100, 103, 137, 1 }) do
+                client.maxHealthUnits.player = maximum
+                for health = 1, maximum do
+                    client.healthUnits.player.value = health
+                    for _, usable in ipairs({ false, true }) do
+                        client.actions[1].isUsable = usable
+                        client.event("ACTION_USABLE_CHANGED")
+                        local low = health * 100 <= maximum * condition.percent
+                        local expected = low and (not condition.requireUsable or usable)
+                        assert((client.getSpellGlow() ~= nil) == expected, "The health threshold or usability has an incorrect boundary.")
+                        assert(client.healthTexture.alpha.secret, "The health comparison bypassed the client curve.")
+                        assert(client.healthTexture.alpha.healthUnit == "player", "The health check selected another unit.")
+                    end
+                end
+            end
+        end
+        assert(#client.frames == frames and #client.curves == curves, "Health changes replaced frames or curves.")
+        local queries = client.healthQueryCount.player
+        for _, maximum in ipairs({ 0, -1, { secret = true } }) do
+            client.maxHealthUnits.player = maximum
+            client.refresh()
+            assert(not client.getSpellGlow() and client.healthQueryCount.player == queries, "Invalid maximum health reached the client curve.")
+        end
+        client.maxHealthUnits.player = 100
+        client.healthUnits.player.value = 1
+        client.targetExists, client.targetFriendly = false, true
+        client.event("PLAYER_TARGET_CHANGED")
+        assert(client.getSpellGlow() == glow and not client.healthQueryCount.target, "Target selection changed the player health check.")
+        queries = client.healthMaxQueryCount.player
+        client.deadUnits.player = true
+        client.healthUnits.player.value = 0
+        client.refresh()
+        assert(not client.getSpellGlow() and client.healthMaxQueryCount.player == queries, "The health check includes a dead player.")
+        client.deadUnits.player = false
+        client.healthUnits.player.value = 1
+        client.refresh()
+        assert(client.getSpellGlow() == glow)
+        button.visible = false
+        client.refresh()
+        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying())
+        button.visible = true
+        client.refresh()
+        assert(client.getSpellGlow() == glow and glow.ProcLoop:IsPlaying())
+        button.action = 13
+        client.actions[13] = { spellID = rankID }
+        client.refresh()
+        assert(client.getSpellGlow() == glow and #client.frames == frames)
+        client.actions[13] = nil
+        client.refresh()
+        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying())
+    end)
+end
+
+for _, condition in ipairs({
     { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17 },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = false },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17, excludeFull = true },

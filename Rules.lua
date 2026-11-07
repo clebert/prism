@@ -12,6 +12,7 @@ local mechanicFields = {
     ["dispel-type"] = { mechanic = true, unit = true, filter = true, dispelType = true, invert = true },
     alive = unitFields,
     ["full-health"] = unitFields,
+    ["low-health"] = { mechanic = true, percent = true },
     ["full-mana"] = unitFields,
     ["full-power"] = { mechanic = true, powerType = true },
     ["power-overflow"] = { mechanic = true, powerType = true, amount = true, excludeFull = true },
@@ -153,6 +154,8 @@ local function checkCondition(condition, action, context)
         check(isInteger(condition.applications, 1), "The application count must be a positive integer.", context)
     elseif mechanic == "combo-points" then
         check(isInteger(condition.points, 1), "The combo-point count must be a positive integer.", context)
+    elseif mechanic == "low-health" then
+        check(isInteger(condition.percent, 1) and condition.percent <= 100, "The health percentage must be an integer from 1 to 100.", context)
     elseif mechanic == "full-power" or mechanic == "power-overflow" then
         check(isInteger(condition.powerType, 0), "The power type must be a non-negative integer.", context)
         if mechanic == "power-overflow" then

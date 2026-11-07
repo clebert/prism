@@ -3,6 +3,8 @@ local Rules = Prism.Rules
 
 local playerBuff = { unit = "player", filter = "HELPFUL" }
 local targetDebuff = { unit = "target", filter = "HARMFUL" }
+local stealth = Rules.RankedAura("stealth", { 1784, 1785, 1786, 1787 }, playerBuff)
+local vanishAction = { spellIDs = { [1856] = true, [1857] = true } }
 local gouge = Rules.RankedAura("gouge", { 1776, 1777, 8629, 11285, 11286 }, targetDebuff)
 local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, {
     unit = "target", filter = "HARMFUL", suppressGlow = "expose-armor-finisher",
@@ -47,7 +49,23 @@ Prism.classRules.ROGUE = {
         visual = "glow",
     },
     sliceAndDice,
-    Rules.RankedAura("stealth", { 1784, 1785, 1786, 1787 }, playerBuff),
+    stealth,
+    {
+        key = "vanish",
+        action = vanishAction,
+        condition = {
+            mechanic = "aura", unit = "player", filter = "HELPFUL",
+            auraSpellIDs = Rules.Union(stealth.action.spellIDs, { [11327] = true, [11329] = true }),
+        },
+        visual = "highlight",
+    },
+    {
+        key = "vanish-low-health",
+        action = vanishAction,
+        condition = { mechanic = "low-health", percent = 20 },
+        requireUsable = true,
+        visual = "glow",
+    },
     Rules.RankedAura("sprint", { 2983, 8696, 11305 }, playerBuff),
     Rules.RankedAura("evasion", { 5277 }, playerBuff),
     Rules.RankedAura("own-garrote", { 703, 8631, 8632, 8633, 11289, 11290 }, { unit = "target", filter = "HARMFUL", ownAura = true }),

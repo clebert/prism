@@ -18,7 +18,10 @@ local client = {
     combatUnits = {},
     deadUnits = {},
     fullHealthUnits = {},
+    healthUnits = {},
+    maxHealthUnits = {},
     healthQueryCount = {},
+    healthMaxQueryCount = {},
     fullManaUnits = {},
     manaQueryCount = {},
     powers = {},
@@ -586,10 +589,30 @@ function UnitAffectingCombat(unit)
     return client.combatUnits[unit] == true
 end
 
+function UnitHealthMax(unit)
+    assert(unit == "player", "The low-health check requires the player.")
+    client.healthMaxQueryCount[unit] = (client.healthMaxQueryCount[unit] or 0) + 1
+    return client.maxHealthUnits[unit] or 0
+end
+
 function UnitHealthPercent(unit, usePredicted, curve)
     client.healthQueryCount[unit] = (client.healthQueryCount[unit] or 0) + 1
     assert(usePredicted == false)
     assert(curve.curveType == Enum.LuaCurveType.Step)
+    if client.maxHealthUnits[unit] ~= nil then
+        local health = client.healthUnits[unit]
+        if type(health) == "table" then
+            health = health.value
+        end
+        local percent = health / client.maxHealthUnits[unit]
+        local alpha = curve.points[1][2]
+        for _, point in ipairs(curve.points) do
+            if percent >= point[1] then
+                alpha = point[2]
+            end
+        end
+        return { secret = true, healthUnit = unit, alpha = alpha }
+    end
     assert(curve.points[1][1] == 0 and curve.points[1][2] == 0)
     assert(curve.points[2][1] == 1 and curve.points[2][2] == 1)
     return { healthUnit = unit, alpha = client.fullHealthUnits[unit] and 1 or 0 }

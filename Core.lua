@@ -417,6 +417,36 @@ local mechanicHandlers = {
         showRuleVisual(state)
         state.region:SetAlpha(UnitHealthPercent(unit, false, fullResourceCurve))
     end,
+    ["low-health"] = function(state)
+        if UnitIsDeadOrGhost("player") then
+            hideRuleVisual(state)
+            return
+        end
+
+        local maximum = UnitHealthMax("player")
+
+        if issecretvalue(maximum) or maximum <= 0 then
+            hideRuleVisual(state)
+            return
+        end
+
+        if not state.healthCurve then
+            state.healthCurve = C_CurveUtil.CreateCurve()
+            state.healthCurve:SetType(Enum.LuaCurveType.Step)
+        end
+
+        if state.maxHealth ~= maximum then
+            state.healthCurve:ClearPoints()
+            -- The next whole health point makes the threshold inclusive.
+            local firstAboveLimit = (math.floor(maximum * state.rule.condition.percent / 100) + 1) / maximum
+            state.healthCurve:AddPoint(0, 1)
+            state.healthCurve:AddPoint(firstAboveLimit, 0)
+            state.maxHealth = maximum
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(UnitHealthPercent("player", false, state.healthCurve))
+    end,
     ["full-mana"] = function(state)
         local unit = resolveUnit(state.rule.condition.unit)
 

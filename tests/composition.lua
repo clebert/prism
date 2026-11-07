@@ -281,6 +281,49 @@ scenario("Heal target health and buff highlights stay independent", function(cli
     assert(client.alpha(health) == 0)
 end)
 
+scenario("Player low-health glows and aura highlights stay independent", function(client)
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.maxHealthUnits.player = 100
+    client.healthUnits.player = { secret = true, value = 35 }
+    client.startRules({
+        {
+            key = "buff", action = action, visual = "highlight",
+            condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [auraID] = true } },
+        },
+        {
+            key = "low", action = action, visual = "glow", requireUsable = true,
+            condition = { mechanic = "low-health", percent = 35 },
+        },
+    })
+    client.refresh()
+    local container = client.getContainer("player", "buff")
+    local slot = container.slots.buff
+    local frames, curves = #client.frames, #client.curves
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        for _, health in ipairs({ 1, 34, 35, 36, 100 }) do
+            client.healthUnits.player.value = health
+            for _, present in ipairs({ false, true }) do
+                client.setAuraPresent(slot, present)
+                for _, usable in ipairs({ false, true }) do
+                    client.actions[1].isUsable = usable
+                    client.event("ACTION_USABLE_CHANGED")
+                    assert((client.getSpellGlow() ~= nil) == (health <= 35 and usable), "The aura changed the independent health glow.")
+                    assert(client.alpha(slot.texture) == (present and 1 or 0), "Health or usability changed the independent aura highlight.")
+                end
+            end
+        end
+    end
+    client.deadUnits.player = true
+    client.refresh()
+    assert(not client.getSpellGlow() and client.alpha(slot.texture) == 1)
+    assert(#client.frames == frames and #client.curves == curves, "Health or aura changes replaced the feedback objects.")
+    client.actions[1] = nil
+    client.refresh()
+    assert(not client.getSpellGlow() and not container.enabled)
+end)
+
 scenario("Missing self buff with secure layout suppression", function(client)
     local button = client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID, isUsable = false }
