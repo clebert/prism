@@ -878,7 +878,7 @@ end
 local function getActionItem(actionSlotID, overlay)
     local actionType, itemID = GetActionInfo(actionSlotID)
 
-    if actionType ~= "item" or not itemID then
+    if actionType ~= "item" or not itemID or itemID <= 0 then
         return nil
     end
 
@@ -1027,7 +1027,8 @@ function Prism.Start(rules)
             return
         end
 
-        elapsedSinceRefresh = elapsedSinceRefresh % overlayRefreshIntervalSeconds
+        -- Floating-point rounding can produce a negative remainder after a long frame.
+        elapsedSinceRefresh = math.max(0, elapsedSinceRefresh % overlayRefreshIntervalSeconds)
         refreshActionButtonOverlays()
     end)
 end

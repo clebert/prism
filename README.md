@@ -78,6 +78,8 @@ Combo points refer to the current target.
 - **Kick**, **Gouge:** Glow during a living hostile target's cast or channel.
 - **Feint:** Glows in a party or raid while the player tanks a living hostile target.
 - **Instant Poison:** Each poison item rank glows while usable if either equipped melee weapon has no poison.
+  Item macros receive the same glow through the application spell ID, including macros with bare `#showtooltip`.
+  Prism does not treat raw macro IDs as item IDs.
   Any poison rank counts on either weapon. The crafting spells receive no poison reminder.
   Empty slots, shields, and held items do not require poison. Permanent enchants and non-poison coatings do not count as poison.
 - **Sinister Strike**, **Backstab:** Glow with the **Remorseless** buff and fewer than five combo points.
@@ -154,7 +156,13 @@ The TOC loads these files in that order. Add each class file after `Shared.lua` 
 Each rule defines a unique `key`, an `action` selector, a `condition`, and a `visual`.
 
 Action selectors match spell IDs, item IDs, or item categories. Spell selectors also match the base spell ID.
-`anySpell` matches all spell actions. `anyItem` matches all item actions.
+`anySpell` matches all spell actions. `anyItem` matches all direct item actions.
+Item selectors require a direct item action and a positive item ID.
+A raw macro ID does not identify an item, even when `GetActionInfo` returns an `item` subtype.
+Macro actions match declared spell selectors through `C_ActionBar.GetSpell`.
+An item macro can expose an application spell through this path. That application spell needs an explicit rule.
+Prism does not infer item IDs from application spells. Prism does not parse macro text or tooltip text.
+A change to the resolved item or spell updates the feedback on the regular refresh interval.
 Aura filters use declared IDs or the spell IDs selected by the condition.
 
 Keep action IDs separate from aura IDs. Set `includeActionSpellID` only when the spell action can also identify the aura.
@@ -323,7 +331,7 @@ bash tests/install.sh
 | Test file               | Coverage                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
-| `tests/mechanics.lua`   | Tests health thresholds, resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, and filters. Also tests item spells, weapon enchantments, delayed data, and unit changes. All tests use synthetic IDs. |
+| `tests/mechanics.lua`   | Tests health thresholds, resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, and filters. Also tests item spells, item macros, weapon enchantments, delayed data, and unit changes. All tests use synthetic IDs. |
 | `tests/composition.lua` | Tests independent visuals, combo-point limits, finisher glows, numeric overlays, health, ranked aura glows, cleansing, usability, pet combat, and secure aura suppression. All tests use synthetic IDs. |
 | `tests/runtime.lua`     | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
@@ -364,7 +372,7 @@ The checks must produce no Lua error or blocked-action error.
 | Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
 | Rogue control highlights  | Test every Gouge and Sap action rank. Apply weaker, equal, and stronger ranks from different rogues. Change targets and usability. | Each action highlights for an equal or stronger matching target debuff from any caster, regardless of usability. A weaker rank does not activate the highlight. |
 | Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
-| Instant Poison glow       | Test every Instant Poison item rank. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item glows if either equipped melee weapon has no poison. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
+| Instant Poison glow       | Test every Instant Poison item rank. Place a macro with an Instant Poison item tooltip on the bar. Test bare `#showtooltip`. Change the tooltip item. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item glows if either equipped melee weapon has no poison. Item macros match the application spell. Prism does not treat raw macro IDs as item IDs. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
 | Rogue quiet actions       | Use Pick Pocket and Throw with and without Stealth. Test an undeclared Rogue ability. | These actions receive no Rogue-specific highlight or glow. Shared item and racial rules remain unchanged. |
 | Racial buffs              | Apply and remove each supported racial on characters from different classes. Change target selection and action usability.                                                                                                                                                                                                                              | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it.                                                                                                               |
 | Item buffs                | Apply and remove a buff whose aura ID matches the item use spell ID. Test Night Watchman's Torch. Change targets and action usability. Test an item without a use spell. Change action pages and item placement. | Only the matching player buff activates the item highlight. Other aura IDs and spell actions do not activate it. Target selection and usability do not affect it. |

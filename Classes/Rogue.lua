@@ -98,6 +98,15 @@ Prism.classRules.ROGUE = {
         visual = "glow",
     },
     {
+        key = "instant-poison-application",
+        action = { spellIDs = {
+            [8679] = true, [8686] = true, [8688] = true, [11338] = true, [11339] = true, [11340] = true,
+        } },
+        condition = missingPoison,
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
         key = "instant-poison-item",
         action = { itemIDs = {
             [6947] = true, [6949] = true, [6950] = true, [8926] = true, [8927] = true, [8928] = true,

@@ -558,7 +558,7 @@ C_UnitAuras = setmetatable({}, {
 
 function GetActionInfo(slot)
     local action = client.actions[slot]
-    return action.itemID and "item" or "spell", action.itemID or action.spellID
+    return action.actionType or (action.itemID and "item" or "spell"), action.actionID or action.itemID or action.spellID, action.subType
 end
 
 function GetInventoryItemID(unit, slot)

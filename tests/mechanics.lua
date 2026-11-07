@@ -305,6 +305,36 @@ scenario("Item use spells and aura identity", function(client)
     assert(second ~= container)
     assertIDs(second.slots.item.candidateFilters.includeSpellIDs, { [auraID] = true })
     assertIDs(client.getLayout("player", "item").groups.item.candidateFilters.includeSpellIDs, { [auraID] = true })
+
+    local firstSpell = client.getContainer("player", "spell")
+    local macro = { actionType = "macro", subType = "item", actionID = 0, spellID = spellID, isUsable = false }
+    local secondMacro = { actionType = "macro", subType = "item", actionID = 1, spellID = spellID }
+    client.actions[1], client.actions[2] = macro, secondMacro
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        macro.subType, macro.actionID, macro.spellID = "item", 0, spellID
+        secondMacro.actionID, secondMacro.spellID = 1, spellID
+        client.refresh()
+        local secondSpell = client.getContainer("player", "spell")
+        assert(secondSpell ~= firstSpell and firstSpell.enabled and secondSpell.enabled, "A positive macro ID blocked its resolved spell.")
+        assert(not container.enabled and not second.enabled and not exception.enabled, "A raw macro ID became an item ID.")
+        assert(not client.itemLoadRequests[0] and not client.itemLoadRequests[1], "A raw macro ID triggered an item load request.")
+        assertIDs(firstSpell.slots.spell.candidateFilters.includeSpellIDs, { [spellID] = true })
+        assertIDs(secondSpell.slots.spell.candidateFilters.includeSpellIDs, { [spellID] = true })
+        macro.actionID, macro.spellID = itemID, rankID
+        secondMacro.actionID, secondMacro.spellID = unknownID, auraID
+        client.refresh()
+        assert(not container.enabled and not second.enabled and not exception.enabled, "A macro ID collision matched an item selector.")
+        assertIDs(firstSpell.slots.spell.candidateFilters.includeSpellIDs, { [rankID] = true })
+        assertIDs(secondSpell.slots.spell.candidateFilters.includeSpellIDs, { [auraID] = true })
+        macro.subType, macro.spellID = "spell", spellID
+        client.refresh()
+        assert(firstSpell.enabled and not container.enabled and not exception.enabled)
+        macro.subType, macro.spellID = nil, 0
+        client.refresh()
+        assert(not firstSpell.enabled and not container.enabled and not exception.enabled, "An unresolved macro ID became an item ID.")
+        assert(secondSpell.enabled, "An unresolved macro changed another button's rule selection.")
+    end
 end)
 
 scenario("Item categories, delayed data, and heal targets", function(client)
