@@ -264,7 +264,7 @@ scenario("Bar discovery, placement, and reuse", function(client)
     local function assertPlacement(scale, width, height)
         for index, button in ipairs(buttons) do
             local container = containers[index]
-            local overlay = glows[index].parent.parent
+            local overlay = glows[index].parent.parent.parent
             for _, region in ipairs({ container, overlay }) do
                 assert(region.strata == "HIGH" and region.mouseEnabled == false, "The overlay has incorrect frame settings.")
                 assert(region.point[1] == "BOTTOMLEFT" and region.point[2] == UIParent and region.point[3] == "BOTTOMLEFT")

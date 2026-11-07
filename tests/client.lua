@@ -9,6 +9,11 @@ local client = {
     baseSpellIDs = {},
     helpfulSpells = {},
     selfBuffSpells = {},
+    spellPowerCosts = {},
+    cachedSpells = {},
+    activeConfigID = 1,
+    traitNodes = {},
+    stagedTraitNodes = {},
     class = arg[1] or "UNSUPPORTED",
     targetExists = true,
     targetFriendly = false,
@@ -492,6 +497,8 @@ C_CurveUtil = {
 }
 C_Spell = {
     GetBaseSpell = function(spellID) return client.baseSpellIDs[spellID] or spellID end,
+    GetSpellPowerCost = function(spellID) return client.spellPowerCosts[spellID] end,
+    IsSpellDataCached = function(spellID) return client.cachedSpells[spellID] == true end,
     IsSpellHelpful = function(spellID)
         assert(type(spellID) == "number", "The helpful spell check requires a spell ID.")
         return client.helpfulSpells[spellID] == true
@@ -499,6 +506,19 @@ C_Spell = {
     IsSelfBuff = function(spellID)
         assert(type(spellID) == "number", "The self buff check requires a spell ID.")
         return client.selfBuffSpells[spellID] == true
+    end,
+}
+C_ClassTalents = {
+    GetActiveConfigID = function() return client.activeConfigID end,
+}
+C_Traits = {
+    GetNodeInfo = function(configID, nodeID)
+        assert(configID == client.activeConfigID, "The talent check queried an inactive configuration.")
+        return client.traitNodes[nodeID]
+    end,
+    GetStagedChanges = function(configID)
+        assert(configID == client.activeConfigID, "The talent check queried an inactive configuration.")
+        return unpack(client.stagedTraitNodes)
     end,
 }
 C_PetInfo = {
@@ -517,7 +537,7 @@ C_ActionBar = {
         return { boolean = client.actions[slot].isUsable ~= false }
     end,
     GetActionCooldownDuration = function(slot, ignoreGCD)
-        assert(ignoreGCD == true, "The combo-point number must ignore the global cooldown.")
+        assert(ignoreGCD == true, "The cooldown check must ignore the global cooldown.")
         local action = client.actions[slot]
         return {
             IsActive = function()

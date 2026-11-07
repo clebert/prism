@@ -16,6 +16,7 @@ local mechanicFields = {
     ["full-mana"] = unitFields,
     ["full-power"] = { mechanic = true, powerType = true },
     ["power-overflow"] = { mechanic = true, powerType = true, amount = true, excludeFull = true },
+    ["power-gain"] = { mechanic = true, powerType = true, amount = true, talentNodeID = true, amountPerRank = true },
     ["combo-points"] = { mechanic = true, points = true },
     ["pet-happiness"] = { mechanic = true, happiness = true, below = true, outOfCombat = true },
     ["missing-weapon-enchant"] = { mechanic = true, enchantIDs = true },
@@ -31,7 +32,7 @@ local visuals = { highlight = true, ["red-blink"] = true, glow = true, none = tr
 local filters = { HELPFUL = true, HARMFUL = true, ["HELPFUL|PLAYER"] = true, ["HARMFUL|PLAYER"] = true }
 local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true, Bleed = true, None = true }
 local actionFields = { anySpell = true, anyItem = true, spellIDs = true, itemIDs = true, itemClassID = true, itemSubClassID = true }
-local ruleFields = { key = true, action = true, condition = true, visual = true, requireUsable = true, suppressGlow = true }
+local ruleFields = { key = true, action = true, condition = true, visual = true, requireUsable = true, requireCombat = true, suppressGlow = true }
 local debuffOptions = { ownAura = true, includeActionSpellID = true, applications = true }
 local rankedAuraOptions = { unit = true, filter = true, ownAura = true, applications = true, visual = true, requireUsable = true, suppressGlow = true }
 local rankFields = { spellID = true, auraSpellIDs = true }
@@ -157,11 +158,18 @@ local function checkCondition(condition, action, context)
         check(isInteger(condition.points, 1), "The combo-point count must be a positive integer.", context)
     elseif mechanic == "low-health" then
         check(isInteger(condition.percent, 1) and condition.percent <= 100, "The health percentage must be an integer from 1 to 100.", context)
-    elseif mechanic == "full-power" or mechanic == "power-overflow" then
+    elseif mechanic == "full-power" or mechanic == "power-overflow" or mechanic == "power-gain" then
         check(isInteger(condition.powerType, 0), "The power type must be a non-negative integer.", context)
-        if mechanic == "power-overflow" then
+        if mechanic ~= "full-power" then
             check(isInteger(condition.amount, 1), "The power amount must be a positive integer.", context)
+        end
+        if mechanic == "power-overflow" then
             checkBoolean(condition.excludeFull, context .. ".excludeFull")
+        elseif mechanic == "power-gain" then
+            check(action.anySpell or action.spellIDs, "A power gain requires a spell selector.", context)
+            if condition.talentNodeID ~= nil or condition.amountPerRank ~= nil then
+                check(isInteger(condition.talentNodeID, 1) and isInteger(condition.amountPerRank, 1), "A talent bonus requires a positive node ID and amount per rank.", context)
+            end
         end
     elseif mechanic == "pet-happiness" then
         check(isInteger(condition.happiness, 1) and condition.happiness <= 3, "The happiness state must be 1, 2, or 3.", context)
@@ -327,8 +335,10 @@ function Rules.Prepare(rules)
         check(visuals[rule.visual], "Unknown visual.", context)
         check(rule.visual ~= "none" or rule.suppressGlow ~= nil, "A rule without a visual must suppress a glow.", context)
         checkBoolean(rule.requireUsable, context .. ".requireUsable")
+        checkBoolean(rule.requireCombat, context .. ".requireCombat")
         checkAction(rule.action, context .. ".action")
         checkCondition(rule.condition, rule.action, context .. ".condition")
+        check(not rule.requireCombat or not auraMechanics[rule.condition.mechanic], "Player combat requires a non-aura condition.", context)
         check(rule.condition.mechanic ~= "dispel-type" or not rule.condition.invert or rule.visual == "highlight", "An inverted dispel condition requires a highlight.", context)
         byKey[rule.key] = rule
     end

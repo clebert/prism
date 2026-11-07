@@ -5,6 +5,8 @@ local playerBuff = { unit = "player", filter = "HELPFUL" }
 local targetDebuff = { unit = "target", filter = "HARMFUL" }
 local stealth = Rules.RankedAura("stealth", { 1784, 1785, 1786, 1787 }, playerBuff)
 local vanishAction = { spellIDs = { [1856] = true, [1857] = true } }
+local flashOfSteelNodeID = 105740
+local flashOfSteelEnergyPerRank = 3
 local missingPoison = {
     mechanic = "missing-weapon-enchant",
     enchantIDs = {
@@ -74,6 +76,29 @@ Prism.classRules.ROGUE = {
         action = vanishAction,
         condition = { mechanic = "low-health", percent = 20 },
         requireUsable = true,
+        requireCombat = true,
+        visual = "glow",
+    },
+    {
+        key = "shank-rank-1",
+        action = { spellIDs = { [1329283] = true } },
+        condition = {
+            mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 15,
+            talentNodeID = flashOfSteelNodeID, amountPerRank = flashOfSteelEnergyPerRank,
+        },
+        requireUsable = true,
+        requireCombat = true,
+        visual = "glow",
+    },
+    {
+        key = "shank-rank-2",
+        action = { spellIDs = { [1329549] = true } },
+        condition = {
+            mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 25,
+            talentNodeID = flashOfSteelNodeID, amountPerRank = flashOfSteelEnergyPerRank,
+        },
+        requireUsable = true,
+        requireCombat = true,
         visual = "glow",
     },
     Rules.RankedAura("sprint", { 2983, 8696, 11305 }, playerBuff),

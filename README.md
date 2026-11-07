@@ -8,6 +8,9 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ### General
 
+All glows require a ready action cooldown. The global cooldown does not hide glows.
+Highlights and red warnings do not require cooldown readiness.
+
 - _Combo-point numbers:_ **Eviscerate**, **Slice and Dice**, **Expose Armor**, **Rupture**, and **Rip** show the current target's combo-point count.
   The centered green number has a thick black outline and no background. Its size follows the button size.
   The number requires at least one point, a usable action, a ready spell cooldown, and no matching aura highlight.
@@ -72,8 +75,11 @@ Combo points refer to the current target.
 - **Garrote:** Highlights while the target has the player's equal or stronger bleed.
 - **Stealth**, **Sprint**, **Evasion:** Highlight while their matching player buffs are active.
 - **Vanish:** Highlights during normal Stealth or Vanish's improved stealth. Target selection, usability, and cooldowns do not affect the highlight.
-  Glows at 20% health or less while the player is alive and the action is usable.
+  Glows at 20% health or less while the player is alive, in combat, and the action is usable.
   The glow is independent of the stealth highlight.
+- **Shank:** Glows in combat while usable if the full energy gain fits after the current energy cost.
+  Each rank includes the active Flash of Steel bonus. The limit follows maximum energy and current cost changes.
+  The check does not predict natural energy regeneration or test combo points and Venom.
 - **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
 - **Kick**, **Gouge:** Glow during a living hostile target's cast or channel.
 - **Feint:** Glows in a party or raid while the player tanks a living hostile target.
@@ -192,6 +198,7 @@ The client selects active auras through secure filters. Addon Lua does not read 
 | `full-mana`      | The selected unit exists, is alive, and has full mana, regardless of its active power type. |
 | `full-power`     | The living player has full power of the declared type.                                     |
 | `power-overflow` | The declared power amount exceeds the living player's missing power, unless `excludeFull` excludes full power. |
+| `power-gain`     | The living player can receive the declared power gain without waste after the current spell cost. |
 | `combo-points`   | The player has exactly the declared combo-point count on the current target.                |
 | `pet-happiness`  | The living pet matches the declared happiness state or is below it when `below` is true.    |
 | `missing-weapon-enchant` | An equipped main-hand or off-hand weapon has none of the declared enchantments.                    |
@@ -209,6 +216,9 @@ The core uses `C_Spell.IsSpellHelpful` and `C_Spell.IsSelfBuff` to select the bu
 Use `buff-target` only for helpful aura conditions with a spell selector.
 
 Set `requireUsable` on a rule to require a usable action. This modifier also applies to `target-cast` rules.
+Set `requireCombat` on a rule with a non-aura condition to require player combat.
+The validator rejects `requireCombat = true` for `aura`, `aura-stacks`, and `dispel-type` conditions.
+Combat events refresh these visuals immediately.
 Set `comboPointsBelow` on a plain `aura` condition to require a lower combo-point count on the current target.
 The limit must be a positive integer. Restricted counts hide the visual.
 The limit changes the container alpha. It does not disable the aura slot or change its filters.
@@ -229,6 +239,13 @@ The maximum must be positive and unrestricted.
 Set `powerType` and a positive integer `amount` on a `power-overflow` condition to test player power waste.
 The threshold follows maximum power. Restricted maximum power values do not activate the visual.
 Set `excludeFull` to prevent a `power-overflow` visual at full power.
+Set `powerType` and a positive integer `amount` on a `power-gain` condition to test a spell's power gain.
+This mechanic requires a spell selector. The core subtracts the current cost from `C_Spell.GetSpellPowerCost` before it tests the gain.
+The client compares current power through a step curve. Addon Lua does not read current power.
+Set `talentNodeID` and a positive integer `amountPerRank` together to add a talent bonus to the gain.
+The core reads the talent rank from the active configuration. Missing talent data or staged changes to that node hide the visual.
+Missing spell data and restricted costs also hide the visual. A cached spell without resource costs uses a zero cost.
+The limit follows maximum power, cost, and talent changes on the regular refresh interval.
 Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
 Set `enchantIDs` on a `missing-weapon-enchant` condition to declare the accepted weapon enchantments.
 The set must contain positive integer keys with true values. These IDs identify enchantments, not spells or auras.
@@ -259,6 +276,9 @@ The suppression follows aura presence, not an application count.
 Public size anchors resize aura-driven glows without calls on aura-owned frames.
 
 The visuals are `highlight`, `red-blink`, and `glow`. A suppressor can use `none` to omit its visible feedback.
+Every glow has a separate cooldown frame, including aura-driven glows and glows that bypass usability.
+The core calls `C_ActionBar.GetActionCooldownDuration` with `ignoreGCD` and passes its active result to `SetAlphaFromBoolean`.
+Cooldown changes do not disable secure aura slots or change their filters.
 The core keeps condition alpha separate from animation alpha.
 Separate frames combine secret conditions without a Lua comparison. Aura slots remain under client control.
 
@@ -360,6 +380,7 @@ This verification must use the exact Forever client build.
 Run `./install.sh` to install every source file listed in the TOC. Set `PRISM_ADDON_DIRECTORY` to install in another directory.
 Use `/reload`, then run every applicable client check in and out of combat.
 The checks must produce no Lua error or blocked-action error.
+Every glow check requires a ready action cooldown. The global cooldown does not hide a glow.
 
 | Feature                   | Check                                                                                                                                                                                                                                                                                                                                                   | Expected result                                                                                                                                                                                                                     |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -367,7 +388,9 @@ The checks must produce no Lua error or blocked-action error.
 | Druid player-only buffs   | Apply and remove Dash, Enrage, Nature's Grasp, and Prowl on the player. Test every declared rank. Trigger Nature's Grasp against an enemy. Change targets and action usability.                                                                                                                                                                               | Only the matching player buff activates each highlight. Equal or stronger Dash, Nature's Grasp, and Prowl ranks count. The triggered root does not keep the Nature's Grasp highlight active.                                               |
 | Rogue player buffs        | Apply and remove Stealth, Sprint, and Evasion. Test every rank. Change targets and action usability. | Each highlight follows only an equal or stronger matching player buff. Target selection and usability do not affect it. |
 | Vanish stealth highlight  | Test both Vanish ranks before, during, and after normal Stealth and improved stealth. Let improved stealth expire without leaving Stealth. Change Stealth ranks, targets, usability, cooldowns, action pages, and button placement. | Vanish highlights throughout normal Stealth and improved stealth. It stops after stealth ends. Target selection, action usability, and cooldowns do not affect the highlight. |
-| Vanish low-health glow    | Test both Vanish ranks above, at, and below 20% health. Change maximum health, targets, usability, and stealth. Test death, combat, action pages, and button placement. | Vanish glows only while the player is alive, the action is usable, and health is at most 20%. The glow does not change the stealth highlight. |
+| Vanish low-health glow    | Test both Vanish ranks above, at, and below 20% health. Change maximum health, targets, usability, and stealth. Test death, combat, fall damage outside combat, action pages, and button placement. | Vanish glows only in combat while the player is alive, the action is usable, and health is at most 20%. Fall damage outside combat does not activate the glow. The glow does not change the stealth highlight. |
+| Shank energy glow        | Test both ranks at their energy limits and one point above. Test every Flash of Steel rank, current cost changes, maximum energy changes, and talent changes. Test combat, death, usability, cooldowns, macros, action pages, and button placement. | Shank glows only in combat while usable if the full energy gain fits after its current cost. With 100 maximum energy, a 5-energy cost, and no talent bonus, the limits are 90 and 80 energy. Each Flash of Steel point lowers the limit by 3 energy. Combat exit hides the glow. |
+| Glow cooldowns           | Test spell glows, item glows, macros, aura-driven glows, and Anti-Venom during their action cooldowns. Test the global cooldown separately. Apply matching highlights and red warnings. | An action cooldown hides every glow until ready. The global cooldown does not hide glows. Highlights and red warnings keep their separate conditions. |
 | Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Usable Slice and Dice glows at five points only without an equal or stronger buff. Usable Expose Armor glows at five points only without an equal or stronger target debuff from any caster. Usable Rupture glows at five points only without the player's equal or stronger bleed. Another rogue's bleed does not suppress the glow. The buff and debuff highlights do not require a usable action. |
 | Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
 | Rogue control highlights  | Test every Gouge and Sap action rank. Apply weaker, equal, and stronger ranks from different rogues. Change targets and usability. | Each action highlights for an equal or stronger matching target debuff from any caster, regardless of usability. A weaker rank does not activate the highlight. |

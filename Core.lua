@@ -202,9 +202,18 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
     local condition = rule.condition
     local state = { rule = rule, active = true, actionSpellID = spellID, itemSpellID = itemSpellID }
 
+    if rule.visual == "glow" then
+        local cooldownRegion = CreateFrame("Frame", nil, overlay.frame)
+        cooldownRegion:EnableMouse(false)
+        cooldownRegion:SetAllPoints()
+        cooldownRegion:SetAlpha(0)
+        cooldownRegion:Show()
+        state.cooldownRegion = cooldownRegion
+    end
+
     if not auraMechanics[condition.mechanic] then
         -- Keep condition alpha separate from visual animation alpha.
-        local frame = CreateFrame("Frame", nil, overlay.frame)
+        local frame = CreateFrame("Frame", nil, state.cooldownRegion or overlay.frame)
         frame:EnableMouse(false)
         frame:SetAllPoints()
         frame:SetAlpha(0)
@@ -233,7 +242,7 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
         return state
     end
 
-    local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
+    local container = CreateFrame("AuraContainer", nil, state.cooldownRegion or UIParent, "CustomAuraContainerTemplate")
     container:SetFrameStrata("HIGH")
     container:EnableMouse(false)
     state.unit = resolveUnit(condition.unit, spellID)
@@ -416,6 +425,44 @@ local function isWeaponMissingEnchant(inventorySlot, weaponSlot, enchantIDs)
     return true
 end
 
+local function getPowerGain(condition, actionSlotID)
+    local spellID = C_ActionBar.GetSpell(actionSlotID)
+    local costs = spellID and C_Spell.GetSpellPowerCost(spellID)
+
+    if not costs and (not spellID or not C_Spell.IsSpellDataCached(spellID)) then
+        return
+    end
+
+    local gain = condition.amount
+    if condition.talentNodeID then
+        local configID = C_ClassTalents.GetActiveConfigID()
+        local node = configID and C_Traits.GetNodeInfo(configID, condition.talentNodeID)
+        if not node or issecretvalue(node.activeRank) then
+            return
+        end
+        local purchases, refunds, swaps = C_Traits.GetStagedChanges(configID)
+        for _, changes in ipairs({ purchases or {}, refunds or {}, swaps or {} }) do
+            for _, nodeID in ipairs(changes) do
+                if nodeID == condition.talentNodeID then
+                    return
+                end
+            end
+        end
+        gain = gain + condition.amountPerRank * node.activeRank
+    end
+
+    for _, cost in ipairs(costs or {}) do
+        if issecretvalue(cost.type) or issecretvalue(cost.cost) then
+            return
+        end
+        if cost.type == condition.powerType and (cost.requiredAuraID == 0 or cost.hasRequiredAura) then
+            gain = gain - cost.cost
+        end
+    end
+
+    return gain
+end
+
 local mechanicHandlers = {
     ["missing-weapon-enchant"] = function(state)
         local enchantIDs = state.rule.condition.enchantIDs
@@ -549,6 +596,43 @@ local mechanicHandlers = {
         showRuleVisual(state)
         state.region:SetAlpha(UnitPowerPercent("player", condition.powerType, false, state.powerCurve))
     end,
+    ["power-gain"] = function(state, actionSlotID)
+        if UnitIsDeadOrGhost("player") then
+            hideRuleVisual(state)
+            return
+        end
+
+        local condition = state.rule.condition
+        local maximum = UnitPowerMax("player", condition.powerType, false)
+        if issecretvalue(maximum) or maximum <= 0 then
+            hideRuleVisual(state)
+            return
+        end
+
+        local gain = getPowerGain(condition, actionSlotID)
+        if not gain then
+            hideRuleVisual(state)
+            return
+        end
+
+        if not state.powerCurve then
+            state.powerCurve = C_CurveUtil.CreateCurve()
+            state.powerCurve:SetType(Enum.LuaCurveType.Step)
+        end
+
+        if state.maxPower ~= maximum or state.powerGain ~= gain then
+            state.powerCurve:ClearPoints()
+            local firstOverflow = math.floor(maximum - gain) + 1
+            state.powerCurve:AddPoint(0, firstOverflow > 0 and 1 or 0)
+            if firstOverflow > 0 and firstOverflow <= maximum then
+                state.powerCurve:AddPoint(firstOverflow / maximum, 0)
+            end
+            state.maxPower, state.powerGain = maximum, gain
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(UnitPowerPercent("player", condition.powerType, false, state.powerCurve))
+    end,
     ["combo-points"] = function(state)
         local points = GetComboPoints("player", "target")
 
@@ -645,6 +729,16 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
     local rule = state.rule
     local condition = rule.condition
     local container = state.auraContainer
+
+    if rule.requireCombat and not UnitAffectingCombat("player") then
+        hideRuleVisual(state)
+        return
+    end
+
+    if state.cooldownRegion then
+        local duration = C_ActionBar.GetActionCooldownDuration(actionSlotID, true)
+        state.cooldownRegion:SetAlphaFromBoolean(duration:IsActive(), 0, booleanTrueAlpha)
+    end
 
     if not container then
         mechanicHandlers[condition.mechanic](state, actionSlotID)
@@ -1013,7 +1107,7 @@ function Prism.Start(rules)
             return
         end
 
-        if event == "PLAYER_TARGET_CHANGED" then
+        if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
             refreshActionButtonOverlays()
         end
 

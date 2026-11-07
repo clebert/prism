@@ -284,6 +284,7 @@ end)
 scenario("Player low-health glows and aura highlights stay independent", function(client)
     client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }
+    client.combatUnits.player = true
     client.maxHealthUnits.player = 100
     client.healthUnits.player = { secret = true, value = 35 }
     client.startRules({
@@ -292,7 +293,7 @@ scenario("Player low-health glows and aura highlights stay independent", functio
             condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [auraID] = true } },
         },
         {
-            key = "low", action = action, visual = "glow", requireUsable = true,
+            key = "low", action = action, visual = "glow", requireUsable = true, requireCombat = true,
             condition = { mechanic = "low-health", percent = 35 },
         },
     })
@@ -308,9 +309,13 @@ scenario("Player low-health glows and aura highlights stay independent", functio
                 client.setAuraPresent(slot, present)
                 for _, usable in ipairs({ false, true }) do
                     client.actions[1].isUsable = usable
-                    client.event("ACTION_USABLE_CHANGED")
-                    assert((client.getSpellGlow() ~= nil) == (health <= 35 and usable), "The aura changed the independent health glow.")
-                    assert(client.alpha(slot.texture) == (present and 1 or 0), "Health or usability changed the independent aura highlight.")
+                    for _, cooldown in ipairs({ false, true }) do
+                        client.actions[1].cooldown, client.actions[1].globalCooldown = cooldown, true
+                        client.event("ACTION_USABLE_CHANGED")
+                        local expected = health <= 35 and usable and client.combatUnits.player and not cooldown
+                        assert((client.getSpellGlow() ~= nil) == expected, "The health glow ignored combat, usability, or cooldown.")
+                        assert(client.alpha(slot.texture) == (present and 1 or 0), "A glow condition changed the independent aura highlight.")
+                    end
                 end
             end
         end

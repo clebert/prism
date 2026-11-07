@@ -104,6 +104,14 @@ end
 local limitedAura = auraRule()
 limitedAura.condition.comboPointsBelow = 3
 Rules.Prepare({ limitedAura })
+local combatRule = auraRule()
+combatRule.requireCombat = false
+Rules.Prepare({ combatRule })
+combatRule.condition = { mechanic = "low-health", percent = 37 }
+combatRule.requireCombat = true
+Rules.Prepare({ combatRule })
+combatRule.requireCombat = false
+Rules.Prepare({ combatRule })
 
 local function mappedAuraRule()
     local rule = auraRule()
@@ -166,6 +174,8 @@ for _, condition in ipairs({
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Mana, amount = 17, excludeFull = false },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = true },
+    { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23 },
+    { mechanic = "power-gain", powerType = Enum.PowerType.Mana, amount = 19, talentNodeID = 999301, amountPerRank = 2 },
     { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Curse", invert = false },
     { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Poison", invert = true },
     { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Disease", invert = true },
@@ -187,6 +197,38 @@ local invalidCases = {
     { "unknown visual", function(rules) rules[1].visual = "unknown" end },
     { "no visual or suppression", function(rules) rules[1].visual = "none" end },
     { "invalid usability", function(rules) rules[1].requireUsable = 1 end },
+    { "invalid player combat flag", function(rules) rules[1].requireCombat = "player" end },
+    { "combat-gated aura", function(rules) rules[1].requireCombat = true end },
+    { "combat-gated aura stacks", function(rules)
+        rules[1].requireCombat = true
+        rules[1].condition.mechanic, rules[1].condition.applications = "aura-stacks", 3
+    end },
+    { "combat-gated dispel type", function(rules)
+        rules[1].requireCombat = true
+        rules[1].condition = { mechanic = "dispel-type", unit = "target", filter = "HARMFUL", dispelType = "Curse" }
+    end },
+    { "item power gain", function(rules)
+        rules[1].action = { anyItem = true }
+        rules[1].condition = { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23 }
+    end },
+    { "missing gain power type", function(rules)
+        rules[1].condition = { mechanic = "power-gain", amount = 23 }
+    end },
+    { "invalid gain amount", function(rules)
+        rules[1].condition = { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 0 }
+    end },
+    { "missing gain talent node", function(rules)
+        rules[1].condition = { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23, amountPerRank = 2 }
+    end },
+    { "missing gain talent amount", function(rules)
+        rules[1].condition = { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23, talentNodeID = 999301 }
+    end },
+    { "invalid gain talent node", function(rules)
+        rules[1].condition = { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23, talentNodeID = -1, amountPerRank = 2 }
+    end },
+    { "invalid gain talent amount", function(rules)
+        rules[1].condition = { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23, talentNodeID = 999301, amountPerRank = 0.5 }
+    end },
     { "missing action", function(rules) rules[1].action = nil end },
     { "no selector", function(rules) rules[1].action = {} end },
     { "two selectors", function(rules) rules[1].action.itemIDs = ids end },

@@ -152,9 +152,15 @@ for _, context in ipairs({
                     assert(client.alpha(container) == (allowed and 1 or 0), "The aura ignored its combo-point limit or usability.")
                     for _, present in ipairs({ false, true }) do
                         client.setAuraPresent(slot, present)
-                        client.refresh()
-                        if context.visual == "glow" then
-                            assert((client.getSpellGlow() ~= nil) == (allowed and present), "The aura glow has an incorrect condition.")
+                        for _, cooldown in ipairs({ false, true, false }) do
+                            client.actions[1].cooldown = cooldown
+                            client.actions[1].globalCooldown = true
+                            client.refresh()
+                            if context.visual == "glow" then
+                                assert((client.getSpellGlow() ~= nil) == (allowed and present and not cooldown), "The aura glow ignored its cooldown or checked the global cooldown.")
+                            else
+                                assert(client.alpha(container) == (allowed and 1 or 0), "The cooldown changed a non-glow visual.")
+                            end
                         end
                     end
                     assert(slot.enabled and container.enabled, "A visual condition disabled the secure slot.")
@@ -605,6 +611,118 @@ for _, condition in ipairs({
     end)
 end
 
+for _, context in ipairs({
+    { powerType = Enum.PowerType.Energy, talentNodeID = 999301, amountPerRank = 2 },
+    { powerType = Enum.PowerType.Mana },
+}) do
+    scenario("Power gain with costs and talent bonuses for " .. context.powerType, function(client)
+        client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID, globalCooldown = true }
+        client.combatUnits.player = true
+        local powerType, amount = context.powerType, 23
+        local cost = { type = powerType, cost = 7, requiredAuraID = 0 }
+        client.spellPowerCosts[spellID] = {
+            { type = 4, cost = 99, requiredAuraID = 0 },
+            { type = powerType, cost = 99, requiredAuraID = auraID, hasRequiredAura = false },
+            cost,
+        }
+        client.traitNodes[999301] = { activeRank = 0 }
+        client.maxPowers[powerType], client.powers[powerType] = 100, { secret = true, value = 0 }
+        client.startRules({
+            {
+                key = "gain", action = action, visual = "glow", requireUsable = true, requireCombat = true,
+                condition = {
+                    mechanic = "power-gain", powerType = powerType, amount = amount,
+                    talentNodeID = context.talentNodeID, amountPerRank = context.amountPerRank,
+                },
+            },
+        })
+        client.refresh()
+        local glow = assert(client.getSpellGlow(), "The power gain has no glow.")
+        local frames, curves = #client.frames, #client.curves
+        for _, maximum in ipairs({ 100, 127, 17 }) do
+            client.maxPowers[powerType] = maximum
+            for rank = 0, 5 do
+                client.traitNodes[999301].activeRank = rank
+                for _, powerCost in ipairs({ 0, 7, 24 }) do
+                    cost.cost = powerCost
+                    for power = 0, maximum do
+                        client.powers[powerType].value = power
+                        for _, usable in ipairs({ false, true }) do
+                            client.actions[1].isUsable = usable
+                            client.refresh()
+                            local gain = amount + rank * (context.amountPerRank or 0) - powerCost
+                            local expected = usable and power + gain <= maximum
+                            assert((client.getSpellGlow() ~= nil) == expected, "The power gain ignored its cost, talent rank, or maximum.")
+                        end
+                    end
+                end
+            end
+        end
+        assert(#client.frames == frames and #client.curves == curves, "Power changes replaced frames or curves.")
+        client.maxPowers[powerType], client.powers[powerType].value = 100, 0
+        client.traitNodes[999301].activeRank, cost.cost = 0, 0
+        client.actions[1].isUsable = true
+        for _, cooldown in ipairs({ true, false }) do
+            client.actions[1].cooldown = cooldown
+            client.refresh()
+            assert((client.getSpellGlow() ~= nil) == not cooldown)
+        end
+        client.event("PLAYER_REGEN_ENABLED")
+        assert(not client.getSpellGlow(), "The combat restriction kept a glow after combat.")
+        client.event("PLAYER_REGEN_DISABLED")
+        assert(client.getSpellGlow() == glow, "The combat event did not refresh the glow.")
+        client.deadUnits.player = true
+        client.refresh()
+        assert(not client.getSpellGlow(), "The power gain includes a dead player.")
+        client.deadUnits.player = false
+        for _, maximum in ipairs({ 0, -1, { secret = true } }) do
+            client.maxPowers[powerType] = maximum
+            client.refresh()
+            assert(not client.getSpellGlow(), "An invalid maximum power activated the gain.")
+        end
+        client.maxPowers[powerType] = 100
+        cost.cost = { secret = true }
+        client.refresh()
+        assert(not client.getSpellGlow(), "A restricted cost activated the gain.")
+        cost.cost = 0
+        client.spellPowerCosts[spellID] = nil
+        client.refresh()
+        assert(not client.getSpellGlow(), "Missing spell data activated the gain.")
+        client.cachedSpells[spellID] = true
+        client.refresh()
+        assert(client.getSpellGlow() == glow, "A cached spell without resource costs lost its gain.")
+        client.spellPowerCosts[spellID] = {}
+        client.refresh()
+        assert(client.getSpellGlow() == glow, "A spell without resource costs lost its gain.")
+        if context.talentNodeID then
+            for change = 1, 3 do
+                client.stagedTraitNodes = { {}, {}, {} }
+                client.stagedTraitNodes[change] = { context.talentNodeID }
+                client.refresh()
+                assert(not client.getSpellGlow(), "A staged talent change changed the gain estimate.")
+            end
+            client.stagedTraitNodes = { { 999302 }, {}, {} }
+            client.refresh()
+            assert(client.getSpellGlow() == glow, "An unrelated staged talent disabled the gain.")
+            client.activeConfigID = nil
+            client.refresh()
+            assert(not client.getSpellGlow(), "Missing talent data activated the gain.")
+            client.activeConfigID = 2
+            client.traitNodes[999301] = nil
+            client.refresh()
+            assert(not client.getSpellGlow(), "A missing talent node activated the gain.")
+            client.traitNodes[999301] = { activeRank = 5 }
+            client.powers[powerType].value = 70
+            client.refresh()
+            assert(not client.getSpellGlow(), "A talent configuration change kept a stale energy limit.")
+            client.traitNodes[999301].activeRank = 0
+            client.refresh()
+            assert(client.getSpellGlow() == glow)
+        end
+    end)
+end
+
 for _, condition in ipairs({
     { points = 2, requireUsable = false },
     { points = 5, requireUsable = true },
@@ -639,7 +757,7 @@ for _, condition in ipairs({
                         client.actions[1].cooldown = cooldown
                         client.actions[1].globalCooldown = true
                         client.event("ACTION_USABLE_CHANGED")
-                        assert((client.getSpellGlow() ~= nil) == (points == condition.points and (not condition.requireUsable or usable)), "The glow ignored the exact count or usability.")
+                        assert((client.getSpellGlow() ~= nil) == (points == condition.points and (not condition.requireUsable or usable) and not cooldown), "The glow ignored the count, usability, or cooldown.")
                         local visible = points > 0 and usable and not cooldown
                         assert(client.alpha(text) == (visible and 1 or 0), "The number ignored combo points, usability, or the spell cooldown.")
                         if visible then
@@ -701,6 +819,13 @@ scenario("Exact item selectors and dispel types", function(client)
         local container = client.getContainer("player", rule.key)
         assert(container.slots[rule.key].candidateFilters.includeDispelTypes[rule.key])
         assert(client.getSpellGlow())
+        for _, cooldown in ipairs({ true, false }) do
+            client.actions[1].cooldown = cooldown
+            client.actions[1].globalCooldown = true
+            client.refresh()
+            assert((client.getSpellGlow() ~= nil) == not cooldown, "The item glow ignored its cooldown or checked the global cooldown.")
+            assert(container.slots[rule.key].enabled, "The cooldown disabled the secure slot.")
+        end
         client.actions[1].isUsable = false
         client.refresh()
         assert(not client.getSpellGlow() and container.slots[rule.key].enabled)
