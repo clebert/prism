@@ -5,6 +5,16 @@ local playerBuff = { unit = "player", filter = "HELPFUL" }
 local targetDebuff = { unit = "target", filter = "HARMFUL" }
 local stealth = Rules.RankedAura("stealth", { 1784, 1785, 1786, 1787 }, playerBuff)
 local vanishAction = { spellIDs = { [1856] = true, [1857] = true } }
+local missingPoison = {
+    mechanic = "missing-weapon-enchant",
+    enchantIDs = {
+        [323] = true, [324] = true, [325] = true, [623] = true, [624] = true, [625] = true,
+        [7] = true, [8] = true, [626] = true, [627] = true, [2630] = true,
+        [22] = true, [603] = true, [35] = true, [23] = true, [643] = true,
+        [703] = true, [704] = true, [705] = true, [706] = true,
+        [7254] = true, [7255] = true, [7256] = true, [7542] = true, [7651] = true,
+    },
+}
 local gouge = Rules.RankedAura("gouge", { 1776, 1777, 8629, 11285, 11286 }, targetDebuff)
 local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, {
     unit = "target", filter = "HARMFUL", suppressGlow = "expose-armor-finisher",
@@ -84,6 +94,15 @@ Prism.classRules.ROGUE = {
         key = "kick-interrupt",
         action = { spellIDs = { [1766] = true, [1767] = true, [1768] = true, [1769] = true } },
         condition = { mechanic = "target-cast" },
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
+        key = "instant-poison-item",
+        action = { itemIDs = {
+            [6947] = true, [6949] = true, [6950] = true, [8926] = true, [8927] = true, [8928] = true,
+        } },
+        condition = missingPoison,
         requireUsable = true,
         visual = "glow",
     },

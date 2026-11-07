@@ -77,6 +77,9 @@ Combo points refer to the current target.
 - **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
 - **Kick**, **Gouge:** Glow during a living hostile target's cast or channel.
 - **Feint:** Glows in a party or raid while the player tanks a living hostile target.
+- **Instant Poison:** Each poison item rank glows while usable if either equipped melee weapon has no poison.
+  Any poison rank counts on either weapon. The crafting spells receive no poison reminder.
+  Empty slots, shields, and held items do not require poison. Permanent enchants and non-poison coatings do not count as poison.
 - **Sinister Strike**, **Backstab:** Glow with the **Remorseless** buff and fewer than five combo points.
 - **Pick Pocket**, **Throw:** Receive no Rogue-specific feedback.
 
@@ -183,6 +186,7 @@ The client selects active auras through secure filters. Addon Lua does not read 
 | `power-overflow` | The declared power amount exceeds the living player's missing power, unless `excludeFull` excludes full power. |
 | `combo-points`   | The player has exactly the declared combo-point count on the current target.                |
 | `pet-happiness`  | The living pet matches the declared happiness state or is below it when `below` is true.    |
+| `missing-weapon-enchant` | An equipped main-hand or off-hand weapon has none of the declared enchantments.                    |
 | `usable`         | The action is usable.                                                                       |
 | `self-target`    | The heal target is the player.                                                              |
 | `target-cast`    | A living hostile target casts or channels.                                                  |
@@ -218,6 +222,12 @@ Set `powerType` and a positive integer `amount` on a `power-overflow` condition 
 The threshold follows maximum power. Restricted maximum power values do not activate the visual.
 Set `excludeFull` to prevent a `power-overflow` visual at full power.
 Set `outOfCombat` on a `pet-happiness` condition to require the pet to be out of combat.
+Set `enchantIDs` on a `missing-weapon-enchant` condition to declare the accepted weapon enchantments.
+The set must contain positive integer keys with true values. These IDs identify enchantments, not spells or auras.
+The core checks equipped weapons through `GetInventoryItemID` and `C_Item.GetItemInfoInstant`.
+It reads each weapon's enchantments through `C_Item.GetWeaponEnchantInfo`. A matching entry must have `hasEnchant` set.
+Empty slots, non-weapons, and unknown item data do not activate the condition. Later refreshes retry unknown item data.
+The core checks both hands on the regular refresh interval. It does not read unit auras for this mechanic.
 Set `invert` on a `tanking` condition to require that the player does not tank the living hostile target.
 A target without threat data satisfies this inverted condition.
 Set `grouped` on a `tanking` condition to require a party or raid. This modifier applies with or without `invert`.
@@ -313,7 +323,7 @@ bash tests/install.sh
 | Test file               | Coverage                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
-| `tests/mechanics.lua`   | Tests health thresholds, resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, rank filters, and aura filters. Also tests item spells, delayed data, and unit changes. All tests use synthetic IDs. |
+| `tests/mechanics.lua`   | Tests health thresholds, resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, and filters. Also tests item spells, weapon enchantments, delayed data, and unit changes. All tests use synthetic IDs. |
 | `tests/composition.lua` | Tests independent visuals, combo-point limits, finisher glows, numeric overlays, health, ranked aura glows, cleansing, usability, pet combat, and secure aura suppression. All tests use synthetic IDs. |
 | `tests/runtime.lua`     | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
@@ -354,6 +364,7 @@ The checks must produce no Lua error or blocked-action error.
 | Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
 | Rogue control highlights  | Test every Gouge and Sap action rank. Apply weaker, equal, and stronger ranks from different rogues. Change targets and usability. | Each action highlights for an equal or stronger matching target debuff from any caster, regardless of usability. A weaker rank does not activate the highlight. |
 | Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
+| Instant Poison glow       | Test every Instant Poison item rank. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item glows if either equipped melee weapon has no poison. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
 | Rogue quiet actions       | Use Pick Pocket and Throw with and without Stealth. Test an undeclared Rogue ability. | These actions receive no Rogue-specific highlight or glow. Shared item and racial rules remain unchanged. |
 | Racial buffs              | Apply and remove each supported racial on characters from different classes. Change target selection and action usability.                                                                                                                                                                                                                              | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it.                                                                                                               |
 | Item buffs                | Apply and remove a buff whose aura ID matches the item use spell ID. Test Night Watchman's Torch. Change targets and action usability. Test an item without a use spell. Change action pages and item placement. | Only the matching player buff activates the item highlight. Other aura IDs and spell actions do not activate it. Target selection and usability do not affect it. |

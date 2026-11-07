@@ -18,6 +18,7 @@ local mechanicFields = {
     ["power-overflow"] = { mechanic = true, powerType = true, amount = true, excludeFull = true },
     ["combo-points"] = { mechanic = true, points = true },
     ["pet-happiness"] = { mechanic = true, happiness = true, below = true, outOfCombat = true },
+    ["missing-weapon-enchant"] = { mechanic = true, enchantIDs = true },
     usable = { mechanic = true },
     ["self-target"] = { mechanic = true },
     ["target-cast"] = { mechanic = true },
@@ -166,6 +167,8 @@ local function checkCondition(condition, action, context)
         check(isInteger(condition.happiness, 1) and condition.happiness <= 3, "The happiness state must be 1, 2, or 3.", context)
         checkBoolean(condition.below, context .. ".below")
         checkBoolean(condition.outOfCombat, context .. ".outOfCombat")
+    elseif mechanic == "missing-weapon-enchant" then
+        checkIDs(condition.enchantIDs, context .. ".enchantIDs")
     elseif mechanic == "tanking" then
         checkBoolean(condition.invert, context .. ".invert")
         checkBoolean(condition.grouped, context .. ".grouped")

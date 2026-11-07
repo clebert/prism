@@ -3,6 +3,8 @@ local client = {
     actions = {},
     actionQueryCount = {},
     items = {},
+    inventory = {},
+    weaponEnchants = {},
     itemLoadRequests = {},
     baseSpellIDs = {},
     helpfulSpells = {},
@@ -465,10 +467,13 @@ UIParent.left, UIParent.bottom, UIParent.width, UIParent.height = 0, 0, 1920, 10
 Enum = {
     CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 },
     LuaCurveType = { Step = 1 },
-    ItemClass = { Consumable = 0 },
+    ItemClass = { Consumable = 0, Weapon = 2, Armor = 4 },
     ItemConsumableSubclass = { Bandage = 7 },
+    ItemEnchantType = { None = 0, Permanent = 1, Temporary = 2, Imbue = 3 },
+    WeaponSlot = { MainHand = 0, OffHand = 1, Ranged = 2 },
     PowerType = { Mana = 0, Energy = 3 },
 }
+INVSLOT_MAINHAND, INVSLOT_OFFHAND, INVSLOT_RANGED = 16, 17, 18
 C_CurveUtil = {
     CreateCurve = function()
         local curve = { points = {} }
@@ -522,6 +527,10 @@ C_ActionBar = {
     end,
 }
 C_Item = {
+    GetWeaponEnchantInfo = function(weaponSlot)
+        assert(weaponSlot == Enum.WeaponSlot.MainHand or weaponSlot == Enum.WeaponSlot.OffHand, "The enchantment check queried a ranged weapon.")
+        return client.weaponEnchants[weaponSlot] or {}
+    end,
     GetItemInfoInstant = function(itemID)
         local item = client.items[itemID]
         if item then
@@ -550,6 +559,11 @@ C_UnitAuras = setmetatable({}, {
 function GetActionInfo(slot)
     local action = client.actions[slot]
     return action.itemID and "item" or "spell", action.itemID or action.spellID
+end
+
+function GetInventoryItemID(unit, slot)
+    assert(unit == "player", "The enchantment check queried another unit.")
+    return client.inventory[slot]
 end
 
 function UnitClass()

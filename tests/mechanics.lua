@@ -860,4 +860,76 @@ scenario("Indirect rank maps refresh without action aura IDs", function(client)
     end
 end)
 
+scenario("Missing weapon enchantments", function(client)
+    local firstEnchantID, secondEnchantID, otherEnchantID = 999501, 999502, 999503
+    local weaponID, armorID, uncachedID = 999601, 999602, 999603
+    client.items[weaponID] = { classID = Enum.ItemClass.Weapon }
+    client.items[armorID] = { classID = Enum.ItemClass.Armor }
+    client.addActionButton("ActionButton1", 1)
+    client.actions[1] = { spellID = spellID }
+    client.startRules({
+        {
+            key = "missing-enchant", action = action, visual = "glow", requireUsable = true,
+            condition = {
+                mechanic = "missing-weapon-enchant",
+                enchantIDs = { [firstEnchantID] = true, [secondEnchantID] = true },
+            },
+        },
+    })
+
+    local function enchant(id, kind, present)
+        return { hasEnchant = present ~= false, enchantID = id, enchantType = kind, timeLeft = 1000, charges = 0 }
+    end
+    local function check(expected)
+        client.refresh()
+        assert((client.getSpellGlow() ~= nil) == expected, "The missing-enchantment glow has an incorrect condition.")
+    end
+
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        client.inventory = {}
+        client.weaponEnchants = {}
+        check(false)
+        client.inventory[INVSLOT_RANGED] = weaponID
+        check(false)
+        client.inventory[INVSLOT_MAINHAND] = weaponID
+        check(true)
+        client.weaponEnchants[Enum.WeaponSlot.MainHand] = {
+            enchant(otherEnchantID, Enum.ItemEnchantType.Permanent),
+            enchant(otherEnchantID, Enum.ItemEnchantType.Temporary),
+        }
+        check(true)
+        client.weaponEnchants[Enum.WeaponSlot.MainHand][3] = enchant(firstEnchantID, Enum.ItemEnchantType.Imbue, false)
+        check(true)
+        client.weaponEnchants[Enum.WeaponSlot.MainHand][3].hasEnchant = true
+        check(false)
+        client.inventory[INVSLOT_OFFHAND] = armorID
+        check(false)
+        client.inventory[INVSLOT_OFFHAND] = weaponID
+        check(true)
+        client.weaponEnchants[Enum.WeaponSlot.OffHand] = {
+            enchant(otherEnchantID, Enum.ItemEnchantType.Imbue),
+            enchant(secondEnchantID, Enum.ItemEnchantType.Temporary),
+        }
+        check(false)
+        client.weaponEnchants[Enum.WeaponSlot.MainHand][3] = nil
+        check(true)
+        client.actions[1].isUsable = false
+        check(false)
+        client.actions[1].isUsable = true
+        check(true)
+        client.inventory[INVSLOT_MAINHAND] = nil
+        check(false)
+        client.weaponEnchants[Enum.WeaponSlot.OffHand][2].hasEnchant = false
+        check(true)
+        client.inventory[INVSLOT_OFFHAND] = uncachedID
+        check(false)
+        client.items[uncachedID] = { classID = Enum.ItemClass.Weapon }
+        check(true)
+        client.items[uncachedID] = nil
+        client.inventory[INVSLOT_OFFHAND] = nil
+        check(false)
+    end
+end)
+
 suite.finish("Mechanic")

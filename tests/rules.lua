@@ -155,6 +155,7 @@ assert(maskRules[1] == usableGlow and maskRules[2] == maskOnly)
 
 for _, condition in ipairs({
     { mechanic = "hostile-target" },
+    { mechanic = "missing-weapon-enchant", enchantIDs = { [firstID] = true, [secondID] = true } },
     { mechanic = "low-health", percent = 1 },
     { mechanic = "low-health", percent = 37 },
     { mechanic = "low-health", percent = 100 },
@@ -280,6 +281,18 @@ local invalidCases = {
         rules[1].condition.comboPointsBelow = 3
         rules[1].suppressGlow = "glow"
         rules[2] = Rules.UsableGlow("glow", ids)
+    end },
+    { "missing enchant IDs", function(rules)
+        rules[1].condition = { mechanic = "missing-weapon-enchant" }
+    end },
+    { "empty enchant IDs", function(rules)
+        rules[1].condition = { mechanic = "missing-weapon-enchant", enchantIDs = {} }
+    end },
+    { "invalid enchant IDs", function(rules)
+        rules[1].condition = { mechanic = "missing-weapon-enchant", enchantIDs = { [-1] = true } }
+    end },
+    { "false enchant ID", function(rules)
+        rules[1].condition = { mechanic = "missing-weapon-enchant", enchantIDs = { [firstID] = false } }
     end },
     { "missing health percent", function(rules) rules[1].condition = { mechanic = "low-health" } end },
     { "zero health percent", function(rules) rules[1].condition = { mechanic = "low-health", percent = 0 } end },

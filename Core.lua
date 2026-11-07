@@ -394,7 +394,43 @@ local function isTargetCastingOrChanneling()
     return isChannelTradeSkill ~= nil
 end
 
+local function isWeaponMissingEnchant(inventorySlot, weaponSlot, enchantIDs)
+    local itemID = GetInventoryItemID("player", inventorySlot)
+
+    if not itemID then
+        return false
+    end
+
+    local _, _, _, _, _, classID = C_Item.GetItemInfoInstant(itemID)
+
+    if classID ~= Enum.ItemClass.Weapon then
+        return false
+    end
+
+    for _, enchant in pairs(C_Item.GetWeaponEnchantInfo(weaponSlot)) do
+        if enchant.hasEnchant and enchantIDs[enchant.enchantID] then
+            return false
+        end
+    end
+
+    return true
+end
+
 local mechanicHandlers = {
+    ["missing-weapon-enchant"] = function(state)
+        local enchantIDs = state.rule.condition.enchantIDs
+
+        if
+            not isWeaponMissingEnchant(INVSLOT_MAINHAND, Enum.WeaponSlot.MainHand, enchantIDs)
+            and not isWeaponMissingEnchant(INVSLOT_OFFHAND, Enum.WeaponSlot.OffHand, enchantIDs)
+        then
+            hideRuleVisual(state)
+            return
+        end
+
+        showRuleVisual(state)
+        state.region:SetAlpha(1)
+    end,
     alive = function(state)
         local unit = resolveUnit(state.rule.condition.unit)
 
