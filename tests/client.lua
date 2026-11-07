@@ -110,6 +110,19 @@ function frameMethods:SetText(text)
     self.text = text
 end
 
+function frameMethods:SetFormattedText(format, ...)
+    assert(self.template, "The number has no font before its first text update.")
+    self.text = string.format(format, ...)
+end
+
+function frameMethods:SetFontHeight(height)
+    self.fontHeight = height
+end
+
+function frameMethods:SetTextColor(red, green, blue, alpha)
+    self.textColor = { red, green, blue, alpha }
+end
+
 function frameMethods:SetJustifyH(justification)
     self.justification = justification
 end
@@ -495,6 +508,15 @@ C_ActionBar = {
     IsUsableAction = function(slot)
         return { boolean = client.actions[slot].isUsable ~= false }
     end,
+    GetActionCooldownDuration = function(slot, ignoreGCD)
+        assert(ignoreGCD == true, "The combo-point number must ignore the global cooldown.")
+        local action = client.actions[slot]
+        return {
+            IsActive = function()
+                return { secret = true, boolean = action.cooldown == true or (not ignoreGCD and action.globalCooldown == true) }
+            end,
+        }
+    end,
 }
 C_Item = {
     GetItemInfoInstant = function(itemID)
@@ -767,6 +789,20 @@ function client.alpha(frame)
         end
     end
     return alpha
+end
+
+function client.getComboPointText()
+    for index = #client.frames, 1, -1 do
+        local frame = client.frames[index]
+        if frame.frameType == "FontString" then
+            return frame
+        end
+    end
+end
+
+function client.isVisible(frame)
+    local left, bottom, width, height = client.rectangle(frame)
+    return client.alpha(frame) > 0 and left + width > 0 and left < UIParent.width and bottom + height > 0 and bottom < UIParent.height
 end
 
 function client.getSpellGlow()

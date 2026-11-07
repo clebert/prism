@@ -346,17 +346,19 @@ for _, context in ipairs({
     { filter = "HELPFUL", unit = "heal-target", suppressorUnit = "player", mechanic = "self-target" },
     { filter = "HARMFUL", unit = "target", suppressorUnit = "target", mechanic = "hostile-target" },
     { filter = "HELPFUL", unit = "player", suppressorUnit = "player", mechanic = "combo-points", points = 3 },
+    { filter = "HARMFUL", unit = "target", suppressorUnit = "target", mechanic = "combo-points", points = 3, ownAura = true, comboPointsBelow = 3 },
 }) do
     scenario("Ranked " .. context.filter .. " highlights and missing-aura glows with " .. context.mechanic, function(client)
         local definitions = {}
         assert(loadfile("Rules.lua"))("Prism", definitions)
         local Rules = definitions.Rules
         local ranks = { spellID, auraID, overrideID }
-        local highlightRule = Rules.RankedAura("aura-highlight", ranks, { unit = context.unit, filter = context.filter })
+        local highlightRule = Rules.RankedAura("aura-highlight", ranks, { unit = context.unit, filter = context.filter, ownAura = context.ownAura })
+        highlightRule.condition.comboPointsBelow = context.comboPointsBelow
         local suppressor = Rules.RankedAura("aura-present", ranks, {
-            unit = context.suppressorUnit, filter = context.filter, visual = "none", suppressGlow = "aura-missing",
+            unit = context.suppressorUnit, filter = context.filter, ownAura = context.ownAura, visual = "none", suppressGlow = "aura-missing",
         })
-        client.addActionButton("ActionButton1", 1)
+        local button = client.addActionButton("ActionButton1", 1)
         client.actions[1] = { spellID = auraID, isUsable = false }
         client.startRules({
             highlightRule,
@@ -372,7 +374,7 @@ for _, context in ipairs({
         local present = client.getContainer(context.suppressorUnit, "aura-present")
         local presentSlot = present.slots["aura-present"]
         local layout = client.getLayout(context.suppressorUnit, "aura-present")
-        assert(not presentSlot.candidateFilters.isFromPlayerOrPlayerPet, "The suppressor restricts the aura caster.")
+        assert(presentSlot.candidateFilters.isFromPlayerOrPlayerPet == (context.ownAura or nil), "The suppressor has an incorrect caster filter.")
 
         for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
             client.event(event)
@@ -406,16 +408,24 @@ for _, context in ipairs({
                         client.setAuraPresent(presentSlot, presentSlot.candidateFilters.includeSpellIDs[suppressingAura] == true)
                         client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[selectedAura] == true)
                         for _, count in ipairs(context.points and {
-                            { points = 0, matches = false }, { points = context.points, matches = true },
-                            { points = { secret = true }, matches = false },
+                            { points = 0, matches = false }, { points = context.points - 1, matches = false },
+                            { points = context.points, matches = true }, { points = { secret = true }, matches = false },
                         } or { { points = 0, matches = true } }) do
                             client.comboPoints = count.points
                             for _, usable in ipairs({ false, true }) do
                                 client.actions[1].isUsable = usable
                                 client.event("ACTION_USABLE_CHANGED")
                                 client.refresh()
-                                assert(client.alpha(highlightSlot.texture) == (highlighted and 1 or 0))
+                                local belowLimit = not context.comboPointsBelow or (type(count.points) == "number" and count.points < context.comboPointsBelow)
+                                local highlightActive = highlighted and belowLimit
+                                assert(client.alpha(highlightSlot.texture) == (highlightActive and 1 or 0))
                                 assert((client.getSpellGlow() ~= nil) == (targetAllowed and count.matches and usable and not suppressed))
+                                if context.points then
+                                    local text = client.getComboPointText()
+                                    assert(text, "The finisher has no combo-point number.")
+                                    local positive = type(count.points) == "number" and count.points > 0
+                                    assert(client.isVisible(text) == (positive and usable and not highlightActive), "The combo-point number ignored the aura highlight.")
+                                end
                             end
                         end
                     end
@@ -434,18 +444,67 @@ for _, context in ipairs({
         client.setAuraPresent(highlightSlot, highlightSlot.candidateFilters.includeSpellIDs[auraID] == true)
         client.refresh()
         assert(client.getSpellGlow() and client.alpha(highlightSlot.texture) == 0, "A weaker aura suppressed the upgrade glow.")
+        if context.points then
+            local text = client.getComboPointText()
+            local countLayout = client.getLayout(context.unit, "aura-highlight")
+            assert(countLayout, "The combo-point number has no secure highlight suppression.")
+            local countGroup = countLayout.groups["aura-highlight"]
+            assert(countGroup.candidateFilters.includeSpellIDs[overrideID] and not countGroup.candidateFilters.includeSpellIDs[auraID])
+            assert(countGroup.candidateFilters.isFromPlayerOrPlayerPet == (context.ownAura or nil))
+            local frames = #client.frames
+            client.comboPoints = context.points - 1
+            client.setAuraPresent(presentSlot, false)
+            client.setAuraPresent(highlightSlot, true)
+            client.refresh()
+            assert(not client.isVisible(text), "The number depends on the glow threshold or its separate suppressor.")
+            assert(not countLayout.layoutQueryCount, "The core read secure highlight geometry.")
+            UIParent.width = UIParent.width * 2
+            client.refresh()
+            assert(countGroup.layout.elementWidth == UIParent.width * 2 and not client.isVisible(text), "The number suppression kept the previous viewport width.")
+            local refreshes = countLayout.refreshCount
+            client.event("PLAYER_TARGET_CHANGED")
+            assert(countLayout.refreshCount > refreshes, "A target change did not refresh number suppression.")
+            client.setAuraPresent(highlightSlot, false)
+            client.setAuraPresent(presentSlot, true)
+            client.refresh()
+            assert(client.isVisible(text), "An invisible glow suppressor hid the number without a highlight.")
+            client.actions[1].cooldown = true
+            client.refresh()
+            assert(not client.isVisible(text), "Highlight removal bypassed the spell cooldown.")
+            client.actions[1].cooldown = false
+            client.refresh()
+            assert(client.isVisible(text))
+            button.visible = false
+            client.refresh()
+            assert(not client.isVisible(text))
+            button.visible = true
+            client.refresh()
+            assert(client.isVisible(text))
+            client.comboPoints = context.points
+            client.refresh()
+            client.actions[1].spellID = 999199
+            client.refresh()
+            assert(not client.isVisible(text) and not countGroup.enabled)
+            client.actions[1].spellID = overrideID
+            client.refresh()
+            assert(client.isVisible(text) and countGroup.enabled == (not context.comboPointsBelow) and #client.frames == frames, "The number suppression did not restore its action.")
+            client.setAuraPresent(highlightSlot, true)
+            client.refresh()
+            assert(client.isVisible(text) == (context.comboPointsBelow ~= nil), "The number ignored the restored highlight condition.")
+        end
     end)
 end
 
 scenario("Independent suppressors reset when their action no longer matches", function(client)
     client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }
+    client.comboPoints = 3
     local rules = {
-        { key = "glow", action = { anySpell = true }, condition = { mechanic = "usable" }, visual = "glow" },
+        { key = "glow", action = { anySpell = true }, condition = { mechanic = "combo-points", points = 3 }, visual = "glow" },
     }
     for _, key in ipairs({ "first", "second" }) do
         rules[#rules + 1] = {
-            key = key, action = action, visual = "none", suppressGlow = "glow",
+            key = key, action = action, visual = "highlight", suppressGlow = "glow",
             condition = { mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [auraID] = true } },
         }
     end
@@ -453,38 +512,41 @@ scenario("Independent suppressors reset when their action no longer matches", fu
     client.refresh()
     local first = client.getContainer("player", "first").slots.first
     local second = client.getContainer("player", "second").slots.second
+    local text = client.getComboPointText()
     for _, firstPresent in ipairs({ false, true }) do
         for _, secondPresent in ipairs({ false, true }) do
             client.setAuraPresent(first, firstPresent)
             client.setAuraPresent(second, secondPresent)
             client.refresh()
             assert((client.getSpellGlow() ~= nil) == (not firstPresent and not secondPresent))
+            assert(client.isVisible(text) == (not firstPresent and not secondPresent), "The number ignored an independent aura highlight.")
         end
     end
     first.frame.visible = false
     client.refresh()
-    assert(not client.getSpellGlow(), "The suppression depends on the slot frame's visibility.")
+    assert(not client.getSpellGlow() and not client.isVisible(text), "The suppression depends on the slot frame's visibility.")
     local frames = #client.frames
     client.actions[1].spellID = overrideID
     client.refresh()
-    assert(client.getSpellGlow(), "An inactive suppressor retained its alpha condition.")
+    assert(client.getSpellGlow() and client.isVisible(text), "An inactive suppressor retained its visual condition.")
     client.actions[1].spellID = spellID
     client.refresh()
-    assert(not client.getSpellGlow() and #client.frames == frames)
+    assert(not client.getSpellGlow() and not client.isVisible(text) and #client.frames == frames)
     client.setAuraPresent(first, false)
     client.setAuraPresent(second, false)
     client.refresh()
-    assert(client.getSpellGlow(), "The restored suppressors did not release the glow.")
+    assert(client.getSpellGlow() and client.isVisible(text), "The restored suppressors did not release the visuals.")
 end)
 
 scenario("Suppression starts during combat and updates its layout and filters", function(client)
     client.addActionButton("ActionButton1", 1)
     client.actions[1] = { spellID = spellID }
+    client.comboPoints = 3
     client.combatUnits.player = true
     client.startRules({
-        { key = "glow", action = { anySpell = true }, condition = { mechanic = "usable" }, visual = "glow" },
+        { key = "glow", action = { anySpell = true }, condition = { mechanic = "combo-points", points = 3 }, visual = "glow" },
         {
-            key = "suppressor", action = { anySpell = true }, visual = "none", suppressGlow = "glow",
+            key = "suppressor", action = { anySpell = true }, visual = "highlight", suppressGlow = "glow",
             condition = { mechanic = "aura", unit = "heal-target", filter = "HELPFUL", includeActionSpellID = true },
         },
     })
@@ -496,10 +558,11 @@ scenario("Suppression starts during combat and updates its layout and filters", 
     client.setAuraPresent(slot, false)
     client.refresh()
     local glow = client.getSpellGlow()
-    assert(glow, "A missing buff has no glow during combat.")
+    local text = client.getComboPointText()
+    assert(glow and client.isVisible(text), "A missing buff has no finisher feedback during combat.")
     client.setAuraPresent(slot, true)
     client.refresh()
-    assert(not client.getSpellGlow())
+    assert(not client.getSpellGlow() and not client.isVisible(text))
     local updates = layout.layoutChangeCount or 0
     local filters = layout.filterChangeCount
     client.refresh()
@@ -517,10 +580,10 @@ scenario("Suppression starts during combat and updates its layout and filters", 
     local refreshes = layout.refreshCount
     client.event("PLAYER_TARGET_CHANGED")
     assert(container.unit == "target" and layout.unit == "target" and layout.refreshCount > refreshes)
-    assert(not layout.layoutQueryCount)
+    assert(not layout.layoutQueryCount and not client.isVisible(text))
     client.setAuraPresent(slot, false)
     client.refresh()
-    assert(client.getSpellGlow() == glow)
+    assert(client.getSpellGlow() == glow and client.isVisible(text))
 end)
 
 for _, dispelType in ipairs({ "Curse", "Poison", "Disease" }) do

@@ -18,6 +18,7 @@ local spellGlowScale = 1.4
 local redBlinkMinimumAlpha = 0.2
 local redBlinkDurationSeconds = 0.4
 local overlayRefreshIntervalSeconds = 0.1
+local comboPointFontScale = 0.65
 local actionButtonOverlays = {}
 local refreshGeneration = 0
 local activeRules
@@ -84,6 +85,34 @@ local function createVisual(parent, visual)
     return texture
 end
 
+local function createComboPointOverlay(overlay)
+    local frame = CreateFrame("Frame", nil, overlay.frame)
+    frame:EnableMouse(false)
+    frame:SetAllPoints()
+    -- Keep the number above glow and highlight frames.
+    frame:SetFrameLevel(overlay.frame:GetFrameLevel() + 3)
+    frame:SetAlpha(0)
+    frame:Show()
+
+    local cooldownRegion = CreateFrame("Frame", nil, frame)
+    cooldownRegion:EnableMouse(false)
+    cooldownRegion:SetAllPoints()
+    cooldownRegion:SetAlpha(0)
+    cooldownRegion:Show()
+
+    local visualRegion = CreateFrame("Frame", nil, cooldownRegion, "DisableUntrustedLayoutScriptsTemplate")
+    visualRegion:EnableMouse(false)
+    visualRegion:SetPoint("CENTER")
+    visualRegion:SetSize(1, 1)
+    visualRegion:Show()
+
+    local text = visualRegion:CreateFontString(nil, "OVERLAY", "SystemFont_OutlineThick_Huge2")
+    text:SetPoint("CENTER")
+    text:SetTextColor(0, 1, 0)
+
+    return { frame = frame, cooldownRegion = cooldownRegion, visualRegion = visualRegion, text = text }
+end
+
 local function resolveUnit(unit, spellID)
     if unit == "buff-target" then
         if not C_Spell.IsSpellHelpful(spellID) or C_Spell.IsSelfBuff(spellID) then
@@ -137,7 +166,16 @@ local function createAuraCandidateFilters(condition, actionSpellID, itemSpellID)
     return filters
 end
 
-local function createAuraSuppression(rule, spellID, itemSpellID, visualFrame, visualParent, previous)
+local function anchorAuraSuppression(container, visualFrame, visualParent, previous)
+    -- Subtract the width of an empty flow layout from each anchor.
+    container:ClearAllPoints()
+    container:SetPoint("TOPLEFT", previous or visualParent, previous and "TOPRIGHT" or "CENTER", -1, 0)
+    visualFrame:ClearAllPoints()
+    visualFrame:SetPoint("CENTER", container, "TOPRIGHT")
+end
+
+local function createAuraSuppression(state, spellID, itemSpellID, visualFrame, visualParent, previous)
+    local rule = state.rule
     local condition = rule.condition
     local width = UIParent:GetWidth() * 2
     local container = CreateFrame("AuraContainer", nil, UIParent, "CustomAuraContainerTemplate")
@@ -153,13 +191,11 @@ local function createAuraSuppression(rule, spellID, itemSpellID, visualFrame, vi
         end,
     })
 
-    -- Subtract the width of an empty flow layout from each anchor.
-    container:SetPoint("TOPLEFT", previous or visualParent, previous and "TOPRIGHT" or "CENTER", -1, 0)
-    visualFrame:ClearAllPoints()
-    visualFrame:SetPoint("CENTER", container, "TOPRIGHT")
+    anchorAuraSuppression(container, visualFrame, visualParent, previous)
     container:Show()
     container:SetEnabled(true)
-    return container, width
+    state.suppressionLayouts[#state.suppressionLayouts + 1] = { container = container, width = width }
+    return container
 end
 
 local function createRuleState(overlay, rule, spellID, itemSpellID)
@@ -204,6 +240,7 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
     container:SetUnit(state.unit)
     state.region = container
     state.auraContainer = container
+    state.suppressionLayouts = {}
 
     container:AddAuraSlot(rule.key, condition.filter, {
         candidateFilters = createAuraCandidateFilters(condition, spellID, itemSpellID),
@@ -253,14 +290,13 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
         highlightFrame:EnableMouse(false)
         createHighlightTexture(highlightFrame)
         state.inverseHighlight = highlightFrame
-        state.suppressionLayout, state.suppressionWidth = createAuraSuppression(rule, spellID, itemSpellID, highlightFrame, container)
+        createAuraSuppression(state, spellID, itemSpellID, highlightFrame, container)
     elseif rule.suppressGlow then
         local suppressedState = overlay.states[rule.suppressGlow]
         assert(suppressedState and suppressedState.glowFrame, "The glow dependency must exist.")
-        state.suppressionLayout, state.suppressionWidth = createAuraSuppression(
-            rule, spellID, itemSpellID, suppressedState.glowFrame, suppressedState.glowParent, suppressedState.glowSuppressionAnchor
+        suppressedState.glowSuppressionAnchor = createAuraSuppression(
+            state, spellID, itemSpellID, suppressedState.glowFrame, suppressedState.glowParent, suppressedState.glowSuppressionAnchor
         )
-        suppressedState.glowSuppressionAnchor = state.suppressionLayout
     end
     container:Show()
     container:SetEnabled(true)
@@ -288,9 +324,14 @@ local function setRuleStateActive(state, active)
         state.auraContainer:SetEnabled(active)
     end
 
-    if state.suppressionLayout then
-        -- Keep the container enabled so a disabled group can collapse.
-        state.suppressionLayout:SetAuraGroupEnabled(state.rule.key, active)
+    if state.suppressionLayouts then
+        for _, suppression in ipairs(state.suppressionLayouts) do
+            -- Keep the container enabled so a disabled group can collapse.
+            suppression.container:SetAuraGroupEnabled(state.rule.key, active)
+        end
+        if state.countSuppressionAnchor then
+            state.countSuppressionEnabled = active
+        end
     end
 
     if not active then
@@ -311,6 +352,31 @@ end
 local function setUsableAlpha(region, actionSlotID)
     local isUsable = C_ActionBar.IsUsableAction(actionSlotID)
     region:SetAlphaFromBoolean(isUsable, booleanTrueAlpha, 0)
+end
+
+local function updateComboPointOverlay(overlay, actionSlotID)
+    local count = overlay.comboPoints
+
+    if not count then
+        return
+    end
+
+    if not overlay.hasComboPoints then
+        count.frame:SetAlpha(0)
+        return
+    end
+
+    local points = GetComboPoints("player", "target")
+
+    if issecretvalue(points) or points <= 0 then
+        count.frame:SetAlpha(0)
+        return
+    end
+
+    count.text:SetFormattedText("%d", points)
+    setUsableAlpha(count.frame, actionSlotID)
+    local duration = C_ActionBar.GetActionCooldownDuration(actionSlotID, true)
+    count.cooldownRegion:SetAlphaFromBoolean(duration:IsActive(), 0, booleanTrueAlpha)
 end
 
 local function isLivingHostileTarget()
@@ -528,8 +594,8 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
 
     if state.unit ~= unit then
         container:SetUnit(unit)
-        if state.suppressionLayout then
-            state.suppressionLayout:SetUnit(unit)
+        for _, suppression in ipairs(state.suppressionLayouts) do
+            suppression.container:SetUnit(unit)
         end
         state.unit = unit
     end
@@ -540,8 +606,8 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
     then
         local filters = createAuraCandidateFilters(condition, spellID, itemSpellID)
         container:SetAuraSlotCandidateFilters(rule.key, filters)
-        if state.suppressionLayout then
-            state.suppressionLayout:SetAuraGroupCandidateFilters(rule.key, filters)
+        for _, suppression in ipairs(state.suppressionLayouts) do
+            suppression.container:SetAuraGroupCandidateFilters(rule.key, filters)
         end
         state.actionSpellID = spellID
         state.itemSpellID = itemSpellID
@@ -553,6 +619,11 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
         belowComboPointLimit = not issecretvalue(points) and points < condition.comboPointsBelow
     end
 
+    if state.countSuppressionAnchor and state.countSuppressionEnabled ~= belowComboPointLimit then
+        state.countSuppressionAnchor:SetAuraGroupEnabled(rule.key, belowComboPointLimit)
+        state.countSuppressionEnabled = belowComboPointLimit
+    end
+
     if not belowComboPointLimit then
         container:SetAlpha(0)
     elseif rule.requireUsable then
@@ -561,11 +632,13 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
         container:SetAlpha(1)
     end
 
-    if state.suppressionLayout then
+    if #state.suppressionLayouts > 0 then
         local width = UIParent:GetWidth() * 2
-        if state.suppressionWidth ~= width then
-            state.suppressionLayout:SetAuraGroupLayout(rule.key, { elementWidth = width, elementHeight = 1 })
-            state.suppressionWidth = width
+        for _, suppression in ipairs(state.suppressionLayouts) do
+            if suppression.width ~= width then
+                suppression.container:SetAuraGroupLayout(rule.key, { elementWidth = width, elementHeight = 1 })
+                suppression.width = width
+            end
         end
     end
 end
@@ -594,9 +667,14 @@ local function updateActionRules(overlay, spellID, itemID, classID, subClassID, 
     local baseSpellID = spellID and C_Spell.GetBaseSpell(spellID)
     local selectedRules = {}
     local activeStates = {}
+    local hasComboPoints = false
 
     for _, rule in ipairs(activeRules) do
         if matchesAction(rule.action, spellID, baseSpellID, itemID, classID, subClassID) then
+            if rule.condition.mechanic == "combo-points" then
+                hasComboPoints = true
+            end
+
             selectedRules[rule.key] = true
             local state = overlay.states[rule.key]
 
@@ -617,6 +695,32 @@ local function updateActionRules(overlay, spellID, itemID, classID, subClassID, 
         end
     end
 
+    if hasComboPoints then
+        if not overlay.comboPoints then
+            overlay.comboPoints = createComboPointOverlay(overlay)
+        end
+
+        local count = overlay.comboPoints
+        local previous
+        count.visualRegion:ClearAllPoints()
+        count.visualRegion:SetPoint("CENTER")
+
+        for _, state in ipairs(activeStates) do
+            if state.rule.visual == "highlight" and state.rule.condition.mechanic == "aura" then
+                if state.countSuppressionAnchor then
+                    anchorAuraSuppression(state.countSuppressionAnchor, count.visualRegion, count.cooldownRegion, previous)
+                else
+                    state.countSuppressionAnchor = createAuraSuppression(
+                        state, spellID, itemSpellID, count.visualRegion, count.cooldownRegion, previous
+                    )
+                    state.countSuppressionEnabled = true
+                end
+                previous = state.countSuppressionAnchor
+            end
+        end
+    end
+
+    overlay.hasComboPoints = hasComboPoints
     overlay.activeStates = activeStates
     overlay.spellID = spellID
     overlay.itemID = itemID
@@ -673,6 +777,14 @@ local function placeActionButtonOverlay(overlay, actionButton)
     local scaledWidth = actionButton:GetWidth() * scale
     local scaledHeight = actionButton:GetHeight() * scale
     placeRegion(overlay.frame, overlay, scaledLeft, scaledBottom, scaledWidth, scaledHeight, false)
+
+    local count = overlay.comboPoints
+    local fontHeight = math.min(scaledWidth, scaledHeight) * comboPointFontScale
+
+    if count and count.fontHeight ~= fontHeight then
+        count.fontHeight = fontHeight
+        count.text:SetFontHeight(fontHeight)
+    end
 
     for _, state in ipairs(overlay.activeStates) do
         if state.auraContainer then
@@ -776,6 +888,8 @@ local function updateActionButtonOverlay(actionButton)
     for _, state in ipairs(overlay.activeStates) do
         updateRuleState(state, spellID, itemSpellID, actionSlotID)
     end
+
+    updateComboPointOverlay(overlay, actionSlotID)
 end
 
 local function refreshActionButtonOverlays()
@@ -808,9 +922,9 @@ local function refreshAuraStates()
         for _, state in ipairs(overlay.activeStates) do
             if state.auraContainer then
                 state.auraContainer:UpdateAllAuras()
-            end
-            if state.suppressionLayout then
-                state.suppressionLayout:UpdateAllAuras()
+                for _, suppression in ipairs(state.suppressionLayouts) do
+                    suppression.container:UpdateAllAuras()
+                end
             end
         end
     end

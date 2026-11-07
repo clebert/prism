@@ -514,17 +514,38 @@ for _, condition in ipairs({
                 condition = { mechanic = "combo-points", points = condition.points },
             },
         })
+        client.comboPoints = condition.points
+        local left = button.left
+        button.left = nil
+        client.refresh()
+        button.left = left
+        client.refresh()
+        local text = client.getComboPointText()
+        assert(text, "The finisher has no combo-point number.")
+        assert(text.point[1] == "CENTER" and text.template == "SystemFont_OutlineThick_Huge2", "The number is not centered and outlined.")
+        assert(text.textColor[1] == 0 and text.textColor[2] == 1 and text.textColor[3] == 0, "The combo-point number is not green.")
+        assert(#text.parent.textures == 0, "A background texture obscures the finisher icon.")
         for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
             client.event(event)
             for points = 0, 6 do
                 client.comboPoints = points
                 for _, usable in ipairs({ false, true }) do
                     client.actions[1].isUsable = usable
-                    client.event("ACTION_USABLE_CHANGED")
-                    assert((client.getSpellGlow() ~= nil) == (points == condition.points and (not condition.requireUsable or usable)), "The glow ignored the exact count or usability.")
+                    for _, cooldown in ipairs({ false, true }) do
+                        client.actions[1].cooldown = cooldown
+                        client.actions[1].globalCooldown = true
+                        client.event("ACTION_USABLE_CHANGED")
+                        assert((client.getSpellGlow() ~= nil) == (points == condition.points and (not condition.requireUsable or usable)), "The glow ignored the exact count or usability.")
+                        local visible = points > 0 and usable and not cooldown
+                        assert(client.alpha(text) == (visible and 1 or 0), "The number ignored combo points, usability, or the spell cooldown.")
+                        if visible then
+                            assert(text.text == tostring(points), "The number does not show the current combo points.")
+                        end
+                    end
                 end
             end
         end
+        client.actions[1].cooldown = false
         client.comboPoints = condition.points
         client.refresh()
         local glow = client.getSpellGlow()
@@ -534,17 +555,29 @@ for _, condition in ipairs({
             client.comboPoints = points
             client.event("PLAYER_TARGET_CHANGED")
             assert((client.getSpellGlow() ~= nil) == (points == condition.points), "A target change kept stale combo points.")
+            assert(client.alpha(text) == (points == condition.points and 1 or 0), "The number kept stale or restricted combo points.")
         end
         assert(#client.frames == frames and client.getSpellGlow() == glow)
+        local fontHeight = text.fontHeight
+        button.scale = 1.5
+        client.refresh()
+        assert(text.fontHeight == fontHeight * 1.5, "The number did not follow the button scale.")
         button.visible = false
         client.refresh()
-        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying())
+        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying() and client.alpha(text) == 0)
         button.visible = true
         client.refresh()
-        assert(client.getSpellGlow() == glow)
-        client.actions[1] = nil
+        assert(client.getSpellGlow() == glow and client.alpha(text) == 1)
+        client.actions[1].spellID = auraID
         client.refresh()
-        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying())
+        assert(not client.getSpellGlow() and client.alpha(text) == 0, "A non-finisher kept the number.")
+        button.action = 13
+        client.actions[13] = { spellID = rankID }
+        client.refresh()
+        assert(client.alpha(text) == 1 and client.getComboPointText() == text and #client.frames == frames, "Action paging replaced or lost the number.")
+        client.actions[13] = nil
+        client.refresh()
+        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying() and client.alpha(text) == 0)
     end)
 end
 

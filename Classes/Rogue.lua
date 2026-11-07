@@ -2,29 +2,25 @@ local _, Prism = ...
 local Rules = Prism.Rules
 
 local playerBuff = { unit = "player", filter = "HELPFUL" }
-local gougeSpellIDs = { [1776] = true }
-local sapSpellIDs = { [6770] = true }
-local exposeArmorSpellIDs = { [8647] = true }
-local exposeArmor = {
-    key = "expose-armor",
-    action = { spellIDs = exposeArmorSpellIDs },
-    condition = Rules.TargetDebuff(Rules.Union(exposeArmorSpellIDs, {
-        [8649] = true,
-        [8650] = true,
-        [11197] = true,
-        [11198] = true,
-    })),
-    visual = "highlight",
-    suppressGlow = "expose-armor-finisher",
-}
-local sliceAndDice = Rules.RankedAura("slice-and-dice", { 5171 }, {
+local targetDebuff = { unit = "target", filter = "HARMFUL" }
+local gouge = Rules.RankedAura("gouge", { 1776, 1777, 8629, 11285, 11286 }, targetDebuff)
+local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, {
+    unit = "target", filter = "HARMFUL", suppressGlow = "expose-armor-finisher",
+})
+local sliceAndDice = Rules.RankedAura("slice-and-dice", { 5171, 6774 }, {
     unit = "player", filter = "HELPFUL", suppressGlow = "slice-and-dice-finisher",
+})
+local rupture = Rules.RankedAura("own-rupture", { 1943, 8639, 8640, 11273, 11274, 11275 }, {
+    unit = "target", filter = "HARMFUL", ownAura = true, suppressGlow = "rupture-finisher",
 })
 
 Prism.classRules.ROGUE = {
     {
         key = "eviscerate-finisher",
-        action = { spellIDs = { [2098] = true, [6760] = true } },
+        action = { spellIDs = {
+            [2098] = true, [6760] = true, [6761] = true, [6762] = true, [8623] = true,
+            [8624] = true, [11299] = true, [11300] = true, [31016] = true,
+        } },
         condition = { mechanic = "combo-points", points = 5 },
         requireUsable = true,
         visual = "glow",
@@ -43,56 +39,51 @@ Prism.classRules.ROGUE = {
         requireUsable = true,
         visual = "glow",
     },
+    {
+        key = "rupture-finisher",
+        action = rupture.action,
+        condition = { mechanic = "combo-points", points = 5 },
+        requireUsable = true,
+        visual = "glow",
+    },
     sliceAndDice,
-    Rules.RankedAura("stealth", { 1784 }, playerBuff),
-    Rules.RankedAura("sprint", { 2983 }, playerBuff),
+    Rules.RankedAura("stealth", { 1784, 1785, 1786, 1787 }, playerBuff),
+    Rules.RankedAura("sprint", { 2983, 8696, 11305 }, playerBuff),
     Rules.RankedAura("evasion", { 5277 }, playerBuff),
-    Rules.RankedAura("own-garrote", { 703 }, { unit = "target", filter = "HARMFUL", ownAura = true }),
+    Rules.RankedAura("own-garrote", { 703, 8631, 8632, 8633, 11289, 11290 }, { unit = "target", filter = "HARMFUL", ownAura = true }),
+    rupture,
     exposeArmor,
-    {
-        key = "gouge",
-        action = { spellIDs = gougeSpellIDs },
-        condition = Rules.TargetDebuff(Rules.Union(gougeSpellIDs, {
-            [1777] = true,
-            [8629] = true,
-            [11285] = true,
-            [11286] = true,
-        })),
-        visual = "highlight",
-    },
-    {
-        key = "sap",
-        action = { spellIDs = sapSpellIDs },
-        condition = Rules.TargetDebuff(Rules.Union(sapSpellIDs, {
-            [2070] = true,
-            [11297] = true,
-        })),
-        visual = "highlight",
-    },
+    gouge,
+    Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff),
     {
         key = "gouge-interrupt",
-        action = { spellIDs = gougeSpellIDs },
+        action = gouge.action,
         condition = { mechanic = "target-cast" },
         requireUsable = true,
         visual = "glow",
     },
     {
         key = "kick-interrupt",
-        action = { spellIDs = { [1766] = true } },
+        action = { spellIDs = { [1766] = true, [1767] = true, [1768] = true, [1769] = true } },
         condition = { mechanic = "target-cast" },
         requireUsable = true,
         visual = "glow",
     },
     {
         key = "feint",
-        action = { spellIDs = { [1966] = true } },
+        action = { spellIDs = { [1966] = true, [6768] = true, [8637] = true, [11303] = true, [25302] = true } },
         condition = { mechanic = "tanking", grouped = true },
         requireUsable = true,
         visual = "glow",
     },
     {
         key = "remorseless",
-        action = { spellIDs = { [1752] = true, [1757] = true, [1758] = true, [53] = true, [2589] = true } },
+        action = { spellIDs = {
+            [1752] = true, [1757] = true, [1758] = true, [1759] = true,
+            [1760] = true, [8621] = true, [11293] = true, [11294] = true,
+            [53] = true, [2589] = true, [2590] = true, [2591] = true, [8721] = true,
+            [11279] = true, [11280] = true, [11281] = true, [25300] = true,
+        } },
         condition = {
             mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [14143] = true },
             comboPointsBelow = 5,

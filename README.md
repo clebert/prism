@@ -8,6 +8,10 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 
 ### General
 
+- _Combo-point numbers:_ **Eviscerate**, **Slice and Dice**, **Expose Armor**, **Rupture**, and **Rip** show the current target's combo-point count.
+  The centered green number has a thick black outline and no background. Its size follows the button size.
+  The number requires at least one point, a usable action, a ready spell cooldown, and no matching aura highlight.
+  The global cooldown does not hide the number. Five-point glows use separate conditions.
 - _Racial buffs:_ **Shadowmeld**, **Elune's Light** — Highlights while the player has the action's buff.
   Target selection and action usability do not affect the highlight.
 - _Item buffs:_ Highlights an item while the player has a helpful aura with the same ID as the item's use spell.
@@ -25,7 +29,7 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
   Each item highlights while the heal target has no disease debuff, regardless of action usability.
 
 Spell actions require explicit aura rules. Shared aura rules cover the declared racial buffs and automatic item buff matching.
-Druid aura highlights and the declared Rogue shared debuffs accept the same or stronger rank.
+Druid and Rogue aura highlights accept the same or stronger rank.
 Warrior and Hunter use their explicit mechanics and the shared rules.
 Undeclared spell actions receive no automatic buff highlight.
 
@@ -55,14 +59,15 @@ The active Feed Pet Effect buff suppresses the glow and keeps the highlight.
 
 ### Rogue
 
-Rogue support covers abilities learned through level 16.
+Rogue rules cover every rank of the supported abilities.
 Highlights do not require a usable action. Glows require a usable action.
 Combo points refer to the current target.
 
 - **Eviscerate:** Glows at exactly five combo points.
-- **Slice and Dice:** Highlights while its buff is active. Glows at exactly five combo points only without the buff.
-- **Expose Armor:** Highlights while its target debuff is active. Glows at exactly five combo points only without the debuff.
-- **Garrote:** Highlights while the target has the player's bleed.
+- **Slice and Dice:** Highlights while an equal or stronger buff is active. Glows at exactly five combo points only without that buff.
+- **Expose Armor:** Highlights while an equal or stronger target debuff is active. Glows at exactly five combo points only without that debuff.
+- **Rupture:** Highlights while the target has the player's equal or stronger bleed. Glows at exactly five combo points only without that bleed.
+- **Garrote:** Highlights while the target has the player's equal or stronger bleed.
 - **Stealth**, **Sprint**, **Evasion:** Highlight while their matching player buffs are active.
 - **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
 - **Kick**, **Gouge:** Glow during a living hostile target's cast or channel.
@@ -188,10 +193,15 @@ Use `buff-target` only for helpful aura conditions with a spell selector.
 Set `requireUsable` on a rule to require a usable action. This modifier also applies to `target-cast` rules.
 Set `comboPointsBelow` on a plain `aura` condition to require a lower combo-point count on the current target.
 The limit must be a positive integer. Restricted counts hide the visual.
-The limit changes only the container alpha. It does not disable the aura slot or change its filters.
+The limit changes the container alpha. It does not disable the aura slot or change its filters.
+The limit also gates number suppression for a finisher highlight.
 Do not combine this limit with `suppressGlow`.
 Set `points` on a `combo-points` condition to require an exact positive count on the current target.
-Restricted combo-point counts do not activate the visual.
+An action with a `combo-points` rule also receives one numeric overlay, independent of the rule's exact count.
+The number requires a positive count, a usable action, and no active spell cooldown. It ignores the global cooldown.
+A matching plain `aura` highlight hides the number while active. An invisible glow suppressor does not hide the number.
+Secure aura groups move the number outside the viewport. Addon Lua does not read highlight visibility.
+Restricted combo-point counts hide both visuals.
 Set `powerType` on a `full-power` condition to test the living player's declared power resource.
 The maximum must be positive and unrestricted.
 Set `powerType` and a positive integer `amount` on a `power-overflow` condition to test player power waste.
@@ -213,7 +223,7 @@ This uses the same secure layout path as glow suppression. Addon Lua does not re
 
 Set `suppressGlow` on a plain `aura` rule to reference a non-aura glow rule.
 The glow selector must cover every action that the aura rule selects.
-Rule order does not affect this dependency. Each suppressor uses a separate secure aura group with one layout element.
+Rule order does not affect this dependency. Each suppressed visual uses a separate secure aura group with one layout element.
 The client moves the glow outside the viewport while a matching aura is active.
 An empty or disabled group contributes no displacement. The core chains group anchors for multiple suppressors.
 Addon Lua does not read aura-owned objects or secure layout geometry.
@@ -293,8 +303,8 @@ bash tests/install.sh
 | Test file               | Coverage                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
-| `tests/mechanics.lua`   | Tests resource overflow, power, combo points, threat, groups, selectors, rank filters, and aura filters. Also tests combo-point limits, item spells, delayed data, unit changes, and resource highlights. All tests use synthetic IDs. |
-| `tests/composition.lua` | Tests independent visuals, combo-point limits, finisher glows, health, ranked aura glows, cleansing, usability, pet combat, and secure aura suppression. All tests use synthetic IDs. |
+| `tests/mechanics.lua`   | Tests resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, rank filters, and aura filters. Also tests item spells, delayed data, and unit changes. All tests use synthetic IDs. |
+| `tests/composition.lua` | Tests independent visuals, combo-point limits, finisher glows, numeric overlays, health, ranked aura glows, cleansing, usability, pet combat, and secure aura suppression. All tests use synthetic IDs. |
 | `tests/runtime.lua`     | Tests visuals, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
 
@@ -327,17 +337,18 @@ The checks must produce no Lua error or blocked-action error.
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Druid buff highlights     | Test the declared targetable Druid buffs on the player and another assistable target. Apply and remove equal and stronger ranks.                                                                                                                                                                                                                        | Each declared targetable buff follows the heal target. Only the selected unit's equal or stronger rank activates the highlight.                                                                                                     |
 | Druid player-only buffs   | Apply and remove Dash, Enrage, Nature's Grasp, and Prowl on the player. Test every declared rank. Trigger Nature's Grasp against an enemy. Change targets and action usability.                                                                                                                                                                               | Only the matching player buff activates each highlight. Equal or stronger Dash, Nature's Grasp, and Prowl ranks count. The triggered root does not keep the Nature's Grasp highlight active.                                               |
-| Rogue player buffs        | Apply and remove Stealth, Sprint, and Evasion. Change targets and action usability. | Each highlight follows only its matching player buff. Target selection and usability do not affect it. |
-| Rogue finishers           | Build and spend zero through five combo points. Apply and remove Slice and Dice. Apply equal and stronger Expose Armor ranks from different rogues. Change targets and action usability. | Usable Eviscerate glows at five points. Usable Slice and Dice glows at five points only without its buff. Usable Expose Armor glows at five points only without an equal or stronger target debuff from any caster. The buff and debuff keep their independent highlights. |
-| Rogue control highlights  | Keep rank 1 Gouge and Sap on the bars. Apply equal and stronger ranks from different rogues. Change targets and usability. | Each action highlights for its matching target debuff from any caster, regardless of usability. Higher aura ranks do not add higher action ranks to the declarations. |
-| Rogue talent proc         | Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
+| Rogue player buffs        | Apply and remove Stealth, Sprint, and Evasion. Test every rank. Change targets and action usability. | Each highlight follows only an equal or stronger matching player buff. Target selection and usability do not affect it. |
+| Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Usable Slice and Dice glows at five points only without an equal or stronger buff. Usable Expose Armor glows at five points only without an equal or stronger target debuff from any caster. Usable Rupture glows at five points only without the player's equal or stronger bleed. Another rogue's bleed does not suppress the glow. The buff and debuff highlights do not require a usable action. |
+| Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
+| Rogue control highlights  | Test every Gouge and Sap action rank. Apply weaker, equal, and stronger ranks from different rogues. Change targets and usability. | Each action highlights for an equal or stronger matching target debuff from any caster, regardless of usability. A weaker rank does not activate the highlight. |
+| Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
 | Rogue quiet actions       | Use Pick Pocket and Throw with and without Stealth. Test an undeclared Rogue ability. | These actions receive no Rogue-specific highlight or glow. Shared item and racial rules remain unchanged. |
 | Racial buffs              | Apply and remove each supported racial on characters from different classes. Change target selection and action usability.                                                                                                                                                                                                                              | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it.                                                                                                               |
 | Item buffs                | Apply and remove a buff whose aura ID matches the item use spell ID. Test Night Watchman's Torch. Change targets and action usability. Test an item without a use spell. Change action pages and item placement. | Only the matching player buff activates the item highlight. Other aura IDs and spell actions do not activate it. Target selection and usability do not affect it. |
 | Druid self buffs          | Apply and remove weaker, equal, and stronger Mark and Thorns ranks from different casters. Select the player, another assistable target, an enemy, or no target. Change action usability. Test flight and player death.                                                                                                                                 | Each usable spell glows when the player lacks an equal or stronger buff and is the heal target. A weaker buff activates the glow. An unusable spell does not glow.                                                                  |
 | Explicit buff scope       | Test undeclared Druid spells and buffs on Warrior, Hunter, and unsupported classes.                                                                                                                                                                                                                                                                     | No automatic buff highlight appears. Existing explicit mechanics continue.                                                                                                                                                          |
 | Druid healing             | Test all three spells at full and partial health on the player and an assistable target. Test death, hostile targets, and no target. Apply and remove Regrowth and Rejuvenation. Change action usability.                                                                                                                                               | The full-health highlight requires a living heal target at full health. Buff highlights remain independent. Action usability does not affect either highlight.                                                                      |
-| Own target debuffs        | Compare the player's Rend, Serpent Sting, Garrote, Moonfire, Rip, or Rake with another caster's copy. Test every declared rank. Change action usability and targets.                                                                                                                                                                                             | Only the player's aura activates the highlight. Druid rules require an equal or stronger rank. Other rules match their declared IDs.                                                                                   |
+| Own target debuffs        | Compare the player's Rend, Serpent Sting, Garrote, Rupture, Moonfire, Rip, or Rake with another caster's copy. Test every declared rank. Change action usability and targets.                                                                                                                                                                                             | Only the player's aura activates the highlight. Druid debuffs, Garrote, and Rupture require an equal or stronger rank. Other rules match their declared IDs.                                                                                   |
 | Shared target debuffs     | Compare Viper Sting and Scorpid Sting from different hunters. Test Entangling Roots from direct casts and Nature's Grasp, with different casters. Test Bash, Demoralizing Roar, Faerie Fire, Hibernate, and Soothe Animal from different druids. Test every declared rank. Change action usability and targets. Test the other declared shared debuffs. | Druid highlights and Rogue shared debuffs accept equal or stronger ranks from any caster. Warrior and Hunter rules match their declared IDs. Usability does not affect these highlights.                                                                              |
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target.                                                                                                                                                                                                                                                            | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it.                                                                                  |
 | Aura stacks               | Change Sunder Armor from four stacks to five stacks, then back to four stacks.                                                                                                                                                                                                                                                                          | The highlight appears only at five stacks.                                                                                                                                                                                          |
