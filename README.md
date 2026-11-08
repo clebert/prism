@@ -80,7 +80,7 @@ Combo points refer to the current target.
 - **Shank:** Glows in combat while usable if the full energy gain fits after the current energy cost.
   Each rank includes the active Flash of Steel bonus. The limit follows maximum energy and current cost changes.
   The check does not predict natural energy regeneration or test combo points and Venom.
-- **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
+- **Cheap Shot**, **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
 - **Kick**, **Gouge:** Glow during a living hostile target's cast or channel.
 - **Feint:** Glows in a party or raid while the player tanks a living hostile target.
 - **Instant Poison:** Each poison item rank glows while usable if either equipped melee weapon has no poison.
@@ -91,6 +91,7 @@ Combo points refer to the current target.
 - **Sinister Strike**, **Backstab:** Glow with the **Remorseless** buff and fewer than five combo points.
 - **Pick Pocket**, **Throw:** Receive no Rogue-specific feedback.
 
+Cheap Shot accepts its matching target debuff from any caster.
 Gouge, Sap, and Expose Armor accept equal or stronger aura ranks from any caster.
 Cast glows do not check interruptibility or control immunity.
 Remorseless Attacks grants the Remorseless buff.
@@ -394,7 +395,7 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Glow cooldowns           | Test spell glows, item glows, macros, aura-driven glows, and Anti-Venom during their action cooldowns. Test the global cooldown separately. Apply matching highlights and red warnings. | An action cooldown hides every glow until ready. The global cooldown does not hide glows. Highlights and red warnings keep their separate conditions. |
 | Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Usable Slice and Dice glows at five points only without an equal or stronger buff. Usable Expose Armor glows at five points only without an equal or stronger target debuff from any caster. Usable Rupture glows at five points only without the player's equal or stronger bleed. Another rogue's bleed does not suppress the glow. The buff and debuff highlights do not require a usable action. |
 | Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
-| Rogue control highlights  | Test every Gouge and Sap action rank. Apply weaker, equal, and stronger ranks from different rogues. Change targets and usability. | Each action highlights for an equal or stronger matching target debuff from any caster, regardless of usability. A weaker rank does not activate the highlight. |
+| Rogue control highlights  | Test Cheap Shot and every Gouge and Sap action rank. Apply and remove matching debuffs from different rogues. Test weaker and stronger Gouge and Sap ranks. Change targets and usability. | Each action highlights for its matching target debuff from any caster, regardless of usability. Gouge and Sap also accept stronger ranks. A weaker rank does not activate the highlight. |
 | Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
 | Instant Poison glow       | Test every Instant Poison item rank. Place a macro with an Instant Poison item tooltip on the bar. Test bare `#showtooltip`. Change the tooltip item. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item glows if either equipped melee weapon has no poison. Item macros match the application spell. Prism does not treat raw macro IDs as item IDs. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
 | Rogue quiet actions       | Use Pick Pocket and Throw with and without Stealth. Test an undeclared Rogue ability. | These actions receive no Rogue-specific highlight or glow. Shared item and racial rules remain unchanged. |

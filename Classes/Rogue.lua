@@ -107,6 +107,7 @@ Prism.classRules.ROGUE = {
     rupture,
     exposeArmor,
     gouge,
+    Rules.RankedAura("cheap-shot", { 1833 }, targetDebuff),
     Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff),
     {
         key = "gouge-interrupt",
