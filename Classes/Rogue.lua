@@ -18,6 +18,7 @@ local missingPoison = {
     },
 }
 local gouge = Rules.RankedAura("gouge", { 1776, 1777, 8629, 11285, 11286 }, targetDebuff)
+local riposte = Rules.RankedAura("riposte", { 14251 }, targetDebuff)
 local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, {
     unit = "target", filter = "HARMFUL", suppressGlow = "expose-armor-finisher",
 })
@@ -109,6 +110,8 @@ Prism.classRules.ROGUE = {
     gouge,
     Rules.RankedAura("cheap-shot", { 1833 }, targetDebuff),
     Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff),
+    riposte,
+    Rules.UsableGlow("riposte-usable", riposte.action.spellIDs),
     {
         key = "gouge-interrupt",
         action = gouge.action,
