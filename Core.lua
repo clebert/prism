@@ -243,7 +243,6 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
     end
 
     local container = CreateFrame("AuraContainer", nil, state.cooldownRegion or UIParent, "CustomAuraContainerTemplate")
-    container:SetFrameStrata("HIGH")
     container:EnableMouse(false)
     state.unit = resolveUnit(condition.unit, spellID)
     container:SetUnit(state.unit)
@@ -923,6 +922,16 @@ local function placeGlow(glowFrame, state, width, height)
     end
 end
 
+local function setFrameLayer(frame, strata, level)
+    if frame:GetFrameStrata() ~= strata then
+        frame:SetFrameStrata(strata)
+    end
+
+    if frame:GetFrameLevel() ~= level then
+        frame:SetFrameLevel(level)
+    end
+end
+
 local function placeActionButtonOverlay(overlay, actionButton)
     local left = actionButton:GetLeft()
     local bottom = actionButton:GetBottom()
@@ -936,6 +945,9 @@ local function placeActionButtonOverlay(overlay, actionButton)
     local scaledBottom = bottom * scale
     local scaledWidth = actionButton:GetWidth() * scale
     local scaledHeight = actionButton:GetHeight() * scale
+    local strata = actionButton:GetFrameStrata()
+    local level = actionButton:GetFrameLevel() + 1
+    setFrameLayer(overlay.frame, strata, level)
     placeRegion(overlay.frame, overlay, scaledLeft, scaledBottom, scaledWidth, scaledHeight, false)
 
     local count = overlay.comboPoints
@@ -948,6 +960,7 @@ local function placeActionButtonOverlay(overlay, actionButton)
 
     for _, state in ipairs(overlay.activeStates) do
         if state.auraContainer then
+            setFrameLayer(state.auraContainer, strata, level)
             placeRegion(state.auraContainer, state, scaledLeft, scaledBottom, scaledWidth, scaledHeight, true)
         end
 
@@ -1001,7 +1014,6 @@ end
 
 local function createActionButtonOverlay()
     local frame = CreateFrame("Frame", nil, UIParent)
-    frame:SetFrameStrata("HIGH")
     frame:EnableMouse(false)
     frame:Show()
     return { frame = frame, states = {}, activeStates = {} }

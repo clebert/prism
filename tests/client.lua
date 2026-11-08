@@ -62,6 +62,7 @@ local function newFrame(frameType, name, parent, template)
         name = name,
         parent = parent,
         template = template,
+        frameLevel = parent and frameMethods.GetFrameLevel(parent) + 1 or 0,
         alpha = 1,
         visible = true,
         scale = 1,
@@ -150,7 +151,14 @@ function frameMethods:SetBlendMode(mode)
     self.blendMode = mode
 end
 
+function frameMethods:GetFrameStrata()
+    local strata = rawget(self, "strata")
+    local parent = rawget(self, "parent")
+    return strata or (parent and frameMethods.GetFrameStrata(parent)) or "MEDIUM"
+end
+
 function frameMethods:SetFrameStrata(strata)
+    assert(self.frameType ~= "CheckButton", "Addon code changed an action button.")
     self.strata = strata
 end
 
@@ -249,7 +257,17 @@ function frameMethods:GetFrameLevel()
 end
 
 function frameMethods:SetFrameLevel(level)
-    self.frameLevel = level
+    assert(self.frameType ~= "CheckButton", "Addon code changed an action button.")
+    local difference = level - self:GetFrameLevel()
+    for _, frame in ipairs(client.frames) do
+        local ancestor = frame
+        while ancestor and ancestor ~= self do
+            ancestor = rawget(ancestor, "parent")
+        end
+        if ancestor then
+            frame.frameLevel = frame.frameLevel + difference
+        end
+    end
 end
 
 function frameMethods:SetPoint(...)

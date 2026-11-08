@@ -105,7 +105,22 @@ scenario("Refresh intervals", function(client)
 end)
 
 scenario("Visual construction and animation", function(client)
-    client.addActionButton("ActionButton1", 1)
+    local button = client.addActionButton("ActionButton1", 1)
+    button.strata, button.frameLevel = "MEDIUM", 7
+    local bag = CreateFrame("Frame", nil, UIParent)
+    bag:SetFrameStrata("MEDIUM")
+    bag:SetFrameLevel(30)
+    local function assertVisualLayer(frame)
+        local ancestor = frame
+        while ancestor and not rawget(ancestor, "strata") do
+            ancestor = rawget(ancestor, "parent")
+        end
+        local strata = ancestor and rawget(ancestor, "strata") or "MEDIUM"
+        assert(strata == button:GetFrameStrata(), "The visual does not use the button strata.")
+        local level = rawget(frame, "frameLevel")
+        assert(level > button:GetFrameLevel(), "The visual is not above the button.")
+        assert(level < bag:GetFrameLevel(), "The visual overlaps a bag above the button.")
+    end
     client.actions[1] = { spellID = spellID }
     client.fullHealthUnits.player = true
     local rules = {
@@ -155,6 +170,7 @@ scenario("Visual construction and animation", function(client)
     for _, frame in ipairs(client.frames) do
         if frame.frameType == "Texture" and frame.parent ~= UIParent then
             assertHighlight(frame)
+            assertVisualLayer(frame.parent)
             textureCount = textureCount + 1
             if frame.color then
                 assert(frame.color[1] == 1 and frame.color[2] == 0 and frame.color[3] == 0)
@@ -167,6 +183,7 @@ scenario("Visual construction and animation", function(client)
                 end
             end
         elseif rawget(frame, "template") and frame.template:find("ActionButtonSpellAlertTemplate", 1, true) then
+            assertVisualLayer(frame)
             assert(frame.allPoints or (frame.point and frame.point[1] == "CENTER"), "The glow is not centered.")
             assert(frame.mouseEnabled == false, "The glow intercepts mouse input.")
             local _, _, width, height = client.rectangle(frame)
@@ -185,7 +202,7 @@ scenario("Visual construction and animation", function(client)
     for _, key in ipairs({ "aura-highlight", "aura-red-blink", "aura-glow", "stacks" }) do
         local container = client.getContainer("target", key)
         local slot = container.slots[key]
-        assert(container.strata == "HIGH" and container.mouseEnabled == false, "The aura container has incorrect frame settings.")
+        assert(container:GetFrameStrata() == button:GetFrameStrata() and container.mouseEnabled == false, "The aura container has incorrect frame settings.")
         assert(slot.frame and rawget(slot.frame, "allPoints") == container, "The aura slot does not cover its container.")
         assert(rawget(slot.frame, "mouseEnabled") == false, "The aura slot intercepts mouse input.")
         if key == "aura-red-blink" or key == "aura-glow" then
@@ -229,6 +246,8 @@ scenario("Bar discovery, placement, and reuse", function(client)
             button.bottom = slot * 10
             button.scale = 1.5
             button.height = 24
+            button.strata = slot % 2 == 0 and "LOW" or "MEDIUM"
+            button.frameLevel = slot + 7
             buttons[#buttons + 1] = button
             client.actions[slot] = { spellID = spellID }
         end
@@ -266,7 +285,8 @@ scenario("Bar discovery, placement, and reuse", function(client)
             local container = containers[index]
             local overlay = glows[index].parent.parent.parent
             for _, region in ipairs({ container, overlay }) do
-                assert(region.strata == "HIGH" and region.mouseEnabled == false, "The overlay has incorrect frame settings.")
+                assert(region:GetFrameStrata() == button:GetFrameStrata() and region.mouseEnabled == false, "The overlay has incorrect frame settings.")
+                assert(region:GetFrameLevel() == button:GetFrameLevel() + 1, "The overlay does not follow the button frame level.")
                 assert(region.point[1] == "BOTTOMLEFT" and region.point[2] == UIParent and region.point[3] == "BOTTOMLEFT")
                 assertClose(region.point[4], button.left * scale, "The overlay has the wrong horizontal position.")
                 assertClose(region.point[5], button.bottom * scale, "The overlay has the wrong vertical position.")
@@ -286,7 +306,10 @@ scenario("Bar discovery, placement, and reuse", function(client)
         button.bottom = button.bottom + 4
         button.width = 42
         button.height = 30
+        button.strata = button.strata == "LOW" and "MEDIUM" or "LOW"
+        button.frameLevel = button.frameLevel + 5
     end
+    client.event("PLAYER_REGEN_DISABLED")
     client.refresh()
     assertPlacement(1.2, 50.4, 36)
     local frameCount = #client.frames
