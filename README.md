@@ -14,7 +14,7 @@ Highlights and red warnings ignore the carried count.
 Highlights and red warnings do not require cooldown readiness.
 Every visual follows the button opacity, including fades from the parent bar.
 
-- _Combo-point numbers:_ **Eviscerate**, **Slice and Dice**, **Expose Armor**, **Rupture**, and **Rip** show the current target's combo-point count.
+- _Combo-point numbers:_ **Eviscerate**, **Slice and Dice**, **Expose Armor**, **Rupture**, **Kidney Shot**, and **Rip** show the current target's combo-point count.
   The centered green number has a thick black outline and no background. Its size follows the button size.
   The number requires at least one point, a usable action, a ready spell cooldown, and no matching aura highlight.
   The global cooldown does not hide the number. Five-point glows use separate conditions.
@@ -72,9 +72,9 @@ Highlights do not require a usable action. Glows require a usable action.
 Combo points refer to the current target.
 
 - **Eviscerate:** Glows at exactly five combo points.
-- **Slice and Dice:** Highlights while an equal or stronger buff is active. Glows at exactly five combo points only without that buff.
-- **Expose Armor:** Highlights while an equal or stronger target debuff is active. Glows at exactly five combo points only without that debuff.
-- **Rupture:** Highlights while the target has the player's equal or stronger bleed. Glows at exactly five combo points only without that bleed.
+- **Slice and Dice:** Highlights while an equal or stronger buff is active.
+- **Expose Armor:** Highlights while an equal or stronger target debuff is active.
+- **Rupture:** Highlights while the target has the player's equal or stronger bleed.
 - **Garrote:** Highlights while the target has the player's equal or stronger bleed.
 - **Stealth**, **Sprint**, **Evasion:** Highlight while their matching player buffs are active.
 - **Vanish:** Highlights during normal Stealth or Vanish's improved stealth. Target selection, usability, and cooldowns do not affect the highlight.
@@ -83,10 +83,10 @@ Combo points refer to the current target.
 - **Shank:** Glows in combat while usable if the full energy gain fits after the current energy cost.
   Each rank includes the active Flash of Steel bonus. The limit follows maximum energy and current cost changes.
   The check does not predict natural energy regeneration or test combo points and Venom.
-- **Cheap Shot**, **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
+- **Cheap Shot**, **Kidney Shot**, **Gouge**, **Sap:** Highlight while their matching target debuffs are active.
 - **Riposte:** Glows while the action is usable. Highlights while the target has Riposte's disarm from any caster.
   The disarm highlight does not suppress the glow. Usability and cooldowns do not affect the highlight.
-- **Kick**, **Gouge:** Glow during a living hostile target's cast or channel.
+- **Kick**, **Gouge**, **Kidney Shot:** Glow during a living hostile target's cast or channel.
 - **Feint:** Glows in a party or raid while the player tanks a living hostile target.
 - **Instant Poison:** Each poison item rank glows while usable if either equipped melee weapon has no poison.
   Item macros receive the same glow through the application spell ID, including macros with bare `#showtooltip`.
@@ -96,7 +96,7 @@ Combo points refer to the current target.
 - **Sinister Strike**, **Backstab:** Glow with the **Remorseless** buff and fewer than five combo points.
 - **Pick Pocket**, **Throw:** Receive no Rogue-specific feedback.
 
-Cheap Shot accepts its matching target debuff from any caster.
+Cheap Shot accepts its matching target debuff from any caster. Both Kidney Shot ranks accept either stun rank from any caster.
 Gouge, Sap, and Expose Armor accept equal or stronger aura ranks from any caster.
 Cast glows do not check interruptibility or control immunity.
 Remorseless Attacks grants the Remorseless buff.
@@ -206,7 +206,7 @@ The client selects active auras through secure filters. Addon Lua does not read 
 | `full-power`     | The living player has full power of the declared type.                                     |
 | `power-overflow` | The declared power amount exceeds the living player's missing power, unless `excludeFull` excludes full power. |
 | `power-gain`     | The living player can receive the declared power gain without waste after the current spell cost. |
-| `combo-points`   | The player has exactly the declared combo-point count on the current target.                |
+| `combo-points`   | The player has exactly the declared count on the current target. Without a count, the rule only adds the number. |
 | `pet-happiness`  | The living pet matches the declared happiness state or is below it when `below` is true.    |
 | `missing-weapon-enchant` | An equipped main-hand or off-hand weapon has none of the declared enchantments.                    |
 | `usable`         | The action is usable.                                                                       |
@@ -233,6 +233,8 @@ The limit also gates number suppression for a finisher highlight.
 Do not combine this limit with `suppressGlow`.
 Set `points` on a `combo-points` condition to require an exact positive count on the current target.
 An action with a `combo-points` rule also receives one numeric overlay, independent of the rule's exact count.
+A `combo-points` rule with `visual = "none"` omits `points` and adds only the number.
+Such a rule takes no `requireUsable` or `requireCombat`, because the rule has no visual to gate.
 The number requires a positive count, a usable action, and no active spell cooldown. It ignores the global cooldown.
 A matching plain `aura` highlight hides the number while active. An invisible glow suppressor does not hide the number.
 Secure aura groups move the number outside the viewport. Addon Lua does not read highlight visibility.
@@ -282,7 +284,7 @@ Addon Lua does not read aura-owned objects or secure layout geometry.
 The suppression follows aura presence, not an application count.
 Public size anchors resize aura-driven glows without calls on aura-owned frames.
 
-The visuals are `highlight`, `red-blink`, and `glow`. A suppressor can use `none` to omit its visible feedback.
+The visuals are `highlight`, `red-blink`, and `glow`. A suppressor or a number-only `combo-points` rule can use `none` to omit its visible feedback.
 Every glow has a separate cooldown frame, including aura-driven glows and glows that bypass usability.
 The core calls `C_ActionBar.GetActionCooldownDuration` with `ignoreGCD` and passes its active result to `SetAlphaFromBoolean`.
 Cooldown changes do not disable secure aura slots or change their filters.
@@ -413,9 +415,9 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Shank energy glow        | Test both ranks at their energy limits and one point above. Test every Flash of Steel rank, current cost changes, maximum energy changes, and talent changes. Test combat, death, usability, cooldowns, macros, action pages, and button placement. | Shank glows only in combat while usable if the full energy gain fits after its current cost. With 100 maximum energy, a 5-energy cost, and no talent bonus, the limits are 90 and 80 energy. Each Flash of Steel point lowers the limit by 3 energy. Combat exit hides the glow. |
 | Glow cooldowns           | Test spell glows, item glows, macros, aura-driven glows, and Anti-Venom during their action cooldowns. Test the global cooldown separately. Apply matching highlights and red warnings. | An action cooldown hides every glow until ready. The global cooldown does not hide glows. Highlights and red warnings keep their separate conditions. |
 | Item availability         | Exhaust each cleansing and poison item. Change the carried count between zero and one. Test in and out of combat. Change action pages and button placement. | A consumable glow requires a carried use. Every glow on the action follows the count. Highlights and red warnings do not use the count. |
-| Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Usable Slice and Dice glows at five points only without an equal or stronger buff. Usable Expose Armor glows at five points only without an equal or stronger target debuff from any caster. Usable Rupture glows at five points only without the player's equal or stronger bleed. Another rogue's bleed does not suppress the glow. The buff and debuff highlights do not require a usable action. |
+| Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Five combo points alone do not make Slice and Dice, Expose Armor, Rupture, or Kidney Shot glow. Slice and Dice highlights for an equal or stronger buff. Expose Armor highlights for an equal or stronger target debuff from any caster. Rupture highlights only for the player's equal or stronger bleed. The buff and debuff highlights do not require a usable action. |
 | Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
-| Rogue control highlights  | Test Cheap Shot and every Gouge and Sap action rank. Apply and remove matching debuffs from different rogues. Test weaker and stronger Gouge and Sap ranks. Change targets and usability. | Each action highlights for its matching target debuff from any caster, regardless of usability. Gouge and Sap also accept stronger ranks. A weaker rank does not activate the highlight. |
+| Rogue control highlights  | Test Cheap Shot and every Kidney Shot, Gouge, and Sap action rank. Apply and remove matching debuffs from different rogues. Test weaker and stronger Kidney Shot, Gouge, and Sap ranks. Change targets and usability. | Each action highlights for its matching target debuff from any caster, regardless of usability. Both Kidney Shot ranks accept either stun rank. Gouge and Sap also accept stronger ranks. A weaker Gouge or Sap rank does not activate the highlight. |
 | Riposte feedback          | Test Riposte before and after a parry, then let the activation window expire. Change energy and cooldowns. Apply and remove Riposte's disarm from different rogues. Change targets, macros, action pages, and button placement. | Riposte glows only while usable with a ready action cooldown. The global cooldown does not hide the glow. The disarm highlight accepts any caster, regardless of usability or cooldowns. Neither visual requires the other. |
 | Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
 | Instant Poison glow       | Test every Instant Poison item rank. Place a macro with an Instant Poison item tooltip on the bar. Test bare `#showtooltip`. Change the tooltip item. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item with a carried use glows if either equipped melee weapon has no poison. Item macros match the application spell. Prism does not treat raw macro IDs as item IDs. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
@@ -441,7 +443,7 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Usable attacks            | Change the usability of each declared usable attack.                                                                                                                                                                                                                                                                                                    | The glow appears only while the action is usable.                                                                                                                                                                                   |
 | Energy feedback           | Test Shifting Power at 60, 61, 70, 99, and 100 energy with a 100-energy maximum. Change action usability, Druid forms, and maximum energy. Test player death. | At a 100-energy maximum, a usable action blinks red from 61 to 99 energy. Full energy activates only the normal highlight, regardless of usability. At 60 energy or less, neither visual appears. Player death hides both visuals. |
 | Rip glow                  | Build and spend combo points on an enemy. Change targets and action usability. Apply and remove weaker, equal, and stronger Rip ranks from the player and another druid. Test every declared rank.                                                                                                                                                                                                                          | A usable Rip glows at exactly five points only without the player's equal or stronger bleed. Another druid's bleed does not suppress the glow. The bleed highlight does not require a usable action.                                                                                    |
-| Interrupts                | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Bash, Shield Bash, Kick, and Gouge usability.                                                                                                                                                                                                                             | Each spell glows only for a living hostile target cast or channel while usable.                                                                                                                                                     |
+| Interrupts                | Test hostile casts, hostile channels, no cast, a friendly target, and a dead target. Change Bash, Shield Bash, Kick, Gouge, and Kidney Shot usability.                                                                                                                                                                                                                             | Each spell glows only for a living hostile target cast or channel while usable.                                                                                                                                                     |
 | Bash feedback             | Make Bash unusable while the target has another druid's Bash. Remove the stun and test hostile casts and channels with a usable Bash.                                                                                                                                                                                                                   | An equal or stronger stun rank activates the highlight regardless of usability. A hostile cast or channel activates the glow only while Bash is usable. Neither visual requires the other.                                          |
 | Tanking                   | Gain and lose target threat with Growl, Challenging Roar, and the Warrior taunts. Select a friendly target, a dead target, or no target. Change action usability.                                                                                                                                                                                       | Only tanking a living hostile target activates the highlight. Action usability does not affect the highlight.                                                                                                                       |
 | Growl glow                | Gain and lose target threat while solo, in a party, and in a raid. Select an idle enemy without threat data. Change action usability. Test a friendly target, a dead target, and no target.                                                                                                                                                             | A usable Growl glows only while grouped and not tanking a living hostile target. No threat data also permits the glow. The tanking highlight remains independent of usability.                                                      |

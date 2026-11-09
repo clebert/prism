@@ -19,15 +19,16 @@ local missingPoison = {
 }
 local gouge = Rules.RankedAura("gouge", { 1776, 1777, 8629, 11285, 11286 }, targetDebuff)
 local riposte = Rules.RankedAura("riposte", { 14251 }, targetDebuff)
-local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, {
-    unit = "target", filter = "HARMFUL", suppressGlow = "expose-armor-finisher",
-})
-local sliceAndDice = Rules.RankedAura("slice-and-dice", { 5171, 6774 }, {
-    unit = "player", filter = "HELPFUL", suppressGlow = "slice-and-dice-finisher",
-})
+local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, targetDebuff)
+local sliceAndDice = Rules.RankedAura("slice-and-dice", { 5171, 6774 }, playerBuff)
 local rupture = Rules.RankedAura("own-rupture", { 1943, 8639, 8640, 11273, 11274, 11275 }, {
-    unit = "target", filter = "HARMFUL", ownAura = true, suppressGlow = "rupture-finisher",
+    unit = "target", filter = "HARMFUL", ownAura = true,
 })
+local kidneyShotAction = { spellIDs = { [408] = true, [8643] = true } }
+
+local function comboPointNumber(key, action)
+    return { key = key, action = action, condition = { mechanic = "combo-points" }, visual = "none" }
+end
 
 Prism.classRules.ROGUE = {
     {
@@ -40,27 +41,10 @@ Prism.classRules.ROGUE = {
         requireUsable = true,
         visual = "glow",
     },
-    {
-        key = "expose-armor-finisher",
-        action = exposeArmor.action,
-        condition = { mechanic = "combo-points", points = 5 },
-        requireUsable = true,
-        visual = "glow",
-    },
-    {
-        key = "slice-and-dice-finisher",
-        action = sliceAndDice.action,
-        condition = { mechanic = "combo-points", points = 5 },
-        requireUsable = true,
-        visual = "glow",
-    },
-    {
-        key = "rupture-finisher",
-        action = rupture.action,
-        condition = { mechanic = "combo-points", points = 5 },
-        requireUsable = true,
-        visual = "glow",
-    },
+    comboPointNumber("expose-armor-combo-points", exposeArmor.action),
+    comboPointNumber("slice-and-dice-combo-points", sliceAndDice.action),
+    comboPointNumber("rupture-combo-points", rupture.action),
+    comboPointNumber("kidney-shot-combo-points", kidneyShotAction),
     sliceAndDice,
     stealth,
     {
@@ -109,12 +93,25 @@ Prism.classRules.ROGUE = {
     exposeArmor,
     gouge,
     Rules.RankedAura("cheap-shot", { 1833 }, targetDebuff),
+    {
+        key = "kidney-shot",
+        action = kidneyShotAction,
+        condition = Rules.TargetDebuff(kidneyShotAction.spellIDs),
+        visual = "highlight",
+    },
     Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff),
     riposte,
     Rules.UsableGlow("riposte-usable", riposte.action.spellIDs),
     {
         key = "gouge-interrupt",
         action = gouge.action,
+        condition = { mechanic = "target-cast" },
+        requireUsable = true,
+        visual = "glow",
+    },
+    {
+        key = "kidney-shot-interrupt",
+        action = kidneyShotAction,
         condition = { mechanic = "target-cast" },
         requireUsable = true,
         visual = "glow",

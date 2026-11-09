@@ -155,7 +155,7 @@ local function checkCondition(condition, action, context)
     if mechanic == "aura-stacks" then
         check(isInteger(condition.applications, 1), "The application count must be a positive integer.", context)
     elseif mechanic == "combo-points" then
-        check(isInteger(condition.points, 1), "The combo-point count must be a positive integer.", context)
+        check(condition.points == nil or isInteger(condition.points, 1), "The combo-point count must be a positive integer.", context)
     elseif mechanic == "low-health" then
         check(isInteger(condition.percent, 1) and condition.percent <= 100, "The health percentage must be an integer from 1 to 100.", context)
     elseif mechanic == "full-power" or mechanic == "power-overflow" or mechanic == "power-gain" then
@@ -333,11 +333,16 @@ function Rules.Prepare(rules)
         check(type(rule.key) == "string" and rule.key ~= "", "A non-empty key is required.", context)
         check(not byKey[rule.key], "The key is not unique.", context)
         check(visuals[rule.visual], "Unknown visual.", context)
-        check(rule.visual ~= "none" or rule.suppressGlow ~= nil, "A rule without a visual must suppress a glow.", context)
         checkBoolean(rule.requireUsable, context .. ".requireUsable")
         checkBoolean(rule.requireCombat, context .. ".requireCombat")
         checkAction(rule.action, context .. ".action")
         checkCondition(rule.condition, rule.action, context .. ".condition")
+        local numberOnly = rule.visual == "none" and rule.condition.mechanic == "combo-points"
+        check(rule.visual ~= "none" or rule.suppressGlow ~= nil or numberOnly, "A rule without a visual must suppress a glow or show combo points.", context)
+        if rule.condition.mechanic == "combo-points" then
+            check(numberOnly == (rule.condition.points == nil), "A combo-point rule needs points with a visual and no points without one.", context)
+            check(not numberOnly or not (rule.requireUsable or rule.requireCombat), "A number-only combo-point rule takes no usability or combat gate.", context)
+        end
         check(not rule.requireCombat or not auraMechanics[rule.condition.mechanic], "Player combat requires a non-aura condition.", context)
         check(rule.condition.mechanic ~= "dispel-type" or not rule.condition.invert or rule.visual == "highlight", "An inverted dispel condition requires a highlight.", context)
         byKey[rule.key] = rule

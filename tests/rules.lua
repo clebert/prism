@@ -160,6 +160,9 @@ local maskOnly = auraRule()
 maskOnly.visual, maskOnly.suppressGlow = "none", usableGlow.key
 local maskRules = Rules.Prepare({ maskOnly, usableGlow })
 assert(maskRules[1] == usableGlow and maskRules[2] == maskOnly)
+local numberOnly = auraRule()
+numberOnly.visual, numberOnly.condition = "none", { mechanic = "combo-points" }
+Rules.Prepare({ numberOnly })
 
 for _, condition in ipairs({
     { mechanic = "hostile-target" },
@@ -348,6 +351,15 @@ local invalidCases = {
     { "zero combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 0 } end },
     { "fractional combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = 1.5 } end },
     { "string combo points", function(rules) rules[1].condition = { mechanic = "combo-points", points = "5" } end },
+    { "number-only combo points with a count", function(rules)
+        rules[1].visual, rules[1].condition = "none", { mechanic = "combo-points", points = 5 }
+    end },
+    { "number-only combo points with usability", function(rules)
+        rules[1].visual, rules[1].condition, rules[1].requireUsable = "none", { mechanic = "combo-points" }, true
+    end },
+    { "number-only combo points with player combat", function(rules)
+        rules[1].visual, rules[1].condition, rules[1].requireCombat = "none", { mechanic = "combo-points" }, true
+    end },
     { "missing full-power type", function(rules)
         rules[1].condition = { mechanic = "full-power" }
     end },

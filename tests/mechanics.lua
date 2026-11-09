@@ -733,17 +733,21 @@ end
 for _, condition in ipairs({
     { points = 2, requireUsable = false },
     { points = 5, requireUsable = true },
+    { numberOnly = true },
 }) do
-    scenario("Target-bound combo points with usability " .. tostring(condition.requireUsable), function(client)
+    local variant = condition.numberOnly and "a number-only rule" or "usability " .. tostring(condition.requireUsable)
+    scenario("Target-bound combo points with " .. variant, function(client)
         local button = client.addActionButton("ActionButton1", 1)
         client.actions[1] = { spellID = spellID }
         client.startRules({
             {
-                key = "finisher", action = action, visual = "glow", requireUsable = condition.requireUsable,
+                key = "finisher", action = action, visual = condition.numberOnly and "none" or "glow",
+                requireUsable = condition.requireUsable,
                 condition = { mechanic = "combo-points", points = condition.points },
             },
         })
-        client.comboPoints = condition.points
+        local shownPoints = condition.points or 3
+        client.comboPoints = shownPoints
         local left = button.left
         button.left = nil
         client.refresh()
@@ -775,16 +779,19 @@ for _, condition in ipairs({
             end
         end
         client.actions[1].cooldown = false
-        client.comboPoints = condition.points
+        client.comboPoints = shownPoints
         client.refresh()
         local glow = client.getSpellGlow()
-        assert(glow and glow.ProcLoop:IsPlaying())
+        local function isGlowing()
+            return glow ~= nil and glow.ProcLoop:IsPlaying()
+        end
+        assert(isGlowing() == not condition.numberOnly, "The glow does not follow the rule visual.")
         local frames = #client.frames
-        for _, points in ipairs({ 0, condition.points, { secret = true }, condition.points }) do
+        for _, points in ipairs({ 0, shownPoints, { secret = true }, shownPoints }) do
             client.comboPoints = points
             client.event("PLAYER_TARGET_CHANGED")
             assert((client.getSpellGlow() ~= nil) == (points == condition.points), "A target change kept stale combo points.")
-            assert(client.alpha(text) == (points == condition.points and 1 or 0), "The number kept stale or restricted combo points.")
+            assert(client.alpha(text) == (points == shownPoints and 1 or 0), "The number kept stale or restricted combo points.")
         end
         assert(#client.frames == frames and client.getSpellGlow() == glow)
         for _, alpha in ipairs({ 0, 0.5, 1 }) do
@@ -799,7 +806,7 @@ for _, condition in ipairs({
         assert(text.fontHeight == fontHeight * 1.5, "The number did not follow the button scale.")
         button.visible = false
         client.refresh()
-        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying() and client.alpha(text) == 0)
+        assert(not client.getSpellGlow() and not isGlowing() and client.alpha(text) == 0)
         button.visible = true
         client.refresh()
         assert(client.getSpellGlow() == glow and client.alpha(text) == 1)
@@ -812,7 +819,7 @@ for _, condition in ipairs({
         assert(client.alpha(text) == 1 and client.getComboPointText() == text and #client.frames == frames, "Action paging replaced or lost the number.")
         client.actions[13] = nil
         client.refresh()
-        assert(not client.getSpellGlow() and not glow.ProcLoop:IsPlaying() and client.alpha(text) == 0)
+        assert(not client.getSpellGlow() and not isGlowing() and client.alpha(text) == 0)
     end)
 end
 
