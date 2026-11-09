@@ -100,6 +100,7 @@ Prism.classRules.ROGUE = {
         visual = "highlight",
     },
     Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff),
+    Rules.RankedAura("blind", { 2094 }, targetDebuff),
     riposte,
     Rules.UsableGlow("riposte-usable", riposte.action.spellIDs),
     {
