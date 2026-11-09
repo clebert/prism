@@ -242,7 +242,7 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
         return state
     end
 
-    local container = CreateFrame("AuraContainer", nil, state.cooldownRegion or UIParent, "CustomAuraContainerTemplate")
+    local container = CreateFrame("AuraContainer", nil, state.cooldownRegion or overlay.frame, "CustomAuraContainerTemplate")
     container:EnableMouse(false)
     state.unit = resolveUnit(condition.unit, spellID)
     container:SetUnit(state.unit)
@@ -724,7 +724,7 @@ local mechanicHandlers = {
     end,
 }
 
-local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
+local function updateRuleState(state, spellID, itemSpellID, itemCountEmpty, actionSlotID)
     local rule = state.rule
     local condition = rule.condition
     local container = state.auraContainer
@@ -735,8 +735,12 @@ local function updateRuleState(state, spellID, itemSpellID, actionSlotID)
     end
 
     if state.cooldownRegion then
-        local duration = C_ActionBar.GetActionCooldownDuration(actionSlotID, true)
-        state.cooldownRegion:SetAlphaFromBoolean(duration:IsActive(), 0, booleanTrueAlpha)
+        if itemCountEmpty then
+            state.cooldownRegion:SetAlpha(0)
+        else
+            local duration = C_ActionBar.GetActionCooldownDuration(actionSlotID, true)
+            state.cooldownRegion:SetAlphaFromBoolean(duration:IsActive(), 0, booleanTrueAlpha)
+        end
     end
 
     if not container then
@@ -1015,6 +1019,8 @@ end
 local function createActionButtonOverlay()
     local frame = CreateFrame("Frame", nil, UIParent)
     frame:EnableMouse(false)
+    -- The button opacity already includes the parent opacity.
+    frame:SetIgnoreParentAlpha(true)
     frame:Show()
     return { frame = frame, states = {}, activeStates = {} }
 end
@@ -1052,13 +1058,17 @@ local function updateActionButtonOverlay(actionButton)
         updateActionRules(overlay, spellID, itemID, classID, subClassID, itemSpellID)
     end
 
+    local itemCountEmpty = itemID ~= nil
+        and classID == Enum.ItemClass.Consumable
+        and C_Item.GetItemCount(itemID, false, true) <= 0
+
     overlay.lastRefreshGeneration = refreshGeneration
-    overlay.frame:SetAlpha(1)
+    overlay.frame:SetAlpha(actionButton:GetEffectiveAlpha())
     overlay.isVisible = true
     placeActionButtonOverlay(overlay, actionButton)
 
     for _, state in ipairs(overlay.activeStates) do
-        updateRuleState(state, spellID, itemSpellID, actionSlotID)
+        updateRuleState(state, spellID, itemSpellID, itemCountEmpty, actionSlotID)
     end
 
     updateComboPointOverlay(overlay, actionSlotID)

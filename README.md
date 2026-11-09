@@ -9,7 +9,10 @@ A World of Warcraft Forever addon that makes action buttons respond visually to 
 ### General
 
 All glows require a ready action cooldown. The global cooldown does not hide glows.
+Consumable glows also require at least one carried use. Bank items do not count.
+Highlights and red warnings ignore the carried count.
 Highlights and red warnings do not require cooldown readiness.
+Every visual follows the button opacity, including fades from the parent bar.
 
 - _Combo-point numbers:_ **Eviscerate**, **Slice and Dice**, **Expose Armor**, **Rupture**, and **Rip** show the current target's combo-point count.
   The centered green number has a thick black outline and no background. Its size follows the button size.
@@ -25,11 +28,11 @@ Highlights and red warnings do not require cooldown readiness.
 - _Healing potions:_ Highlights **healing potions** while the player is alive and has full health. The current target and action usability do not affect the highlight.
 - _Mana potions:_ Highlights **mana potions** while the player is alive and has full mana. The current target and action usability do not affect the highlight.
 - _Poison cleansing:_ **Anti-Venom**, **Strong Anti-Venom**, **Powerful Anti-Venom**, and **Potent Anti-Venom**.
-  Each item glows while the heal target has a poison debuff, regardless of action usability.
+  Each item glows while a carried use remains and the heal target has a poison debuff, regardless of action usability.
   This bypasses incorrect client usability results for Anti-Venom only.
   Each item highlights while the heal target has no poison debuff, regardless of action usability.
 - _Disease cleansing:_ **Simple Poultice**, **Clever Poultice**, **Superior Poultice**, and **Powerful Poultice**.
-  Each item glows while usable and the heal target has a disease debuff.
+  Each item glows while a carried use remains, the action is usable, and the heal target has a disease debuff.
   Each item highlights while the heal target has no disease debuff, regardless of action usability.
 
 Spell actions require explicit aura rules. Shared aura rules cover the declared racial buffs and automatic item buff matching.
@@ -168,6 +171,7 @@ Action selectors match spell IDs, item IDs, or item categories. Spell selectors 
 `anySpell` matches all spell actions. `anyItem` matches all direct item actions.
 Item selectors require a direct item action and a positive item ID.
 A raw macro ID does not identify an item, even when `GetActionInfo` returns an `item` subtype.
+`C_TooltipInfo.GetAction` reports an item macro as `Macro` data without an item ID.
 Macro actions match declared spell selectors through `C_ActionBar.GetSpell`.
 An item macro can expose an application spell through this path. That application spell needs an explicit rule.
 Prism does not infer item IDs from application spells. Prism does not parse macro text or tooltip text.
@@ -282,9 +286,17 @@ The visuals are `highlight`, `red-blink`, and `glow`. A suppressor can use `none
 Every glow has a separate cooldown frame, including aura-driven glows and glows that bypass usability.
 The core calls `C_ActionBar.GetActionCooldownDuration` with `ignoreGCD` and passes its active result to `SetAlphaFromBoolean`.
 Cooldown changes do not disable secure aura slots or change their filters.
+The core calls `C_Item.GetItemCount` without the bank and with item charges.
+A consumable glow also requires a positive count. Other item classes do not use the bag count.
+The count gates every glow on the action. Highlights and red warnings ignore the count.
+Item macros do not use the count, because Prism cannot identify their item.
+An uncached item has no class, so the count cannot gate its glow until the client caches it.
+Exhausted items do not disable secure aura slots or change their filters.
 The core keeps condition alpha separate from animation alpha.
 Separate frames combine secret conditions without a Lua comparison. Aura slots remain under client control.
 Overlay frames use the action button's strata and a frame level directly above the button.
+The overlay follows `GetEffectiveAlpha` from the action button. Aura containers are children of the overlay.
+Aura suppression containers use `UIParent`, because they only contribute a layout anchor.
 
 ### Rule helpers
 
@@ -338,26 +350,31 @@ It returns the rules in dependency order without changes to the declarations.
 
 ### Validation
 
-Use Lua 5.1 for the syntax checks and tests.
+The client runs Lua 5.1. Use Lua 5.1 for the syntax checks and tests.
+Later Lua versions remove `unpack` and compute `%` differently, so some tests fail.
+
+`mise.toml` pins Lua 5.1.5. Run `mise install` once to install it. mise provides it as `lua` and `luac`.
 
 ```bash
-luac5.1 -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua tests/PrismTest/PrismTest.lua
-lua5.1 tests/rules.lua
-lua5.1 tests/mechanics.lua
-lua5.1 tests/composition.lua
-lua5.1 tests/runtime.lua
-lua5.1 tests/probe.lua
+luac -p Rules.lua Core.lua Shared.lua Prism.lua Classes/*.lua tests/*.lua tests/PrismTest/PrismTest.lua
+lua tests/rules.lua
+lua tests/mechanics.lua
+lua tests/composition.lua
+lua tests/runtime.lua
+lua tests/probe.lua
 bash -n install.sh
 bash -n tests/install.sh
 bash tests/install.sh
 ```
 
+CI installs the Ubuntu `lua5.1` package. That package names the commands `lua5.1` and `luac5.1`.
+
 | Test file               | Coverage                                                                                                                                                                         |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/rules.lua`       | Tests helpers and validators with synthetic IDs, then validates and selects every declared class through the TOC.                                                                |
-| `tests/mechanics.lua`   | Tests health thresholds, resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, and filters. Also tests item spells, item macros, weapon enchantments, delayed data, and unit changes. All tests use synthetic IDs. |
+| `tests/mechanics.lua`   | Tests health thresholds, resources, combo points, numeric overlays, cooldowns, threat, groups, selectors, and filters. Also tests item spells, item macros, item counts, weapon enchantments, delayed data, and unit changes. All tests use synthetic IDs. |
 | `tests/composition.lua` | Tests independent visuals, combo-point limits, finisher glows, numeric overlays, health, ranked aura glows, cleansing, usability, pet combat, and secure aura suppression. All tests use synthetic IDs. |
-| `tests/runtime.lua`     | Tests visuals, frame layers, animation, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
+| `tests/runtime.lua`     | Tests visuals, frame layers, animation, button opacity, events, refresh intervals, bar discovery, placement, reuse, and security guards.                                                                       |
 | `tests/probe.lua`       | Tests the standalone test addon, combat steps, report persistence, and controls.                                                                                                 |
 
 Keep behavior tests at the mechanic level with synthetic IDs and rule declarations.
@@ -395,12 +412,13 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Vanish low-health glow    | Test both Vanish ranks above, at, and below 20% health. Change maximum health, targets, usability, and stealth. Test death, combat, fall damage outside combat, action pages, and button placement. | Vanish glows only in combat while the player is alive, the action is usable, and health is at most 20%. Fall damage outside combat does not activate the glow. The glow does not change the stealth highlight. |
 | Shank energy glow        | Test both ranks at their energy limits and one point above. Test every Flash of Steel rank, current cost changes, maximum energy changes, and talent changes. Test combat, death, usability, cooldowns, macros, action pages, and button placement. | Shank glows only in combat while usable if the full energy gain fits after its current cost. With 100 maximum energy, a 5-energy cost, and no talent bonus, the limits are 90 and 80 energy. Each Flash of Steel point lowers the limit by 3 energy. Combat exit hides the glow. |
 | Glow cooldowns           | Test spell glows, item glows, macros, aura-driven glows, and Anti-Venom during their action cooldowns. Test the global cooldown separately. Apply matching highlights and red warnings. | An action cooldown hides every glow until ready. The global cooldown does not hide glows. Highlights and red warnings keep their separate conditions. |
+| Item availability         | Exhaust each cleansing and poison item. Change the carried count between zero and one. Test in and out of combat. Change action pages and button placement. | A consumable glow requires a carried use. Every glow on the action follows the count. Highlights and red warnings do not use the count. |
 | Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Usable Slice and Dice glows at five points only without an equal or stronger buff. Usable Expose Armor glows at five points only without an equal or stronger target debuff from any caster. Usable Rupture glows at five points only without the player's equal or stronger bleed. Another rogue's bleed does not suppress the glow. The buff and debuff highlights do not require a usable action. |
 | Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
 | Rogue control highlights  | Test Cheap Shot and every Gouge and Sap action rank. Apply and remove matching debuffs from different rogues. Test weaker and stronger Gouge and Sap ranks. Change targets and usability. | Each action highlights for its matching target debuff from any caster, regardless of usability. Gouge and Sap also accept stronger ranks. A weaker rank does not activate the highlight. |
 | Riposte feedback          | Test Riposte before and after a parry, then let the activation window expire. Change energy and cooldowns. Apply and remove Riposte's disarm from different rogues. Change targets, macros, action pages, and button placement. | Riposte glows only while usable with a ready action cooldown. The global cooldown does not hide the glow. The disarm highlight accepts any caster, regardless of usability or cooldowns. Neither visual requires the other. |
 | Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |
-| Instant Poison glow       | Test every Instant Poison item rank. Place a macro with an Instant Poison item tooltip on the bar. Test bare `#showtooltip`. Change the tooltip item. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item glows if either equipped melee weapon has no poison. Item macros match the application spell. Prism does not treat raw macro IDs as item IDs. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
+| Instant Poison glow       | Test every Instant Poison item rank. Place a macro with an Instant Poison item tooltip on the bar. Test bare `#showtooltip`. Change the tooltip item. Apply different poisons to each weapon. Remove or exhaust one poison. Swap weapons, remove the off-hand weapon, and equip a shield. Test permanent enchants, non-poison coatings, usability, combat, action pages, and button placement. | Each usable item with a carried use glows if either equipped melee weapon has no poison. Item macros match the application spell. Prism does not treat raw macro IDs as item IDs. Any poison rank counts. Empty slots and non-weapons do not require poison. Permanent enchants and non-poison coatings do not count. Crafting spells receive no poison reminder. |
 | Rogue quiet actions       | Use Pick Pocket and Throw with and without Stealth. Test an undeclared Rogue ability. | These actions receive no Rogue-specific highlight or glow. Shared item and racial rules remain unchanged. |
 | Racial buffs              | Apply and remove each supported racial on characters from different classes. Change target selection and action usability.                                                                                                                                                                                                                              | Each action highlights only for its own active buff on the player. Other targets and racial buffs do not activate it.                                                                                                               |
 | Item buffs                | Apply and remove a buff whose aura ID matches the item use spell ID. Test Night Watchman's Torch. Change targets and action usability. Test an item without a use spell. Change action pages and item placement. | Only the matching player buff activates the item highlight. Other aura IDs and spell actions do not activate it. Target selection and usability do not affect it. |
@@ -412,7 +430,7 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Sting replacement warning | Apply each sting from the player and another hunter. Change the action usability and target.                                                                                                                                                                                                                                                            | Only the player's different sting activates the red warning on a usable action. The matching sting and another hunter's stings do not activate it.                                                                                  |
 | Aura stacks               | Change Sunder Armor from four stacks to five stacks, then back to four stacks.                                                                                                                                                                                                                                                                          | The highlight appears only at five stacks.                                                                                                                                                                                          |
 | Fear warning              | Apply and remove Rend or Deep Wound from different casters. Change Intimidating Shout usability and target hostility.                                                                                                                                                                                                                                   | The warning blinks red only with a matching hostile target debuff and a usable action.                                                                                                                                              |
-| Dispel feedback           | Test poison, disease, and curses on the player and an assistable target. Remove the debuff or make the action unusable. Check Anti-Venom when the client reports it as unusable. | Usable bandages blink for poison. Anti-Venom glows for poison regardless of usability. Other cleansing actions glow only while usable with their matching debuff. Cleansing actions highlight without a matching debuff, regardless of usability. |
+| Dispel feedback           | Test poison, disease, and curses on the player and an assistable target. Remove the debuff or make the action unusable. Check Anti-Venom when the client reports it as unusable. | Usable bandages blink for poison. Anti-Venom glows for poison while a carried use remains, regardless of usability. Other cleansing actions glow only while usable with their matching debuff. Cleansing actions highlight without a matching debuff, regardless of usability. |
 | Druid cleansing           | Test Remove Curse with curses and Abolish Poison with poison on the player and another assistable target. Apply and remove the Abolish Poison buff separately from the poison debuff. Change action usability and targets.                                                                                                                              | Each usable spell glows only for its matching debuff on the heal target. Each spell highlights without that debuff, regardless of usability. The Abolish Poison buff keeps its independent highlight.                                                             |
 | Bandage health            | Test full health, partial health, a dead friendly target, and no assistable target.                                                                                                                                                                                                                                                                     | Only a living heal target at full health activates the highlight. No assistable target selects the player.                                                                                                                          |
 | Healing potions           | Change player health. Select friendly targets with different health. Test no target, death, and an unusable potion.                                                                                                                                                                                                                                     | Only a living player at full health activates the highlight. The current target and action usability do not affect the highlight.                                                                                                   |
@@ -429,4 +447,4 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Growl glow                | Gain and lose target threat while solo, in a party, and in a raid. Select an idle enemy without threat data. Change action usability. Test a friendly target, a dead target, and no target.                                                                                                                                                             | A usable Growl glows only while grouped and not tanking a living hostile target. No threat data also permits the glow. The tanking highlight remains independent of usability.                                                      |
 | Faerie Fire glow          | Apply and remove weaker, equal, and stronger ranks from different casters. Change action usability and targets. Test a friendly target, a dead target, and no target.                                                                                                                                                                                   | A usable action glows only for a living hostile target without an equal or stronger debuff from any caster. A weaker rank permits the glow. The existing debuff highlight remains independent of usability.                         |
 | Threat reduction          | Gain and lose target threat. Change Disengage, Cower, and Feint usability. Test every declared rank. Test Feint solo, in a party, and in a raid. Select a friendly target, a dead target, or no target.                                                                                                                                                                                                     | Each spell glows only while the action is usable and the player tanks a living hostile target. Feint also requires a party or raid.                                                                                                                                      |
-| Placement                 | Test every supported bar. Change UI scale, button size, bar visibility, action pages, and spell placement. Open bag windows over buttons with active visuals. | Each visual stays aligned with its button and below bag windows that cover the button. Hidden bars and replaced actions leave no stale visual. |
+| Placement                 | Test every supported bar. Change UI scale, button size, bar visibility, action pages, and spell placement. Open bag windows over buttons with active visuals. | Each visual stays aligned with its button and below bag windows that cover the button. Hidden bars and replaced actions leave no stale visual. A faded bar also fades its visual. |

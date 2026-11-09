@@ -39,9 +39,11 @@ The report records the expected buff, expected glow, observed combat state, and 
 
 ## Validation
 
+Use Lua 5.1.5 from the repository `mise.toml`. Run the commands from the repository root.
+
 ```bash
-luac5.1 -p tests/PrismTest/PrismTest.lua tests/probe.lua
-lua5.1 tests/probe.lua
+luac -p tests/PrismTest/PrismTest.lua tests/probe.lua
+lua tests/probe.lua
 bash tests/install.sh
 ```
 

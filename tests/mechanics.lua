@@ -286,7 +286,7 @@ scenario("Item use spells and aura identity", function(client)
     client.refresh()
     assertItemIDs({})
     assert(not exception.enabled, "An unrelated item kept an explicit aura mapping.")
-    client.items[unknownID] = { spellID = auraID }
+    client.items[unknownID] = { classID = 0, spellID = auraID }
     client.refresh()
     assertItemIDs({ [auraID] = true })
     client.actions[1] = { itemID = noSpellID }
@@ -304,6 +304,13 @@ scenario("Item use spells and aura identity", function(client)
     client.refresh()
     assert(container.enabled and container.slots.item.enabled)
     assertItemIDs({ [auraID] = true })
+    client.setAuraPresent(container.slots.item, false)
+    for _, count in ipairs({ 1, 0, 1 }) do
+        client.itemCounts[unknownID] = count
+        client.refresh()
+        assert((client.getSpellGlow() ~= nil) == (count > 0), "A plain item glow ignored the carried count.")
+    end
+    client.setAuraPresent(container.slots.item, true)
     client.addActionButton("ActionButton2", 2)
     client.actions[2] = { itemID = unknownID }
     client.refresh()
@@ -780,6 +787,12 @@ for _, condition in ipairs({
             assert(client.alpha(text) == (points == condition.points and 1 or 0), "The number kept stale or restricted combo points.")
         end
         assert(#client.frames == frames and client.getSpellGlow() == glow)
+        for _, alpha in ipairs({ 0, 0.5, 1 }) do
+            button.alpha = { secret = true, alpha = alpha }
+            client.refresh()
+            assert(client.alpha(text) == alpha, "The combo-point number did not follow the button opacity.")
+        end
+        button.alpha = 1
         local fontHeight = text.fontHeight
         button.scale = 1.5
         client.refresh()
@@ -805,15 +818,30 @@ end
 
 scenario("Exact item selectors and dispel types", function(client)
     client.addActionButton("ActionButton1", 1)
+    client.fullHealthUnits.player = true
     local rules = {}
+    local allItems = { itemIDs = {} }
     for index, dispelType in ipairs({ "Poison", "Disease" }) do
+        allItems.itemIDs[999210 + index] = true
         rules[index] = {
-            key = dispelType, action = { itemIDs = { [999210 + index] = true } }, visual = "glow", requireUsable = true,
+            key = dispelType, action = { itemIDs = { [999210 + index] = true } }, visual = "glow", requireUsable = index == 2,
             condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType },
         }
     end
-    client.startRules(rules)
+    client.startRules({
+        rules[1],
+        rules[2],
+        {
+            key = "warning", action = allItems, visual = "red-blink", requireUsable = true,
+            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Poison" },
+        },
+        {
+            key = "highlight", action = allItems, visual = "highlight",
+            condition = { mechanic = "full-health", unit = "heal-target" },
+        },
+    })
     for index, rule in ipairs(rules) do
+        client.items[999210 + index] = { classID = Enum.ItemClass.Consumable }
         client.actions[1] = { itemID = 999210 + index }
         client.refresh()
         local container = client.getContainer("player", rule.key)
@@ -826,9 +854,30 @@ scenario("Exact item selectors and dispel types", function(client)
             assert((client.getSpellGlow() ~= nil) == not cooldown, "The item glow ignored its cooldown or checked the global cooldown.")
             assert(container.slots[rule.key].enabled, "The cooldown disabled the secure slot.")
         end
+        local warning = client.getContainer("player", "warning").slots.warning.texture
+        local highlight = client.getHighlight()
+        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+            client.event(event)
+            for _, count in ipairs({ 0, 1, 5, 0, 1 }) do
+                client.itemCounts[999210 + index] = count
+                client.refresh()
+                assert((client.getSpellGlow() ~= nil) == (count > 0), "An unavailable item retained its glow.")
+                assert(container.slots[rule.key].enabled, "The item count disabled the secure slot.")
+                assert(client.alpha(warning) == 1, "The item count hid a red warning.")
+                assert(client.alpha(highlight) == 1, "The item count hid a highlight.")
+            end
+        end
         client.actions[1].isUsable = false
         client.refresh()
-        assert(not client.getSpellGlow() and container.slots[rule.key].enabled)
+        assert((client.getSpellGlow() ~= nil) == not rule.requireUsable, "The item ignored its usability policy.")
+        assert(container.slots[rule.key].enabled)
+        client.actions[1].isUsable = true
+        client.items[999210 + index] = { classID = Enum.ItemClass.Weapon }
+        client.itemCounts[999210 + index] = 0
+        client.refresh()
+        assert(client.getSpellGlow(), "An equipped item used the bag count.")
+        client.items[999210 + index] = nil
+        client.itemCounts[999210 + index] = nil
     end
     client.actions[1] = { itemID = 999299 }
     client.refresh()

@@ -3,6 +3,7 @@ local client = {
     actions = {},
     actionQueryCount = {},
     items = {},
+    itemCounts = {},
     inventory = {},
     weaponEnchants = {},
     itemLoadRequests = {},
@@ -195,6 +196,25 @@ function frameMethods:GetAlpha()
     return self.alpha
 end
 
+function frameMethods:GetEffectiveAlpha()
+    local alpha = self.alpha
+    local parent = rawget(self, "parent")
+    if parent and not rawget(self, "ignoreParentAlpha") then
+        local parentAlpha = frameMethods.GetEffectiveAlpha(parent)
+        if type(alpha) == "table" or type(parentAlpha) == "table" then
+            local value = type(alpha) == "table" and alpha.alpha or alpha
+            local parentValue = type(parentAlpha) == "table" and parentAlpha.alpha or parentAlpha
+            return { secret = true, alpha = value * parentValue }
+        end
+        return alpha * parentAlpha
+    end
+    return alpha
+end
+
+function frameMethods:SetIgnoreParentAlpha(ignore)
+    self.ignoreParentAlpha = ignore
+end
+
 function frameMethods:Show()
     self.visible = true
 end
@@ -204,7 +224,8 @@ function frameMethods:Hide()
 end
 
 function frameMethods:IsVisible()
-    return self.visible
+    local parent = rawget(self, "parent")
+    return self.visible and (not parent or frameMethods.IsVisible(parent))
 end
 
 function frameMethods:IsShown()
@@ -565,6 +586,11 @@ C_ActionBar = {
     end,
 }
 C_Item = {
+    GetItemCount = function(itemID, includeBank, includeUses)
+        assert(includeBank == false and includeUses == true, "The item count must exclude the bank and include charges.")
+        local count = client.itemCounts[itemID]
+        return count == nil and 1 or count
+    end,
     GetWeaponEnchantInfo = function(weaponSlot)
         assert(weaponSlot == Enum.WeaponSlot.MainHand or weaponSlot == Enum.WeaponSlot.OffHand, "The enchantment check queried a ranged weapon.")
         return client.weaponEnchants[weaponSlot] or {}
@@ -846,10 +872,10 @@ function client.alpha(frame)
     if type(alpha) == "table" then
         alpha = alpha.alpha
     end
-    if not frame.visible then
+    if not frameMethods.IsVisible(frame) then
         return 0
     end
-    if frame.parent then
+    if frame.parent and not rawget(frame, "ignoreParentAlpha") then
         alpha = alpha * client.alpha(frame.parent)
     end
     for _, mask in ipairs(rawget(frame, "masks") or {}) do

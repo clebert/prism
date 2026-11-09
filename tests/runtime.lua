@@ -213,6 +213,38 @@ scenario("Visual construction and animation", function(client)
     assert(stackSlot.applicationBar.allPoints == stackSlot.frame, "The application bar does not cover its aura slot.")
     assert(stackSlot.applicationOptions.minApplications == 3 and stackSlot.applicationOptions.maxApplications == 3)
 
+    local bar = CreateFrame("Frame", nil, UIParent)
+    button.parent = bar
+    local visuals = { blink, glow, client.healthTexture }
+    for _, key in ipairs({ "aura-highlight", "aura-red-blink", "aura-glow", "stacks" }) do
+        local container = client.getContainer("target", key)
+        local slot = container.slots[key]
+        visuals[#visuals + 1] = container
+        visuals[#visuals + 1] = slot.frame
+        visuals[#visuals + 1] = slot.texture
+    end
+    local frames = #client.frames
+    for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+        client.event(event)
+        for _, parentAlpha in ipairs({ 1, 0.5, 0 }) do
+            UIParent.alpha = parentAlpha
+            for _, barAlpha in ipairs({ 1, 0.5, 0 }) do
+                bar.alpha = barAlpha
+                for _, buttonAlpha in ipairs({ 1, 0.5, 0 }) do
+                    button.alpha = { secret = true, alpha = buttonAlpha }
+                    client.refresh()
+                    local expected = parentAlpha * barAlpha * buttonAlpha
+                    for _, visual in ipairs(visuals) do
+                        assertClose(client.alpha(visual), expected, "A visual did not follow the button opacity.")
+                    end
+                end
+            end
+        end
+    end
+    UIParent.alpha, bar.alpha, button.alpha = 1, 1, 1
+    client.refresh()
+    assert(#client.frames == frames, "Opacity changes replaced the visual frames.")
+
     client.actions[1].isUsable = false
     client.event("ACTION_USABLE_CHANGED")
     assert(client.alpha(blink) == 0 and client.alpha(glow) == 0)
