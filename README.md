@@ -15,8 +15,9 @@ Highlights and red warnings do not require cooldown readiness.
 Every visual follows the button opacity, including fades from the parent bar.
 
 - _Combo-point numbers:_ **Eviscerate**, **Slice and Dice**, **Expose Armor**, **Rupture**, **Kidney Shot**, and **Rip** show the current target's combo-point count.
-  The centered green number has a thick black outline and no background. Its size follows the button size.
-  The number requires at least one point, a usable action, a ready spell cooldown, and no matching aura highlight.
+  The centered number has a thick black outline and no background. Its size follows the button size.
+  The number is green while the action is usable and red while it is not.
+  The number requires at least one point, a ready spell cooldown, and no matching aura highlight.
   The global cooldown does not hide the number. Five-point glows use separate conditions.
 - _Racial buffs:_ **Shadowmeld**, **Elune's Light** — Highlights while the player has the action's buff.
   Target selection and action usability do not affect the highlight.
@@ -235,7 +236,8 @@ Set `points` on a `combo-points` condition to require an exact positive count on
 An action with a `combo-points` rule also receives one numeric overlay, independent of the rule's exact count.
 A `combo-points` rule with `visual = "none"` omits `points` and adds only the number.
 Such a rule takes no `requireUsable` or `requireCombat`, because the rule has no visual to gate.
-The number requires a positive count, a usable action, and no active spell cooldown. It ignores the global cooldown.
+The number requires a positive count and no active spell cooldown. It ignores the global cooldown.
+The number is green while the action is usable and red while it is not.
 A matching plain `aura` highlight hides the number while active. An invisible glow suppressor does not hide the number.
 Secure aura groups move the number outside the viewport. Addon Lua does not read highlight visibility.
 Restricted combo-point counts hide both visuals.
@@ -416,7 +418,7 @@ Every glow check requires a ready action cooldown. The global cooldown does not 
 | Glow cooldowns           | Test spell glows, item glows, macros, aura-driven glows, and Anti-Venom during their action cooldowns. Test the global cooldown separately. Apply matching highlights and red warnings. | An action cooldown hides every glow until ready. The global cooldown does not hide glows. Highlights and red warnings keep their separate conditions. |
 | Item availability         | Exhaust each cleansing and poison item. Change the carried count between zero and one. Test in and out of combat. Change action pages and button placement. | A consumable glow requires a carried use. Every glow on the action follows the count. Highlights and red warnings do not use the count. |
 | Rogue finishers           | Test every action rank. Build and spend zero through five combo points. Apply weaker, equal, and stronger Slice and Dice buffs and Expose Armor debuffs. Use Expose Armor debuffs from different rogues. Apply and remove Rupture bleeds from the player and another rogue. Change targets and action usability. | Usable Eviscerate glows at five points. Five combo points alone do not make Slice and Dice, Expose Armor, Rupture, or Kidney Shot glow. Slice and Dice highlights for an equal or stronger buff. Expose Armor highlights for an equal or stronger target debuff from any caster. Rupture highlights only for the player's equal or stronger bleed. The buff and debuff highlights do not require a usable action. |
-| Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The green number appears only with positive points, a usable action, no spell cooldown, and no matching aura highlight. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
+| Combo-point numbers       | Build and spend points on each declared finisher. Change targets, usability, spell cooldowns, and the global cooldown. Apply and remove the matching buffs and debuffs. Change button size, UI scale, action pages, and spell placement. | The number appears only with positive points, no spell cooldown, and no matching aura highlight. It is green while the action is usable and red while it is not. The global cooldown does not hide the number. The outlined number follows the button size. Hidden bars and replaced actions leave no number. |
 | Rogue control highlights  | Test Cheap Shot, Blind, and every Kidney Shot, Gouge, and Sap action rank. Apply and remove matching debuffs from different rogues. Test weaker and stronger Kidney Shot, Gouge, and Sap ranks. Change targets and usability. | Each action highlights for its matching target debuff from any caster, regardless of usability. Both Kidney Shot ranks accept either stun rank. Gouge and Sap also accept stronger ranks. A weaker Gouge or Sap rank does not activate the highlight. |
 | Riposte feedback          | Test Riposte before and after a parry, then let the activation window expire. Change energy and cooldowns. Apply and remove Riposte's disarm from different rogues. Change targets, macros, action pages, and button placement. | Riposte glows only while usable with a ready action cooldown. The global cooldown does not hide the glow. The disarm highlight accepts any caster, regardless of usability or cooldowns. Neither visual requires the other. |
 | Rogue talent proc         | Test every Sinister Strike and Backstab rank. Test each rank of Remorseless Attacks. Trigger and consume Remorseless. Change combo points from zero through five. Switch targets and change usability. | Sinister Strike and Backstab glow only while usable with Remorseless below five points. Five points suppress both glows. |

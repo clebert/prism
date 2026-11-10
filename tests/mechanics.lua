@@ -753,10 +753,13 @@ for _, condition in ipairs({
         client.refresh()
         button.left = left
         client.refresh()
-        local text = client.getComboPointText()
-        assert(text, "The finisher has no combo-point number.")
-        assert(text.point[1] == "CENTER" and text.template == "SystemFont_OutlineThick_Huge2", "The number is not centered and outlined.")
-        assert(text.textColor[1] == 0 and text.textColor[2] == 1 and text.textColor[3] == 0, "The combo-point number is not green.")
+        local text, unusableText = client.getComboPointTexts()
+        assert(text and unusableText and text.parent == unusableText.parent, "The finisher has no combo-point numbers.")
+        for _, number in ipairs({ text, unusableText }) do
+            assert(number.point[1] == "CENTER" and number.template == "SystemFont_OutlineThick_Huge2", "The number is not centered and outlined.")
+        end
+        assert(text.textColor[1] == 0 and text.textColor[2] == 1 and text.textColor[3] == 0, "The usable combo-point number is not green.")
+        assert(unusableText.textColor[1] == 1 and unusableText.textColor[2] == 0 and unusableText.textColor[3] == 0, "The unusable combo-point number is not red.")
         assert(#text.parent.textures == 0, "A background texture obscures the finisher icon.")
         for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
             client.event(event)
@@ -769,10 +772,11 @@ for _, condition in ipairs({
                         client.actions[1].globalCooldown = true
                         client.event("ACTION_USABLE_CHANGED")
                         assert((client.getSpellGlow() ~= nil) == (points == condition.points and (not condition.requireUsable or usable) and not cooldown), "The glow ignored the count, usability, or cooldown.")
-                        local visible = points > 0 and usable and not cooldown
-                        assert(client.alpha(text) == (visible and 1 or 0), "The number ignored combo points, usability, or the spell cooldown.")
+                        local visible = points > 0 and not cooldown
+                        assert(client.alpha(text) == (visible and usable and 1 or 0), "The green number ignored combo points, usability, or the spell cooldown.")
+                        assert(client.alpha(unusableText) == (visible and not usable and 1 or 0), "The red number ignored combo points, usability, or the spell cooldown.")
                         if visible then
-                            assert(text.text == tostring(points), "The number does not show the current combo points.")
+                            assert(text.text == tostring(points) and unusableText.text == text.text, "The number does not show the current combo points.")
                         end
                     end
                 end
@@ -794,16 +798,19 @@ for _, condition in ipairs({
             assert(client.alpha(text) == (points == shownPoints and 1 or 0), "The number kept stale or restricted combo points.")
         end
         assert(#client.frames == frames and client.getSpellGlow() == glow)
-        for _, alpha in ipairs({ 0, 0.5, 1 }) do
-            button.alpha = { secret = true, alpha = alpha }
-            client.refresh()
-            assert(client.alpha(text) == alpha, "The combo-point number did not follow the button opacity.")
+        for _, usable in ipairs({ false, true }) do
+            client.actions[1].isUsable = usable
+            for _, alpha in ipairs({ 0, 0.5, 1 }) do
+                button.alpha = { secret = true, alpha = alpha }
+                client.refresh()
+                assert(client.alpha(usable and text or unusableText) == alpha, "The combo-point number did not follow the button opacity.")
+            end
         end
         button.alpha = 1
         local fontHeight = text.fontHeight
         button.scale = 1.5
         client.refresh()
-        assert(text.fontHeight == fontHeight * 1.5, "The number did not follow the button scale.")
+        assert(text.fontHeight == fontHeight * 1.5 and unusableText.fontHeight == text.fontHeight, "The number did not follow the button scale.")
         button.visible = false
         client.refresh()
         assert(not client.getSpellGlow() and not isGlowing() and client.alpha(text) == 0)
@@ -816,7 +823,7 @@ for _, condition in ipairs({
         button.action = 13
         client.actions[13] = { spellID = rankID }
         client.refresh()
-        assert(client.alpha(text) == 1 and client.getComboPointText() == text and #client.frames == frames, "Action paging replaced or lost the number.")
+        assert(client.alpha(text) == 1 and client.getComboPointTexts() == text and #client.frames == frames, "Action paging replaced or lost the number.")
         client.actions[13] = nil
         client.refresh()
         assert(not client.getSpellGlow() and not isGlowing() and client.alpha(text) == 0)

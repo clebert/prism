@@ -85,6 +85,13 @@ local function createVisual(parent, visual)
     return texture
 end
 
+local function createComboPointText(parent, red, green)
+    local text = parent:CreateFontString(nil, "OVERLAY", "SystemFont_OutlineThick_Huge2")
+    text:SetPoint("CENTER")
+    text:SetTextColor(red, green, 0)
+    return text
+end
+
 local function createComboPointOverlay(overlay)
     local frame = CreateFrame("Frame", nil, overlay.frame)
     frame:EnableMouse(false)
@@ -106,11 +113,13 @@ local function createComboPointOverlay(overlay)
     visualRegion:SetSize(1, 1)
     visualRegion:Show()
 
-    local text = visualRegion:CreateFontString(nil, "OVERLAY", "SystemFont_OutlineThick_Huge2")
-    text:SetPoint("CENTER")
-    text:SetTextColor(0, 1, 0)
-
-    return { frame = frame, cooldownRegion = cooldownRegion, visualRegion = visualRegion, text = text }
+    return {
+        frame = frame,
+        cooldownRegion = cooldownRegion,
+        visualRegion = visualRegion,
+        usableText = createComboPointText(visualRegion, 0, 1),
+        unusableText = createComboPointText(visualRegion, 1, 0),
+    }
 end
 
 local function resolveUnit(unit, spellID)
@@ -381,8 +390,12 @@ local function updateComboPointOverlay(overlay, actionSlotID)
         return
     end
 
-    count.text:SetFormattedText("%d", points)
-    setUsableAlpha(count.frame, actionSlotID)
+    count.usableText:SetFormattedText("%d", points)
+    count.unusableText:SetFormattedText("%d", points)
+    local isUsable = C_ActionBar.IsUsableAction(actionSlotID)
+    count.usableText:SetAlphaFromBoolean(isUsable, booleanTrueAlpha, 0)
+    count.unusableText:SetAlphaFromBoolean(isUsable, 0, booleanTrueAlpha)
+    count.frame:SetAlpha(1)
     local duration = C_ActionBar.GetActionCooldownDuration(actionSlotID, true)
     count.cooldownRegion:SetAlphaFromBoolean(duration:IsActive(), 0, booleanTrueAlpha)
 end
@@ -959,7 +972,8 @@ local function placeActionButtonOverlay(overlay, actionButton)
 
     if count and count.fontHeight ~= fontHeight then
         count.fontHeight = fontHeight
-        count.text:SetFontHeight(fontHeight)
+        count.usableText:SetFontHeight(fontHeight)
+        count.unusableText:SetFontHeight(fontHeight)
     end
 
     for _, state in ipairs(overlay.activeStates) do

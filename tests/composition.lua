@@ -469,10 +469,11 @@ for _, context in ipairs({
                                 assert(client.alpha(highlightSlot.texture) == (highlightActive and 1 or 0))
                                 assert((client.getSpellGlow() ~= nil) == (targetAllowed and count.matches and usable and not suppressed))
                                 if context.points then
-                                    local text = client.getComboPointText()
-                                    assert(text, "The finisher has no combo-point number.")
-                                    local positive = type(count.points) == "number" and count.points > 0
-                                    assert(client.isVisible(text) == (positive and usable and not highlightActive), "The combo-point number ignored the aura highlight.")
+                                    local text, unusableText = client.getComboPointTexts()
+                                    assert(text and unusableText, "The finisher has no combo-point numbers.")
+                                    local visible = type(count.points) == "number" and count.points > 0 and not highlightActive
+                                    assert(client.isVisible(text) == (visible and usable), "The green number ignored the aura highlight.")
+                                    assert(client.isVisible(unusableText) == (visible and not usable), "The red number ignored the aura highlight.")
                                 end
                             end
                         end
@@ -493,7 +494,7 @@ for _, context in ipairs({
         client.refresh()
         assert(client.getSpellGlow() and client.alpha(highlightSlot.texture) == 0, "A weaker aura suppressed the upgrade glow.")
         if context.points then
-            local text = client.getComboPointText()
+            local text = client.getComboPointTexts()
             local countLayout = client.getLayout(context.unit, "aura-highlight")
             assert(countLayout, "The combo-point number has no secure highlight suppression.")
             local countGroup = countLayout.groups["aura-highlight"]
@@ -560,7 +561,7 @@ scenario("Independent suppressors reset when their action no longer matches", fu
     client.refresh()
     local first = client.getContainer("player", "first").slots.first
     local second = client.getContainer("player", "second").slots.second
-    local text = client.getComboPointText()
+    local text = client.getComboPointTexts()
     for _, firstPresent in ipairs({ false, true }) do
         for _, secondPresent in ipairs({ false, true }) do
             client.setAuraPresent(first, firstPresent)
@@ -606,7 +607,7 @@ scenario("Suppression starts during combat and updates its layout and filters", 
     client.setAuraPresent(slot, false)
     client.refresh()
     local glow = client.getSpellGlow()
-    local text = client.getComboPointText()
+    local text = client.getComboPointTexts()
     assert(glow and client.isVisible(text), "A missing buff has no finisher feedback during combat.")
     client.setAuraPresent(slot, true)
     client.refresh()

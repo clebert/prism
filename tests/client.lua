@@ -892,11 +892,15 @@ function client.alpha(frame)
     return alpha
 end
 
-function client.getComboPointText()
+function client.getComboPointTexts()
+    local unusableText
     for index = #client.frames, 1, -1 do
         local frame = client.frames[index]
         if frame.frameType == "FontString" then
-            return frame
+            if unusableText then
+                return frame, unusableText
+            end
+            unusableText = frame
         end
     end
 end
