@@ -168,8 +168,14 @@ local function createAuraCandidateFilters(condition, actionSpellID, itemSpellID)
         filters.includeSpellIDs = includeSpellIDs
     end
 
-    if condition.dispelType then
-        filters.includeDispelTypes = { [condition.dispelType] = true }
+    if condition.dispelTypes then
+        local includeDispelTypes = {}
+
+        for dispelType in pairs(condition.dispelTypes) do
+            includeDispelTypes[dispelType] = true
+        end
+
+        filters.includeDispelTypes = includeDispelTypes
     end
 
     return filters
@@ -211,7 +217,7 @@ local function createRuleState(overlay, rule, spellID, itemSpellID)
     local condition = rule.condition
     local state = { rule = rule, active = true, actionSpellID = spellID, itemSpellID = itemSpellID }
 
-    if rule.visual == "glow" then
+    if rule.visual == "glow" or rule.visual == "red-blink" then
         local cooldownRegion = CreateFrame("Frame", nil, overlay.frame)
         cooldownRegion:EnableMouse(false)
         cooldownRegion:SetAllPoints()
@@ -748,7 +754,7 @@ local function updateRuleState(state, spellID, itemSpellID, itemCountEmpty, acti
     end
 
     if state.cooldownRegion then
-        if itemCountEmpty then
+        if itemCountEmpty and rule.visual == "glow" then
             state.cooldownRegion:SetAlpha(0)
         else
             local duration = C_ActionBar.GetActionCooldownDuration(actionSlotID, true)
@@ -847,7 +853,7 @@ local function updateActionRules(overlay, spellID, itemID, classID, subClassID, 
 
     for _, rule in ipairs(activeRules) do
         if matchesAction(rule.action, spellID, baseSpellID, itemID, classID, subClassID) then
-            if rule.condition.mechanic == "combo-points" then
+            if rule.condition.mechanic == "combo-points" and rule.condition.showNumber ~= false then
                 hasComboPoints = true
             end
 
@@ -1073,7 +1079,7 @@ local function updateActionButtonOverlay(actionButton)
     end
 
     local itemCountEmpty = itemID ~= nil
-        and classID == Enum.ItemClass.Consumable
+        and (classID == Enum.ItemClass.Consumable or classID == Enum.ItemClass.Tradegoods)
         and C_Item.GetItemCount(itemID, false, true) <= 0
 
     overlay.lastRefreshGeneration = refreshGeneration

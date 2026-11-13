@@ -19,6 +19,7 @@ local rip = Rules.RankedAura("own-rip", { 1079, 9492, 9493, 9752, 9894, 9896 }, 
 local faerieFire = Rules.RankedAura("faerie-fire", { 770, 778, 9749, 9907 }, {
     unit = "target", filter = "HARMFUL", suppressGlow = "faerie-fire-missing",
 })
+local hibernate = Rules.RankedAura("hibernate", { 2637, 18657, 18658 }, targetDebuff)
 local challengingRoarSpellIDs = {
     [5209] = true,
 }
@@ -49,9 +50,59 @@ local removeCurseSpellIDs = {
 local shiftingPowerSpellIDs = {
     [1322605] = true,
 }
+local moonfire = Rules.RankedAura("own-moonfire", { 8921, 8924, 8925, 8926, 8927, 8928, 8929, 9833, 9834, 9835 }, ownTargetDebuff)
+local rake = Rules.RankedAura("own-rake", { 1822, 1823, 1824, 9904 }, ownTargetDebuff)
+local insectSwarmAuraSpellIDs = {
+    [5570] = true,
+    [24974] = true,
+    [24975] = true,
+    [24976] = true,
+    [24977] = true,
+}
+-- Pounce applies Pounce Bleed with separate aura IDs.
+local pounceBleedAuraSpellIDs = {
+    [9007] = true,
+    [9824] = true,
+    [9826] = true,
+}
+local lacerateAuraSpellIDs = {
+    [414644] = true,
+    [1235826] = true,
+    [1235827] = true,
+    [1328616] = true,
+    [1328617] = true,
+}
+local sunfireAuraSpellIDs = {
+    [414684] = true,
+    [414687] = true,
+    [414689] = true,
+}
+-- Nature's Grasp applies separate auras for each Entangling Roots rank.
+local entanglingRoots = Rules.RankedAura("entangling-roots", {
+    { spellID = 339, auraSpellIDs = { [339] = true, [19975] = true } },
+    { spellID = 1062, auraSpellIDs = { [1062] = true, [19974] = true } },
+    { spellID = 5195, auraSpellIDs = { [5195] = true, [19973] = true } },
+    { spellID = 5196, auraSpellIDs = { [5196] = true, [19972] = true } },
+    { spellID = 9852, auraSpellIDs = { [9852] = true, [19971] = true } },
+    { spellID = 9853, auraSpellIDs = { [9853] = true, [19970] = true } },
+}, targetDebuff)
+
+Rules.Include(
+    Prism.damageOverTimeAuraSpellIDs,
+    moonfire.action.spellIDs,
+    insectSwarmAuraSpellIDs,
+    rake.action.spellIDs,
+    rip.action.spellIDs,
+    pounceBleedAuraSpellIDs,
+    lacerateAuraSpellIDs,
+    sunfireAuraSpellIDs
+)
+for _, auraSpellIDs in pairs(entanglingRoots.condition.auraSpellIDsByAction) do
+    Rules.Include(Prism.damageOverTimeAuraSpellIDs, auraSpellIDs)
+end
 
 Prism.classRules.DRUID = {
-    Rules.RankedAura("own-moonfire", { 8921, 8924, 8925, 8926, 8927, 8928, 8929, 9833, 9834, 9835 }, ownTargetDebuff),
+    moonfire,
     rip,
     {
         key = "rip-finisher",
@@ -73,16 +124,8 @@ Prism.classRules.DRUID = {
         requireUsable = true,
         visual = "red-blink",
     },
-    Rules.RankedAura("own-rake", { 1822, 1823, 1824, 9904 }, ownTargetDebuff),
-    -- Nature's Grasp applies separate auras for each Entangling Roots rank.
-    Rules.RankedAura("entangling-roots", {
-        { spellID = 339, auraSpellIDs = { [339] = true, [19975] = true } },
-        { spellID = 1062, auraSpellIDs = { [1062] = true, [19974] = true } },
-        { spellID = 5195, auraSpellIDs = { [5195] = true, [19973] = true } },
-        { spellID = 5196, auraSpellIDs = { [5196] = true, [19972] = true } },
-        { spellID = 9852, auraSpellIDs = { [9852] = true, [19971] = true } },
-        { spellID = 9853, auraSpellIDs = { [9853] = true, [19970] = true } },
-    }, targetDebuff),
+    rake,
+    entanglingRoots,
     bash,
     Rules.RankedAura("demoralizing-roar", { 99, 1735, 9490, 9747, 9898 }, targetDebuff),
     faerieFire,
@@ -93,7 +136,14 @@ Prism.classRules.DRUID = {
         requireUsable = true,
         visual = "glow",
     },
-    Rules.RankedAura("hibernate", { 2637, 18657, 18658 }, targetDebuff),
+    hibernate,
+    {
+        key = "hibernate-damage-over-time",
+        action = hibernate.action,
+        condition = Rules.TargetDebuff(Prism.damageOverTimeAuraSpellIDs),
+        requireUsable = true,
+        visual = "red-blink",
+    },
     Rules.RankedAura("soothe-animal", { 2908, 8955, 9901 }, targetDebuff),
     markOfTheWild,
     thorns,
@@ -150,7 +200,7 @@ Prism.classRules.DRUID = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Curse",
+            dispelTypes = { Curse = true },
         },
         requireUsable = true,
         visual = "glow",
@@ -162,7 +212,7 @@ Prism.classRules.DRUID = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Curse",
+            dispelTypes = { Curse = true },
             invert = true,
         },
         visual = "highlight",
@@ -174,7 +224,7 @@ Prism.classRules.DRUID = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Poison",
+            dispelTypes = { Poison = true },
         },
         requireUsable = true,
         visual = "glow",
@@ -186,7 +236,7 @@ Prism.classRules.DRUID = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Poison",
+            dispelTypes = { Poison = true },
             invert = true,
         },
         visual = "highlight",

@@ -51,6 +51,15 @@ union[firstID] = nil
 assert(ids[firstID] and not ids[thirdID] and not otherIDs[firstID], "The union changed an input set.")
 assert(next(Rules.Union()) == nil)
 assert(not pcall(Rules.Union, { [firstID] = false }))
+local included = {}
+Rules.Include(included, ids)
+local reference = included
+Rules.Include(included, otherIDs)
+assert(included == reference and included[firstID] and included[secondID] and included[thirdID], "The set did not receive every ID.")
+assert(ids[firstID] and not ids[thirdID] and not otherIDs[firstID], "The inclusion changed a source set.")
+for _, arguments in ipairs({ { nil, ids }, { included, { [firstID] = false } }, { included, {} } }) do
+    assert(not pcall(Rules.Include, arguments[1], arguments[2]), "The inclusion accepted an invalid set.")
+end
 
 local options = { unit = "target", filter = "HARMFUL", ownAura = true, applications = 5 }
 local ranks = { thirdID, { spellID = firstID, auraSpellIDs = { [firstID] = true, [999104] = true } }, secondID }
@@ -172,6 +181,8 @@ for _, condition in ipairs({
     { mechanic = "low-health", percent = 100 },
     { mechanic = "combo-points", points = 2 },
     { mechanic = "combo-points", points = 5 },
+    { mechanic = "combo-points", points = 5, showNumber = false },
+    { mechanic = "combo-points", points = 4, showNumber = true },
     { mechanic = "full-power", powerType = Enum.PowerType.Energy },
     { mechanic = "full-power", powerType = Enum.PowerType.Mana },
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25 },
@@ -179,9 +190,11 @@ for _, condition in ipairs({
     { mechanic = "power-overflow", powerType = Enum.PowerType.Energy, amount = 25, excludeFull = true },
     { mechanic = "power-gain", powerType = Enum.PowerType.Energy, amount = 23 },
     { mechanic = "power-gain", powerType = Enum.PowerType.Mana, amount = 19, talentNodeID = 999301, amountPerRank = 2 },
-    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Curse", invert = false },
-    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Poison", invert = true },
-    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Disease", invert = true },
+    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { Curse = true }, invert = false },
+    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { Poison = true }, invert = true },
+    { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { Disease = true }, invert = true },
+    { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { Poison = true, Disease = true } },
+    { mechanic = "dispel-type", unit = "target", filter = "HARMFUL", dispelTypes = { Poison = true, Curse = true } },
     { mechanic = "tanking", invert = false, grouped = false },
     { mechanic = "tanking", invert = true, grouped = true },
 }) do
@@ -208,7 +221,7 @@ local invalidCases = {
     end },
     { "combat-gated dispel type", function(rules)
         rules[1].requireCombat = true
-        rules[1].condition = { mechanic = "dispel-type", unit = "target", filter = "HARMFUL", dispelType = "Curse" }
+        rules[1].condition = { mechanic = "dispel-type", unit = "target", filter = "HARMFUL", dispelTypes = { Curse = true } }
     end },
     { "item power gain", function(rules)
         rules[1].action = { anyItem = true }
@@ -304,16 +317,37 @@ local invalidCases = {
         rules[1].condition.applications = 0
     end },
     { "unknown dispel", function(rules)
-        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "unknown" }
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { Poison = true, unknown = true } }
+    end },
+    { "missing dispel types", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL" }
+    end },
+    { "bleed dispel type", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { Poison = true, Bleed = true } }
+    end },
+    { "none dispel type", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { None = true } }
+    end },
+    { "empty dispel types", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = {} }
+    end },
+    { "dispel type list", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { "Poison" } }
+    end },
+    { "excluded dispel type", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { Poison = false } }
+    end },
+    { "single dispel type", function(rules)
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "Poison" }
     end },
     { "helpful dispel", function(rules)
-        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HELPFUL", dispelType = "Poison" }
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HELPFUL", dispelTypes = { Poison = true } }
     end },
     { "invalid dispel inversion", function(rules)
-        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "Poison", invert = 1 }
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { Poison = true }, invert = 1 }
     end },
     { "inverted dispel glow", function(rules)
-        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelType = "Poison", invert = true }
+        rules[1].condition = { mechanic = "dispel-type", unit = "player", filter = "HARMFUL", dispelTypes = { Poison = true }, invert = true }
         rules[1].visual = "glow"
     end },
     { "zero combo-point limit", function(rules) rules[1].condition.comboPointsBelow = 0 end },
@@ -359,6 +393,12 @@ local invalidCases = {
     end },
     { "number-only combo points with player combat", function(rules)
         rules[1].visual, rules[1].condition, rules[1].requireCombat = "none", { mechanic = "combo-points" }, true
+    end },
+    { "number-only combo points without a number", function(rules)
+        rules[1].visual, rules[1].condition = "none", { mechanic = "combo-points", showNumber = false }
+    end },
+    { "invalid combo-point number flag", function(rules)
+        rules[1].condition = { mechanic = "combo-points", points = 5, showNumber = 0 }
     end },
     { "missing full-power type", function(rules)
         rules[1].condition = { mechanic = "full-power" }

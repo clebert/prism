@@ -159,7 +159,7 @@ for _, context in ipairs({
                             if context.visual == "glow" then
                                 assert((client.getSpellGlow() ~= nil) == (allowed and present and not cooldown), "The aura glow ignored its cooldown or checked the global cooldown.")
                             else
-                                assert(client.alpha(container) == (allowed and 1 or 0), "The cooldown changed a non-glow visual.")
+                                assert(client.alpha(container) == ((allowed and not cooldown) and 1 or 0), "The red warning ignored its cooldown or checked the global cooldown.")
                             end
                         end
                     end
@@ -361,7 +361,7 @@ scenario("Item categories, delayed data, and heal targets", function(client)
         { key = "health", action = category, condition = { mechanic = "full-health", unit = "heal-target" }, visual = "highlight" },
         {
             key = "poison", action = category, visual = "red-blink", requireUsable = true,
-            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Poison" },
+            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { Poison = true } },
         },
     })
     client.refresh()
@@ -606,6 +606,13 @@ for _, condition in ipairs({
         client.deadUnits.player = false
         client.refresh()
         assert(client.alpha(warning) == warningAlpha and client.alpha(highlight) == 1)
+        for _, cooldown in ipairs({ true, false }) do
+            client.actions[1].cooldown = cooldown
+            client.actions[1].globalCooldown = true
+            client.refresh()
+            assert(client.alpha(warning) == (cooldown and 0 or warningAlpha), "The red warning ignored its cooldown or checked the global cooldown.")
+            assert(client.alpha(highlight) == 1, "The cooldown hid a highlight.")
+        end
         button.visible = false
         client.refresh()
         assert(client.alpha(warning) == 0 and client.alpha(highlight) == 0 and not warning.animationGroups[1]:IsPlaying())
@@ -830,6 +837,36 @@ for _, condition in ipairs({
     end)
 end
 
+for _, withNumber in ipairs({ false, true }) do
+    scenario("Combo-point warnings without a number and another number rule " .. tostring(withNumber), function(client)
+        client.addActionButton("ActionButton1", 1)
+        client.actions[1] = { spellID = spellID }
+        local rules = {
+            {
+                key = "builder", action = action, visual = "red-blink", requireUsable = true,
+                condition = { mechanic = "combo-points", points = 5, showNumber = false },
+            },
+        }
+        if withNumber then
+            rules[2] = { key = "number", action = action, visual = "none", condition = { mechanic = "combo-points" } }
+        end
+        client.startRules(rules)
+        client.refresh()
+        local warning = client.getHighlight()
+        assert(warning and warning.color, "The combo-point rule has no red warning.")
+        for _, points in ipairs({ 0, 4, 5, 6, { secret = true }, 5 }) do
+            client.comboPoints = points
+            client.event("PLAYER_TARGET_CHANGED")
+            for _, usable in ipairs({ false, true }) do
+                client.actions[1].isUsable = usable
+                client.event("ACTION_USABLE_CHANGED")
+                assert(client.alpha(warning) == ((points == 5 and usable) and 1 or 0), "The warning ignored the count or usability.")
+                assert((client.getComboPointTexts() ~= nil) == withNumber, "The number ignored the other combo-point rule.")
+            end
+        end
+    end)
+end
+
 scenario("Exact item selectors and dispel types", function(client)
     client.addActionButton("ActionButton1", 1)
     client.fullHealthUnits.player = true
@@ -839,15 +876,16 @@ scenario("Exact item selectors and dispel types", function(client)
         allItems.itemIDs[999210 + index] = true
         rules[index] = {
             key = dispelType, action = { itemIDs = { [999210 + index] = true } }, visual = "glow", requireUsable = index == 2,
-            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType },
+            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { [dispelType] = true } },
         }
     end
+    local warningDispelTypes = { Poison = true, Curse = true }
     client.startRules({
         rules[1],
         rules[2],
         {
             key = "warning", action = allItems, visual = "red-blink", requireUsable = true,
-            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = "Poison" },
+            condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = warningDispelTypes },
         },
         {
             key = "highlight", action = allItems, visual = "highlight",
@@ -868,17 +906,24 @@ scenario("Exact item selectors and dispel types", function(client)
             assert((client.getSpellGlow() ~= nil) == not cooldown, "The item glow ignored its cooldown or checked the global cooldown.")
             assert(container.slots[rule.key].enabled, "The cooldown disabled the secure slot.")
         end
-        local warning = client.getContainer("player", "warning").slots.warning.texture
+        local warningSlot = client.getContainer("player", "warning").slots.warning
+        local warningFilter = warningSlot.candidateFilters.includeDispelTypes
+        assert(warningFilter ~= warningDispelTypes, "The dispel filter shares the declaration.")
+        assert(warningFilter.Poison and warningFilter.Curse and not warningFilter.Disease, "The dispel filter changed the declared types.")
+        local warning = warningSlot.texture
         local highlight = client.getHighlight()
-        for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
-            client.event(event)
-            for _, count in ipairs({ 0, 1, 5, 0, 1 }) do
-                client.itemCounts[999210 + index] = count
-                client.refresh()
-                assert((client.getSpellGlow() ~= nil) == (count > 0), "An unavailable item retained its glow.")
-                assert(container.slots[rule.key].enabled, "The item count disabled the secure slot.")
-                assert(client.alpha(warning) == 1, "The item count hid a red warning.")
-                assert(client.alpha(highlight) == 1, "The item count hid a highlight.")
+        for _, classID in ipairs({ Enum.ItemClass.Consumable, Enum.ItemClass.Tradegoods }) do
+            client.items[999210 + index] = { classID = classID }
+            for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }) do
+                client.event(event)
+                for _, count in ipairs({ 0, 1, 5, 0, 1 }) do
+                    client.itemCounts[999210 + index] = count
+                    client.refresh()
+                    assert((client.getSpellGlow() ~= nil) == (count > 0), "An unavailable item retained its glow.")
+                    assert(container.slots[rule.key].enabled, "The item count disabled the secure slot.")
+                    assert(client.alpha(warning) == 1, "The item count hid a red warning.")
+                    assert(client.alpha(highlight) == 1, "The item count hid a highlight.")
+                end
             end
         end
         client.actions[1].isUsable = false

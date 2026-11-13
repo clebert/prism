@@ -18,13 +18,52 @@ local missingPoison = {
     },
 }
 local gouge = Rules.RankedAura("gouge", { 1776, 1777, 8629, 11285, 11286 }, targetDebuff)
+local sap = Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff)
+local blind = Rules.RankedAura("blind", { 2094 }, targetDebuff)
 local riposte = Rules.RankedAura("riposte", { 14251 }, targetDebuff)
 local exposeArmor = Rules.RankedAura("expose-armor", { 8647, 8649, 8650, 11197, 11198 }, targetDebuff)
 local sliceAndDice = Rules.RankedAura("slice-and-dice", { 5171, 6774 }, playerBuff)
 local rupture = Rules.RankedAura("own-rupture", { 1943, 8639, 8640, 11273, 11274, 11275 }, {
     unit = "target", filter = "HARMFUL", ownAura = true,
 })
+local garrote = Rules.RankedAura("own-garrote", { 703, 8631, 8632, 8633, 11289, 11290 }, {
+    unit = "target", filter = "HARMFUL", ownAura = true,
+})
+-- The Deadly Poison and Occult Poison weapon enchantments apply these debuffs.
+local weaponPoisonAuraSpellIDs = {
+    [2818] = true,
+    [2819] = true,
+    [11353] = true,
+    [11354] = true,
+    [25349] = true,
+    [458820] = true,
+    [1214170] = true,
+}
 local kidneyShotAction = { spellIDs = { [408] = true, [8643] = true } }
+local sinisterStrikeBackstabAction = { spellIDs = {
+    [1752] = true, [1757] = true, [1758] = true, [1759] = true,
+    [1760] = true, [8621] = true, [11293] = true, [11294] = true,
+    [53] = true, [2589] = true, [2590] = true, [2591] = true, [8721] = true,
+    [11279] = true, [11280] = true, [11281] = true, [25300] = true,
+} }
+local saberSlashAuraSpellIDs = {
+    [424785] = true,
+}
+local deathMarkAuraSpellIDs = {
+    [1316709] = true,
+    [1325756] = true,
+    [1325757] = true,
+    [1325758] = true,
+}
+
+Rules.Include(
+    Prism.damageOverTimeAuraSpellIDs,
+    weaponPoisonAuraSpellIDs,
+    garrote.action.spellIDs,
+    rupture.action.spellIDs,
+    saberSlashAuraSpellIDs,
+    deathMarkAuraSpellIDs
+)
 
 local function comboPointNumber(key, action)
     return { key = key, action = action, condition = { mechanic = "combo-points" }, visual = "none" }
@@ -65,6 +104,16 @@ Prism.classRules.ROGUE = {
         visual = "glow",
     },
     {
+        key = "vanish-poison",
+        action = vanishAction,
+        condition = {
+            mechanic = "dispel-type", unit = "player", filter = "HARMFUL",
+            dispelTypes = { Poison = true },
+        },
+        requireUsable = true,
+        visual = "red-blink",
+    },
+    {
         key = "shank-rank-1",
         action = { spellIDs = { [1329283] = true } },
         condition = {
@@ -88,7 +137,7 @@ Prism.classRules.ROGUE = {
     },
     Rules.RankedAura("sprint", { 2983, 8696, 11305 }, playerBuff),
     Rules.RankedAura("evasion", { 5277 }, playerBuff),
-    Rules.RankedAura("own-garrote", { 703, 8631, 8632, 8633, 11289, 11290 }, { unit = "target", filter = "HARMFUL", ownAura = true }),
+    garrote,
     rupture,
     exposeArmor,
     gouge,
@@ -99,8 +148,15 @@ Prism.classRules.ROGUE = {
         condition = Rules.TargetDebuff(kidneyShotAction.spellIDs),
         visual = "highlight",
     },
-    Rules.RankedAura("sap", { 6770, 2070, 11297 }, targetDebuff),
-    Rules.RankedAura("blind", { 2094 }, targetDebuff),
+    sap,
+    blind,
+    {
+        key = "control-damage-over-time",
+        action = { spellIDs = Rules.Union(gouge.action.spellIDs, sap.action.spellIDs, blind.action.spellIDs) },
+        condition = Rules.TargetDebuff(Prism.damageOverTimeAuraSpellIDs),
+        requireUsable = true,
+        visual = "red-blink",
+    },
     riposte,
     Rules.UsableGlow("riposte-usable", riposte.action.spellIDs),
     {
@@ -151,17 +207,19 @@ Prism.classRules.ROGUE = {
     },
     {
         key = "remorseless",
-        action = { spellIDs = {
-            [1752] = true, [1757] = true, [1758] = true, [1759] = true,
-            [1760] = true, [8621] = true, [11293] = true, [11294] = true,
-            [53] = true, [2589] = true, [2590] = true, [2591] = true, [8721] = true,
-            [11279] = true, [11280] = true, [11281] = true, [25300] = true,
-        } },
+        action = sinisterStrikeBackstabAction,
         condition = {
             mechanic = "aura", unit = "player", filter = "HELPFUL", auraSpellIDs = { [14143] = true },
             comboPointsBelow = 5,
         },
         requireUsable = true,
         visual = "glow",
+    },
+    {
+        key = "combo-builder-full",
+        action = sinisterStrikeBackstabAction,
+        condition = { mechanic = "combo-points", points = 5, showNumber = false },
+        requireUsable = true,
+        visual = "red-blink",
     },
 }

@@ -9,7 +9,7 @@ local unitFields = { mechanic = true, unit = true }
 local mechanicFields = {
     aura = auraFields,
     ["aura-stacks"] = stackFields,
-    ["dispel-type"] = { mechanic = true, unit = true, filter = true, dispelType = true, invert = true },
+    ["dispel-type"] = { mechanic = true, unit = true, filter = true, dispelTypes = true, invert = true },
     alive = unitFields,
     ["full-health"] = unitFields,
     ["low-health"] = { mechanic = true, percent = true },
@@ -17,7 +17,7 @@ local mechanicFields = {
     ["full-power"] = { mechanic = true, powerType = true },
     ["power-overflow"] = { mechanic = true, powerType = true, amount = true, excludeFull = true },
     ["power-gain"] = { mechanic = true, powerType = true, amount = true, talentNodeID = true, amountPerRank = true },
-    ["combo-points"] = { mechanic = true, points = true },
+    ["combo-points"] = { mechanic = true, points = true, showNumber = true },
     ["pet-happiness"] = { mechanic = true, happiness = true, below = true, outOfCombat = true },
     ["missing-weapon-enchant"] = { mechanic = true, enchantIDs = true },
     usable = { mechanic = true },
@@ -30,7 +30,9 @@ local auraMechanics = { aura = true, ["aura-stacks"] = true, ["dispel-type"] = t
 local units = { player = true, pet = true, target = true, ["heal-target"] = true, ["buff-target"] = true }
 local visuals = { highlight = true, ["red-blink"] = true, glow = true, none = true }
 local filters = { HELPFUL = true, HARMFUL = true, ["HELPFUL|PLAYER"] = true, ["HARMFUL|PLAYER"] = true }
-local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true, Bleed = true, None = true }
+-- Forever bleeds have a spell mechanic but no dispel type, so a Bleed filter never matches.
+-- A debuff without a type has no dispel name, so a None filter never matches.
+local dispelTypes = { Magic = true, Curse = true, Disease = true, Poison = true }
 local actionFields = { anySpell = true, anyItem = true, spellIDs = true, itemIDs = true, itemClassID = true, itemSubClassID = true }
 local ruleFields = { key = true, action = true, condition = true, visual = true, requireUsable = true, requireCombat = true, suppressGlow = true }
 local debuffOptions = { ownAura = true, includeActionSpellID = true, applications = true }
@@ -111,7 +113,10 @@ local function checkCondition(condition, action, context)
 
         if mechanic == "dispel-type" then
             check(condition.filter == "HARMFUL", "A dispel condition requires HARMFUL.", context)
-            check(dispelTypes[condition.dispelType], "Unknown dispel type.", context)
+            check(type(condition.dispelTypes) == "table" and next(condition.dispelTypes) ~= nil, "The dispel type set must not be empty.", context)
+            for dispelType, included in pairs(condition.dispelTypes) do
+                check(dispelTypes[dispelType] and included == true, "The dispel type set must contain known types with true values.", context)
+            end
             checkBoolean(condition.invert, context .. ".invert")
         else
             checkBoolean(condition.ownAura, context .. ".ownAura")
@@ -156,6 +161,8 @@ local function checkCondition(condition, action, context)
         check(isInteger(condition.applications, 1), "The application count must be a positive integer.", context)
     elseif mechanic == "combo-points" then
         check(condition.points == nil or isInteger(condition.points, 1), "The combo-point count must be a positive integer.", context)
+        checkBoolean(condition.showNumber, context .. ".showNumber")
+        check(condition.showNumber ~= false or condition.points ~= nil, "A number-only combo-point rule must show the number.", context)
     elseif mechanic == "low-health" then
         check(isInteger(condition.percent, 1) and condition.percent <= 100, "The health percentage must be an integer from 1 to 100.", context)
     elseif mechanic == "full-power" or mechanic == "power-overflow" or mechanic == "power-gain" then
@@ -220,6 +227,19 @@ function Rules.Union(...)
     end
 
     return ids
+end
+
+function Rules.Include(ids, ...)
+    check(type(ids) == "table", "Expected a target ID set.", "Include")
+
+    for index = 1, select("#", ...) do
+        local source = select(index, ...)
+        checkIDs(source, "Include")
+
+        for id in pairs(source) do
+            ids[id] = true
+        end
+    end
 end
 
 function Rules.RankedAura(key, ranks, options)

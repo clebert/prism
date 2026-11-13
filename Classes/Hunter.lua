@@ -71,6 +71,75 @@ local mendPetSpellIDs = {
 local revivePetSpellIDs = {
     [982] = true,
 }
+-- The trap object applies these debuffs, not the trap spells.
+local immolationTrapAuraSpellIDs = {
+    [13797] = true,
+    [14298] = true,
+    [14299] = true,
+    [14300] = true,
+    [14301] = true,
+}
+local serpentStingVariantAuraSpellIDs = {
+    [425728] = true,
+    [425729] = true,
+    [425730] = true,
+    [425732] = true,
+    [425733] = true,
+    [425734] = true,
+    [425735] = true,
+    [425736] = true,
+    [425737] = true,
+}
+local blackArrowAuraSpellIDs = {
+    [3674] = true,
+    [14296] = true,
+}
+local lacerateAuraSpellIDs = {
+    [24118] = true,
+    [24119] = true,
+    [24120] = true,
+    [1299332] = true,
+}
+local savageRendAuraSpellIDs = {
+    [1265065] = true,
+    [1265066] = true,
+    [1265067] = true,
+    [1265068] = true,
+    [1265069] = true,
+}
+local tendonRipAuraSpellIDs = {
+    [1265038] = true,
+    [1265039] = true,
+    [1265040] = true,
+    [1265041] = true,
+    [1265042] = true,
+}
+local scorpidPoisonAuraSpellIDs = {
+    [24583] = true,
+    [24586] = true,
+    [24587] = true,
+    [24640] = true,
+}
+local webAuraSpellIDs = {
+    [1265843] = true,
+    [1265878] = true,
+    [1265880] = true,
+    [1265881] = true,
+    [1265883] = true,
+}
+
+Rules.Include(
+    Prism.damageOverTimeAuraSpellIDs,
+    serpentStingSpellIDs,
+    immolationTrapAuraSpellIDs,
+    serpentStingVariantAuraSpellIDs,
+    blackArrowAuraSpellIDs,
+    lacerateAuraSpellIDs,
+    savageRendAuraSpellIDs,
+    tendonRipAuraSpellIDs,
+    scorpidPoisonAuraSpellIDs,
+    webAuraSpellIDs
+)
 
 Prism.classRules.HUNTER = {
     {

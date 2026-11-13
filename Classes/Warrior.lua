@@ -83,9 +83,11 @@ local victoryRushSpellIDs = {
     [402927] = true,
 }
 -- Deep Wound uses the target aura ID, not the talent or the damage effect.
-local fearBreakAuraSpellIDs = Rules.Union({
+local deepWoundAuraSpellIDs = {
     [412609] = true,
-}, rendSpellIDs)
+}
+
+Rules.Include(Prism.damageOverTimeAuraSpellIDs, rendSpellIDs, deepWoundAuraSpellIDs)
 
 Prism.classRules.WARRIOR = {
     {
@@ -121,7 +123,7 @@ Prism.classRules.WARRIOR = {
     {
         key = "fear-break",
         action = { spellIDs = intimidatingShoutSpellIDs },
-        condition = Rules.TargetDebuff(fearBreakAuraSpellIDs),
+        condition = Rules.TargetDebuff(Prism.damageOverTimeAuraSpellIDs),
         requireUsable = true,
         visual = "red-blink",
     },

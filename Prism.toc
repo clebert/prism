@@ -13,4 +13,8 @@ Classes/Warrior.lua
 Classes/Hunter.lua
 Classes/Rogue.lua
 Classes/Druid.lua
+Classes/Priest.lua
+Classes/Mage.lua
+Classes/Shaman.lua
+Classes/Warlock.lua
 Prism.lua

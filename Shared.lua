@@ -56,6 +56,8 @@ local poulticeItemIDs = {
     [255718] = true,
     [255719] = true,
 }
+-- Class files add their IDs. Rules keep this reference, so do not copy the set at load time.
+Prism.damageOverTimeAuraSpellIDs = {}
 
 Prism.sharedRules = {
     {
@@ -95,7 +97,7 @@ Prism.sharedRules = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Poison",
+            dispelTypes = { Poison = true },
         },
         requireUsable = true,
         visual = "red-blink",
@@ -107,7 +109,7 @@ Prism.sharedRules = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Poison",
+            dispelTypes = { Poison = true },
         },
         -- The client reports Anti-Venom as unusable even when the item is usable.
         requireUsable = false,
@@ -120,7 +122,7 @@ Prism.sharedRules = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Poison",
+            dispelTypes = { Poison = true },
             invert = true,
         },
         visual = "highlight",
@@ -132,7 +134,7 @@ Prism.sharedRules = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Disease",
+            dispelTypes = { Disease = true },
         },
         requireUsable = true,
         visual = "glow",
@@ -144,7 +146,7 @@ Prism.sharedRules = {
             mechanic = "dispel-type",
             unit = "heal-target",
             filter = "HARMFUL",
-            dispelType = "Disease",
+            dispelTypes = { Disease = true },
             invert = true,
         },
         visual = "highlight",

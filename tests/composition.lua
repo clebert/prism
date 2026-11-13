@@ -647,11 +647,11 @@ for _, dispelType in ipairs({ "Curse", "Poison", "Disease" }) do
             },
             {
                 key = "cleanse", action = action, visual = "glow", requireUsable = true,
-                condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType },
+                condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { [dispelType] = true } },
             },
             {
                 key = "no-debuff", action = action, visual = "highlight",
-                condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelType = dispelType, invert = true },
+                condition = { mechanic = "dispel-type", unit = "heal-target", filter = "HARMFUL", dispelTypes = { [dispelType] = true }, invert = true },
             },
         })
         client.refresh()

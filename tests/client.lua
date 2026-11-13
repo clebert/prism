@@ -511,7 +511,7 @@ UIParent.left, UIParent.bottom, UIParent.width, UIParent.height = 0, 0, 1920, 10
 Enum = {
     CustomAuraButtonDispelTypeTextureStyle = { PreserveAsset = 3 },
     LuaCurveType = { Step = 1 },
-    ItemClass = { Consumable = 0, Weapon = 2, Armor = 4 },
+    ItemClass = { Consumable = 0, Weapon = 2, Armor = 4, Tradegoods = 7 },
     ItemConsumableSubclass = { Bandage = 7 },
     ItemEnchantType = { None = 0, Permanent = 1, Temporary = 2, Imbue = 3 },
     WeaponSlot = { MainHand = 0, OffHand = 1, Ranged = 2 },
