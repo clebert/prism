@@ -137,6 +137,7 @@ Prism.classRules.ROGUE = {
     },
     Rules.RankedAura("sprint", { 2983, 8696, 11305 }, playerBuff),
     Rules.RankedAura("evasion", { 5277 }, playerBuff),
+    Rules.RankedAura("blade-flurry", { 13877 }, playerBuff),
     garrote,
     rupture,
     exposeArmor,
